@@ -1,0 +1,20 @@
+{
+  "name": "create-yss-spec",
+  "version": "1.1.4",
+  "description": "Initialize a YSS spec project template repository",
+  "files": [
+    "bin",
+    "src",
+    "template",
+    "template.manifest.json"
+  ],
+  "bin": {
+    "create-yss-spec": "./bin/create-yss-spec.js"
+  },
+  "scripts": {
+    "sync-template": "node scripts/sync-template.js",
+    "pretest": "npm run sync-template",
+    "test": "node --test tests/*.test.js",
+    "prepack": "npm run sync-template"
+  }
+}

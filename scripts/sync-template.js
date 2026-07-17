@@ -1,0 +1,63 @@
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+
+const packageRoot = path.resolve(__dirname, "..");
+const targetTemplateRoot = path.join(packageRoot, "template");
+const targetManifestPath = path.join(packageRoot, "template.manifest.json");
+const templateRepo =
+  process.env.YSS_SPEC_TEMPLATE_REPO ||
+  "https://github.com/iloveZzz/yss-spec-project-template.git";
+const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || "main";
+const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), "yss-spec-template-"));
+
+function run(command, args, cwd = packageRoot) {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || `${command} 执行失败`);
+  }
+  return result.stdout;
+}
+
+function copyTrackedFiles(sourceRoot, manifest) {
+  const excludedRootEntries = new Set([...manifest.excludeRootEntries, "dist"]);
+  const excludedRootFiles = new Set(manifest.excludeRootFiles);
+  const excludedPaths = new Set(manifest.excludePaths);
+  const trackedFiles = run("git", ["ls-files", "-z"], sourceRoot)
+    .split("\0")
+    .filter(Boolean);
+
+  for (const relativePath of trackedFiles) {
+    const segments = relativePath.split("/");
+    if (
+      excludedRootEntries.has(segments[0]) ||
+      (segments.length === 1 && excludedRootFiles.has(relativePath)) ||
+      excludedPaths.has(relativePath)
+    ) {
+      continue;
+    }
+
+    const sourcePath = path.join(sourceRoot, relativePath);
+    if (!fs.lstatSync(sourcePath).isFile()) {
+      continue;
+    }
+    const targetPath = path.join(targetTemplateRoot, relativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+  }
+}
+
+try {
+  run("git", ["clone", "--depth", "1", "--branch", templateRef, templateRepo, checkoutRoot]);
+  const sourceManifestPath = path.join(checkoutRoot, "template.manifest.json");
+  const manifest = JSON.parse(fs.readFileSync(sourceManifestPath, "utf8"));
+
+  fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
+  fs.mkdirSync(targetTemplateRoot, { recursive: true });
+  copyTrackedFiles(checkoutRoot, manifest);
+  fs.copyFileSync(sourceManifestPath, targetManifestPath);
+  console.log(`已从 ${templateRepo}#${templateRef} 同步模板快照`);
+} finally {
+  fs.rmSync(checkoutRoot, { recursive: true, force: true });
+}
