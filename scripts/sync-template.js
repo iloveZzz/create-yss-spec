@@ -39,11 +39,29 @@ function copyTrackedFiles(sourceRoot, manifest) {
     }
 
     const sourcePath = path.join(sourceRoot, relativePath);
-    if (!fs.lstatSync(sourcePath).isFile()) {
-      continue;
-    }
+    const sourceStat = fs.lstatSync(sourcePath);
     const targetPath = path.join(targetTemplateRoot, relativePath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+
+    if (sourceStat.isSymbolicLink()) {
+      const linkTarget = fs.readlinkSync(sourcePath);
+      const resolvedRelativeTarget = path.posix.normalize(
+        path.posix.join(path.posix.dirname(relativePath), linkTarget),
+      );
+      if (
+        path.isAbsolute(linkTarget) ||
+        resolvedRelativeTarget === ".." ||
+        resolvedRelativeTarget.startsWith("../")
+      ) {
+        throw new Error(`模板包含越界符号链接：${relativePath} -> ${linkTarget}`);
+      }
+      fs.symlinkSync(linkTarget, targetPath);
+      continue;
+    }
+
+    if (!sourceStat.isFile()) {
+      continue;
+    }
     fs.copyFileSync(sourcePath, targetPath);
   }
 }
