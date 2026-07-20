@@ -14,10 +14,10 @@ owner: ai
 | 资产 | 路径 / 链接 | 状态 | 备注 |
 |------|-------------|------|------|
 | 垂直切片 Issue | [#13](https://github.com/iloveZzz/yss-spec-project-template/issues/13) | ready | 首个实现切片 |
-| OpenAPI Freeze / 无 API 影响记录 | [docs/requirements/yss-spec-cli-init-prd.md](/Users/zhudaoming/Projects/yss-spec-project-template/docs/requirements/yss-spec-cli-init-prd.md) | ready | PRD 明确 OpenAPI 影响为无 |
+| OpenAPI Freeze / 无 API 影响记录 | [docs/requirements/yss-spec-cli-init-prd.md](../requirements/yss-spec-cli-init-prd.md) | ready | PRD 明确 OpenAPI 影响为无 |
 | OpenSpec-style Spec Delta（条件必需） | 不适用 | not-applicable | 不涉及 API、权限、状态机、数据模型、跨端或高风险行为差异 |
-| Design Review | [docs/requirements/yss-spec-cli-init-prd.md](/Users/zhudaoming/Projects/yss-spec-project-template/docs/requirements/yss-spec-cli-init-prd.md) | ready | 本轮作为轻量 CLI 工具，无额外架构阻断项 |
-| 实现仓库 / 实现位置 | 当前仓库 | ready | 当前仓库明确承载 `packages/create-yss-spec/` |
+| Design Review | [docs/requirements/yss-spec-cli-init-prd.md](../requirements/yss-spec-cli-init-prd.md) | ready | 本轮作为轻量 CLI 工具，无额外架构阻断项 |
+| 实现仓库 / 实现位置 | `iloveZzz/create-yss-spec` | ready | CLI 已迁移到独立仓库根目录 |
 | 前后端工程存在性判定 | backend / frontend not-applicable | ready | 本需求不是 frontend / backend runtime 实现 |
 | `垂直切片 Issue 状态` | [#13](https://github.com/iloveZzz/yss-spec-project-template/issues/13) | ready | 可进入实现 |
 
@@ -30,7 +30,7 @@ owner: ai
 | Spec Delta 已补齐或明确不需要 | 不适用 | CLI 初始化工具不需要 |
 | Design Review 阻断项已关闭 | 是 | 无额外阻断项 |
 | 垂直切片 Issue 已拆到端到端可验收 | 是 | `#13` 为可独立验证的主路径 |
-| 实现仓库 / 实现位置已登记 | 是 | 当前仓库承载 `packages/create-yss-spec/` |
+| 实现仓库 / 实现位置已登记 | 是 | `iloveZzz/create-yss-spec` 仓库根目录 |
 | 受影响 frontend 工程已存在可复用，或已完成初始化决策 | 不适用 | 不涉及 frontend runtime |
 | 受影响 backend 工程已存在可复用，或已完成初始化决策 | 不适用 | 不涉及 backend runtime |
 | 缺失工程时已路由到对应脚手架 skill | 不适用 | 不需要 `yss-ddd-scaffold-generator` / `yss-frontend-scaffold-generator` |
@@ -52,7 +52,7 @@ owner: ai
 |---|---|---|---|---|---|---|---|---|
 | backend | not-applicable |  |  |  |  |  |  | not-applicable |
 | frontend | not-applicable |  |  |  |  |  |  | not-applicable |
-| other | current-repo | main | current-branch | pending | pending | `npm test` | `cd packages/create-yss-spec && npm pack --dry-run` | ready |
+| other | `iloveZzz/create-yss-spec` | main | main | pending | pending | `npm test` | `npm pack --dry-run` | ready |
 
 说明：本需求属于模板源仓库内的 npm CLI 能力，不是 frontend / backend runtime 工程，因此作为 `other` 角色在当前仓库实现。
 
@@ -62,7 +62,7 @@ owner: ai
 |---|---|---|---|---|---|
 | backend | 不适用 | not-applicable | none |  | 不涉及 |
 | frontend | 不适用 | not-applicable | none |  | 不涉及 |
-| other / npm CLI | 否 | 在当前仓库内初始化最小 npm workspace / package | none | `packages/create-yss-spec/` | 由当前切片直接建立 |
+| other / npm CLI | 否 | 已迁移为独立 npm package 仓库 | none | 仓库根目录 | 迁移提交 `e683dcc` |
 
 ## 5. TDD 与验证策略
 
@@ -71,8 +71,8 @@ owner: ai
 | Domain / Application | `npm test` 中的 CLI 行为测试 | 对外行为符合用户输入与模板规则 |
 | API / 契约 | 不适用 | 无 API |
 | 前端组件 | 不适用 | 无 UI |
-| E2E / 关键路径 | `printf 'Acme Spec Repo\nInvestment Research\n12 人\n<TMP>/output\n' \| node packages/create-yss-spec/bin/create-yss-spec.js` | 关键元信息文件被渲染，输出目录不含维护性目录 |
-| Package / 发布验证 | `cd packages/create-yss-spec && npm pack --dry-run` | tarball 包含 CLI 运行文件、manifest 与模板快照 |
+| E2E / 关键路径 | `printf 'Acme Spec Repo\nInvestment Research\n12 人\n<TMP>/output\n' \| node bin/create-yss-spec.js` | 关键元信息文件被渲染，输出目录不含维护性目录 |
+| Package / 发布验证 | `npm pack --dry-run` | tarball 包含 CLI 运行文件、manifest 与模板快照 |
 
 ## 6. 回滚点与风险
 

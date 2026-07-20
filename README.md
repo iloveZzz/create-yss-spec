@@ -73,3 +73,4 @@ npm pack --dry-run
 - [模板同步 PRD](docs/requirements/yss-spec-cli-template-sync-prd.md)
 - [垂直切片](docs/requirements/issues/)
 - [实施路由与 Build Architecture Checklist](docs/implementation/)
+- [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)

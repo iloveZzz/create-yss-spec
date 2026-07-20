@@ -49,14 +49,12 @@ function copyTrackedFiles(sourceRoot, manifest) {
 }
 
 try {
+  const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
   run("git", ["clone", "--depth", "1", "--branch", templateRef, templateRepo, checkoutRoot]);
-  const sourceManifestPath = path.join(checkoutRoot, "template.manifest.json");
-  const manifest = JSON.parse(fs.readFileSync(sourceManifestPath, "utf8"));
 
   fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
   fs.mkdirSync(targetTemplateRoot, { recursive: true });
   copyTrackedFiles(checkoutRoot, manifest);
-  fs.copyFileSync(sourceManifestPath, targetManifestPath);
   console.log(`已从 ${templateRepo}#${templateRef} 同步模板快照`);
 } finally {
   fs.rmSync(checkoutRoot, { recursive: true, force: true });

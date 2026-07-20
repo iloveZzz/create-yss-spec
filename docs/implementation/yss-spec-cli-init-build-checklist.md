@@ -12,16 +12,16 @@ owner: ai
 | 系统架构 | 不适用 | not-applicable |
 | 数据架构 | 不适用 | not-applicable |
 | ADR | 不适用 | not-applicable |
-| 工程基线 | [AGENTS.md](/Users/zhudaoming/Projects/yss-spec-project-template/AGENTS.md), [README.md](/Users/zhudaoming/Projects/yss-spec-project-template/README.md) | ready |
-| OpenAPI Freeze | [docs/requirements/yss-spec-cli-init-prd.md](/Users/zhudaoming/Projects/yss-spec-project-template/docs/requirements/yss-spec-cli-init-prd.md) | ready |
-| 系统 / 数据架构设计 | [docs/implementation/yss-spec-cli-init-routing.md](/Users/zhudaoming/Projects/yss-spec-project-template/docs/implementation/yss-spec-cli-init-routing.md) | ready |
-| 风险 / 人工确认项 | [AGENTS.md](/Users/zhudaoming/Projects/yss-spec-project-template/AGENTS.md) | ready |
+| 工程基线 | [模板仓库 AGENTS.md](https://github.com/iloveZzz/yss-spec-project-template/blob/main/AGENTS.md), [本仓 README](../../README.md) | ready |
+| OpenAPI Freeze | [docs/requirements/yss-spec-cli-init-prd.md](../requirements/yss-spec-cli-init-prd.md) | ready |
+| 系统 / 数据架构设计 | [docs/implementation/yss-spec-cli-init-routing.md](./yss-spec-cli-init-routing.md) | ready |
+| 风险 / 人工确认项 | [模板仓库 AGENTS.md](https://github.com/iloveZzz/yss-spec-project-template/blob/main/AGENTS.md) | ready |
 
 ## 2. 架构约束矩阵
 
 | constraint | source | slice | status | evidence | follow-up |
 |---|---|---|---|---|---|
-| CLI 源码必须与模板源仓库同版本演进，不单独拆出 frontend / backend runtime 工程 | PRD / implementation routing | #13 | `implemented` | PRD 与 routing 文档均指定 `packages/create-yss-spec/` | 若后续出现多模板平台需求，再单独评估 ADR |
+| CLI 源码与模板版本必须通过模板 ref 和 manifest 协同演进，不单独拆出 frontend / backend runtime 工程 | PRD / implementation routing | #13 | `implemented` | CLI 已位于独立仓库根目录，`scripts/sync-template.js` 负责同步模板快照 | 若后续出现多模板平台需求，再单独评估 ADR |
 | 主验证 seam 以 CLI 公开入口和输出目录行为为主，避免实现细节耦合测试 | PRD / `tdd` skill | #13 | `implemented` | PRD 测试决策、implementation routing | 如需下探，仅补充最小纯函数测试 |
 | 模板维护目录不得进入模板实例仓库 | PRD / Slice #13 / Slice #15 | #13 | `implemented` | PRD 功能需求 FR-004 / FR-005 / FR-011 | 如发现误复制，停止推广并先修正规则清单 |
 | 高风险变更：认证 / 授权、SQL / DDL、迁移、加密、公共基础库 API 变更必须记录验证证据、责任人和回滚约束 | `AGENTS.md` | #13 | `not-applicable` | 本切片为本地 CLI，不涉及这些范围 | 若后续接入外部平台或公共基础能力，需升级审查 |
@@ -48,4 +48,4 @@ owner: ai
 - 是否允许继续 build：允许
 - 必须先修正：无
 - 可延期到后续切片：`--dry-run` / `--force` / `git init` / 完整 fresh verification 记录
-- fresh verification 命令：`npm test`；`printf 'Acme Spec Repo\nInvestment Research\n12 人\n<TMP>/output\n' | node packages/create-yss-spec/bin/create-yss-spec.js`；`cd packages/create-yss-spec && npm pack --dry-run`
+- fresh verification 命令：`npm test`；`printf 'Acme Spec Repo\nInvestment Research\n12 人\n<TMP>/output\n' | node bin/create-yss-spec.js`；`npm pack --dry-run`
