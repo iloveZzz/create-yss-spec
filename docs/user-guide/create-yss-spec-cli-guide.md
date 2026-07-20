@@ -8,7 +8,7 @@
 
 它适合做的事：
 
-- 初始化新的 PRD / 架构 / OpenAPI / Issue 管理仓库
+- 初始化新的 Spec / 架构 / OpenAPI / Ticket 管理仓库
 - 统一生成项目级文档骨架、Agent 协作约定和模板目录结构
 - 通过参数渲染项目名称、业务领域、团队规模等元信息
 
@@ -93,7 +93,7 @@ npx create-yss-spec@latest sync
 npx create-yss-spec@latest sync --dry-run
 ```
 
-适合在升级前先查看版本变化、将要更新的文件、将被跳过的本地改动文件，以及模板已删除但不会自动删除的文件。
+适合在升级前先查看版本变化、Spec / Ticket 旧路径迁移、将要更新的文件、将被跳过的本地改动文件，以及模板已删除但不会自动删除的文件。
 
 ## 参数说明
 
@@ -120,7 +120,7 @@ npx create-yss-spec@latest sync --dry-run
 
 CLI 会根据模板清单把源仓库内容分成三类处理：
 
-- `render`：需要写入项目变量的文件，例如 `AGENTS.md`、`README.md`
+- `render`：需要写入实例身份或项目变量的文件，例如 `yss-project.yaml`、`AGENTS.md`、`README.md`
 - `copy`：原样复制的模板资产
 - `exclude`：不会进入实例仓库的维护性文件、本地配置和本需求自身的实现资产
 
@@ -128,6 +128,7 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 
 - `AGENTS.md`
 - `CONTEXT.md`
+- `yss-project.yaml`，固定写入 `schema_version: 1` 与 `repository_mode: project-instance`
 - `docs/requirements/`
 - `docs/architecture/`
 - `docs/api/`
@@ -155,6 +156,10 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 对于 `sync`，默认安全策略还包括：
 
 - 当前目录缺少 `.yss-template.json` 时，直接拒绝同步
+- `yss-project.yaml` schema、字段或模式非法时，在写入前拒绝同步
+- 将 `prd-template.md`、`vertical-slice-issue-template.md`、`docs/requirements/issues/` 和 `*-prd.md` 迁移到对应 Spec / Ticket 路径
+- 删除各 Agent root 下的 `to-prd`、`to-issues` 旧 skill，不创建兼容别名
+- 旧、新迁移目标同时存在且内容不一致时，输出冲突清单并停止，不执行部分写入
 - 只自动更新未被本地修改的受管模板文件
 - 本地已修改的受管文件会被跳过并报告
 - 模板新版本已删除的受管文件只报告，不自动删除
@@ -245,12 +250,22 @@ printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
 - 用 `git diff` 比较当前项目版本和模板版本的差异
 - 人工决定是否合并模板变更
 
+### 7. 为什么 `sync` 报告旧、新资产冲突
+
+说明旧版 PRD / Issue 路径与新版 Spec / Ticket 路径同时存在，且文件内容不一致。CLI 会 fail closed，避免覆盖任一版本。
+
+处理方式：
+
+- 根据错误中的旧、新路径比较内容
+- 人工合并并只保留目标 Spec / Ticket 路径
+- 重新执行 `sync --dry-run`，确认迁移计划后再正式同步
+
 ## 维护与验证
 
 如果你在维护这个 CLI，本地验证命令是：
 
 ```bash
-node --test tests/init-cli.test.js
+npm test
 ```
 
 发布前可检查打包内容：
@@ -265,4 +280,5 @@ npm pack --dry-run
 - [产品全生命周期使用手册](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/product-lifecycle-workflow.md)
 - [产品研发全生命周期最佳实践](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/product-rd-lifecycle-best-practices.md)
 - [实现路由记录](../implementation/yss-spec-cli-init-routing.md)
+- [`yss-project.yaml` 跨仓库实现记录](../implementation/yss-project-repository-mode-contract.md)
 - [产品需求文档：yss-spec 模板初始化 CLI](../requirements/yss-spec-cli-init-prd.md)

@@ -24,7 +24,8 @@
   ],
   "renderPaths": [
     "AGENTS.md",
-    "README.md"
+    "README.md",
+    "yss-project.yaml"
   ],
   "exampleDocPaths": [
     "docs/discovery/IDEATION.md"

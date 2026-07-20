@@ -34,10 +34,20 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "AGENTS.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "README.md")));
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/prd-template.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
+  assert.ok(
+    fs.existsSync(
+      path.join(targetDir, "docs/templates/vertical-slice-ticket-template.md"),
+    ),
+  );
   assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/wayfinder/SKILL.md")));
+  assert.ok(
+    fs.lstatSync(
+      path.join(targetDir, ".claude/skills/dispatching-parallel-agents"),
+    ).isSymbolicLink(),
+  );
   assert.ok(
     fs.existsSync(path.join(targetDir, ".codex/skills/yss-openapi/img.png")),
   );
@@ -66,22 +76,182 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(fs.existsSync(path.join(targetDir, ".codebuddy")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".qoder")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".qwen")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, ".agent")), false);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/to-prd")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/to-issues")),
+    false,
+  );
 
   const agentsContent = fs.readFileSync(path.join(targetDir, "AGENTS.md"), "utf8");
   const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
   const metadata = JSON.parse(
     fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"),
   );
+  const projectManifest = fs.readFileSync(
+    path.join(targetDir, "yss-project.yaml"),
+    "utf8",
+  );
 
-  assert.match(agentsContent, /项目名称：\*\* Demo Project/);
-  assert.match(agentsContent, /业务领域：\*\* Data Platform/);
-  assert.match(agentsContent, /团队规模：\*\* 12/);
-  assert.doesNotMatch(agentsContent, /\[填写\]/);
+  assert.match(agentsContent, /repository_mode: project-instance/);
   assert.match(readmeContent, /^# Demo Project/m);
   assert.equal(metadata.templateName, "create-yss-spec");
   assert.equal(metadata.templateVersion, packageVersion);
   assert.equal(metadata.variables.projectName, "Demo Project");
   assert.equal(metadata.variables.businessDomain, "Data Platform");
+  assert.equal(
+    projectManifest,
+    "schema_version: 1\nrepository_mode: project-instance\n",
+  );
+
+  const verification = spawnSync(path.join(targetDir, "scripts/verify-template"), {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+  assert.equal(verification.status, 0, verification.stderr || verification.stdout);
+});
+
+test("init rejects an unsupported bundled project manifest schema before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unsupported-schema-project");
+  const manifestPath = path.join(repoRoot, "template/yss-project.yaml");
+  const originalManifest = fs.readFileSync(manifestPath, "utf8");
+
+  fs.writeFileSync(
+    manifestPath,
+    "schema_version: 2\nrepository_mode: template-source\n",
+    "utf8",
+  );
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "--project-name",
+        "Unsupported Schema Project",
+        "--business-domain",
+        "Governance",
+        "--target-dir",
+        targetDir,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /schema_version|schema/i);
+    assert.equal(fs.existsSync(targetDir), false);
+  } finally {
+    fs.writeFileSync(manifestPath, originalManifest, "utf8");
+  }
+});
+
+test("init rejects an unsupported bundled repository mode before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unsupported-mode-project");
+  const manifestPath = path.join(repoRoot, "template/yss-project.yaml");
+  const originalManifest = fs.readFileSync(manifestPath, "utf8");
+
+  fs.writeFileSync(
+    manifestPath,
+    "schema_version: 1\nrepository_mode: unknown-mode\n",
+    "utf8",
+  );
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "--project-name",
+        "Unsupported Mode Project",
+        "--business-domain",
+        "Governance",
+        "--target-dir",
+        targetDir,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /repository_mode|template-source/);
+    assert.equal(fs.existsSync(targetDir), false);
+  } finally {
+    fs.writeFileSync(manifestPath, originalManifest, "utf8");
+  }
+});
+
+test("init rejects unknown bundled project manifest fields before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unknown-field-project");
+  const manifestPath = path.join(repoRoot, "template/yss-project.yaml");
+  const originalManifest = fs.readFileSync(manifestPath, "utf8");
+
+  fs.writeFileSync(
+    manifestPath,
+    "schema_version: 1\nrepository_mode: template-source\nproject_name: leaked\n",
+    "utf8",
+  );
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "--project-name",
+        "Unknown Field Project",
+        "--business-domain",
+        "Governance",
+        "--target-dir",
+        targetDir,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /未知字段|project_name/);
+    assert.equal(fs.existsSync(targetDir), false);
+  } finally {
+    fs.writeFileSync(manifestPath, originalManifest, "utf8");
+  }
+});
+
+test("init rejects duplicate bundled project manifest fields before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "duplicate-field-project");
+  const manifestPath = path.join(repoRoot, "template/yss-project.yaml");
+  const originalManifest = fs.readFileSync(manifestPath, "utf8");
+
+  fs.writeFileSync(
+    manifestPath,
+    "schema_version: 1\nschema_version: 1\nrepository_mode: template-source\n",
+    "utf8",
+  );
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "--project-name",
+        "Duplicate Field Project",
+        "--business-domain",
+        "Governance",
+        "--target-dir",
+        targetDir,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /重复字段|schema_version/);
+    assert.equal(fs.existsSync(targetDir), false);
+  } finally {
+    fs.writeFileSync(manifestPath, originalManifest, "utf8");
+  }
 });
 
 test("dry-run previews the plan without writing or deleting files", () => {
@@ -296,12 +466,17 @@ test("sync updates unchanged managed files and restores missing managed files", 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
+  const restoredProjectionPath = path.join(
+    targetDir,
+    ".claude/skills/dispatching-parallel-agents",
+  );
   const originalReadme = fs.readFileSync(readmePath, "utf8");
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
 
   const legacyReadme = originalReadme.replace("默认 Issue Tracker：github", "默认 Issue Tracker：jira");
   fs.writeFileSync(readmePath, legacyReadme, "utf8");
   fs.rmSync(restoredPath, { force: true });
+  fs.rmSync(restoredProjectionPath, { recursive: true, force: true });
 
   metadata.templateVersion = "0.9.0";
   metadata.managedFiles["README.md"].contentHash = sha256(legacyReadme);
@@ -319,6 +494,7 @@ test("sync updates unchanged managed files and restores missing managed files", 
   assert.match(syncResult.stdout, new RegExp(packageVersion.replace(/\./g, "\\.")));
   assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
   assert.ok(fs.existsSync(restoredPath));
+  assert.ok(fs.lstatSync(restoredProjectionPath).isSymbolicLink());
 
   const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   assert.equal(syncedMetadata.templateVersion, packageVersion);
@@ -328,6 +504,319 @@ test("sync updates unchanged managed files and restores missing managed files", 
   );
   assert.ok(
     syncedMetadata.managedFiles["docs/templates/spec-delta-template.md"],
+  );
+});
+
+test("sync migrates legacy Spec and Ticket assets and removes obsolete skills", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "legacy-project");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Legacy Project",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const metadataPath = path.join(targetDir, metadataFileName);
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  const moves = [
+    ["docs/templates/spec-template.md", "docs/templates/prd-template.md"],
+    [
+      "docs/templates/vertical-slice-ticket-template.md",
+      "docs/templates/vertical-slice-issue-template.md",
+    ],
+  ];
+
+  for (const [nextPath, legacyPath] of moves) {
+    fs.renameSync(path.join(targetDir, nextPath), path.join(targetDir, legacyPath));
+    metadata.managedFiles[legacyPath] = metadata.managedFiles[nextPath];
+    delete metadata.managedFiles[nextPath];
+  }
+
+  fs.mkdirSync(path.join(targetDir, "docs/requirements/issues"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(targetDir, "docs/requirements/issues/legacy-slice.md"),
+    "# 旧垂直切片\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(targetDir, "docs/requirements/legacy-feature-prd.md"),
+    "# 旧规格\n",
+    "utf8",
+  );
+
+  for (const obsoleteSkill of [
+    ".agents/skills/to-prd",
+    ".agents/skills/to-issues",
+    ".codex/skills/to-prd",
+    ".claude/skills/to-issues",
+  ]) {
+    fs.mkdirSync(path.join(targetDir, obsoleteSkill), { recursive: true });
+    fs.writeFileSync(
+      path.join(targetDir, obsoleteSkill, "SKILL.md"),
+      "# 过时 skill\n",
+      "utf8",
+    );
+  }
+
+  const legacyProjectManifest =
+    "schema_version: 1\nrepository_mode: template-source\n";
+  fs.writeFileSync(
+    path.join(targetDir, "yss-project.yaml"),
+    legacyProjectManifest,
+    "utf8",
+  );
+  metadata.managedFiles["yss-project.yaml"].contentHash = sha256(
+    legacyProjectManifest,
+  );
+  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /迁移/);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "docs/templates/prd-template.md")),
+    false,
+  );
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
+  assert.equal(
+    fs.existsSync(
+      path.join(targetDir, "docs/templates/vertical-slice-issue-template.md"),
+    ),
+    false,
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(targetDir, "docs/templates/vertical-slice-ticket-template.md"),
+    ),
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "docs/requirements/issues")),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(targetDir, "docs/requirements/tickets/legacy-slice.md"),
+      "utf8",
+    ),
+    "# 旧垂直切片\n",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(targetDir, "docs/requirements/legacy-feature-spec.md"),
+      "utf8",
+    ),
+    "# 旧规格\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8"),
+    "schema_version: 1\nrepository_mode: project-instance\n",
+  );
+  for (const obsoleteSkill of [
+    ".agents/skills/to-prd",
+    ".agents/skills/to-issues",
+    ".codex/skills/to-prd",
+    ".claude/skills/to-issues",
+  ]) {
+    assert.equal(fs.existsSync(path.join(targetDir, obsoleteSkill)), false);
+  }
+});
+
+test("sync fails closed when legacy and current assets conflict", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "conflicting-project");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Conflicting Project",
+      "--business-domain",
+      "Governance",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const legacyPath = path.join(
+    targetDir,
+    "docs/requirements/conflicting-feature-prd.md",
+  );
+  const currentPath = path.join(
+    targetDir,
+    "docs/requirements/conflicting-feature-spec.md",
+  );
+  fs.writeFileSync(legacyPath, "# 旧内容\n", "utf8");
+  fs.writeFileSync(currentPath, "# 新内容\n", "utf8");
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /冲突/);
+  assert.match(result.stderr, /conflicting-feature-prd\.md/);
+  assert.match(result.stderr, /conflicting-feature-spec\.md/);
+  assert.equal(fs.readFileSync(legacyPath, "utf8"), "# 旧内容\n");
+  assert.equal(fs.readFileSync(currentPath, "utf8"), "# 新内容\n");
+});
+
+test("sync rejects an unsupported target repository mode before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unsupported-target-mode");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Unsupported Target Mode",
+      "--business-domain",
+      "Governance",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const manifestPath = path.join(targetDir, "yss-project.yaml");
+  const invalidManifest =
+    "schema_version: 1\nrepository_mode: unsupported-mode\n";
+  fs.writeFileSync(manifestPath, invalidManifest, "utf8");
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /repository_mode|unsupported-mode/);
+  assert.equal(fs.readFileSync(manifestPath, "utf8"), invalidManifest);
+});
+
+test("sync rejects an unsupported target manifest schema before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unsupported-target-schema");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Unsupported Target Schema",
+      "--business-domain",
+      "Governance",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const manifestPath = path.join(targetDir, "yss-project.yaml");
+  const invalidManifest =
+    "schema_version: 2\nrepository_mode: project-instance\n";
+  fs.writeFileSync(manifestPath, invalidManifest, "utf8");
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /schema_version|schema/i);
+  assert.equal(fs.readFileSync(manifestPath, "utf8"), invalidManifest);
+});
+
+test("sync rejects unknown target manifest fields before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unknown-target-field");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Unknown Target Field",
+      "--business-domain",
+      "Governance",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const manifestPath = path.join(targetDir, "yss-project.yaml");
+  const invalidManifest =
+    "schema_version: 1\nrepository_mode: project-instance\nteam_size: 8\n";
+  fs.writeFileSync(manifestPath, invalidManifest, "utf8");
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /未知字段|team_size/);
+  assert.equal(fs.readFileSync(manifestPath, "utf8"), invalidManifest);
+});
+
+test("sync canonicalizes a valid template-source target despite stale metadata", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "stale-manifest-metadata");
+
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Stale Manifest Metadata",
+      "--business-domain",
+      "Governance",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const manifestPath = path.join(targetDir, "yss-project.yaml");
+  fs.writeFileSync(
+    manifestPath,
+    "schema_version: 1\nrepository_mode: template-source\n",
+    "utf8",
+  );
+
+  const result = spawnSync(process.execPath, [cliBin, "sync"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(manifestPath, "utf8"),
+    "schema_version: 1\nrepository_mode: project-instance\n",
   );
 });
 
