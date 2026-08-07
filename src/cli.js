@@ -20,8 +20,6 @@ const EXCLUDED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.excludePaths);
 const RENDERED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.renderPaths);
 const EXAMPLE_DOC_PATHS = new Set(TEMPLATE_MANIFEST.exampleDocPaths);
 const TEMPLATE_METADATA_FILENAME = ".yss-template.json";
-const PROJECT_INSTANCE_MANIFEST =
-  "schema_version: 1\nrepository_mode: project-instance\n";
 const TEMPLATE_MANIFEST_VERSION = sha256(TEMPLATE_MANIFEST_TEXT);
 const REPO_TRACKED_STATE = null;
 
@@ -29,83 +27,8 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function symlinkHash(linkTarget) {
-  return sha256(`symlink:${linkTarget}`);
-}
-
-function managedPathHash(filePath) {
-  const stat = fs.lstatSync(filePath);
-  if (stat.isSymbolicLink()) {
-    return symlinkHash(fs.readlinkSync(filePath));
-  }
-  return sha256(fs.readFileSync(filePath));
-}
-
-function assertSafeTemplateSymlink(relativePath, linkTarget) {
-  const resolvedRelativeTarget = path.posix.normalize(
-    path.posix.join(path.posix.dirname(relativePath), linkTarget),
-  );
-  if (
-    path.isAbsolute(linkTarget) ||
-    resolvedRelativeTarget === ".." ||
-    resolvedRelativeTarget.startsWith("../")
-  ) {
-    throw new Error(`模板包含越界符号链接：${relativePath} -> ${linkTarget}`);
-  }
-}
-
 function nowIsoString() {
   return new Date().toISOString();
-}
-
-function parseProjectManifest(content, label) {
-  const values = {};
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const match = line.match(/^([a-z_]+):\s*([^\s#]+)\s*$/);
-    if (!match) {
-      throw new Error(`${label}包含无法识别的内容：${rawLine}`);
-    }
-    const [, key, value] = match;
-    if (key !== "schema_version" && key !== "repository_mode") {
-      throw new Error(`${label}包含未知字段：${key}`);
-    }
-    if (Object.hasOwn(values, key)) {
-      throw new Error(`${label}包含重复字段：${key}`);
-    }
-    values[key] = value;
-  }
-
-  return values;
-}
-
-function readBundledProjectManifest() {
-  const manifestPath = path.join(TEMPLATE_ROOT, "yss-project.yaml");
-  if (!fs.existsSync(manifestPath)) {
-    throw new Error("模板缺少 yss-project.yaml");
-  }
-
-  const values = parseProjectManifest(
-    fs.readFileSync(manifestPath, "utf8"),
-    "模板 yss-project.yaml ",
-  );
-
-  if (values.schema_version !== "1") {
-    throw new Error(
-      `不支持的 yss-project.yaml schema_version：${values.schema_version || "缺失"}`,
-    );
-  }
-  if (values.repository_mode !== "template-source") {
-    throw new Error(
-      `模板 yss-project.yaml 的 repository_mode 必须为 template-source，实际为 ${values.repository_mode || "缺失"}`,
-    );
-  }
-
-  return values;
 }
 
 function getTemplateSource() {
@@ -282,9 +205,59 @@ function shouldSkipRepoDevelopmentPath(relativePath, isDirectory) {
   return !REPO_TRACKED_STATE.files.has(normalizedPath);
 }
 
+function parseRepositoryIdentity(content) {
+  const fields = {};
+
+  for (const match of content.matchAll(
+    /^([a-z_][a-z0-9_-]*):\s*([^\s#]+)\s*$/gm,
+  )) {
+    const [, key, value] = match;
+    if (fields[key] !== undefined) {
+      throw new Error(`yss-project.yaml 不允许重复字段：${key}`);
+    }
+    fields[key] = value;
+  }
+
+  const keys = Object.keys(fields).sort();
+  if (keys.join(",") !== "repository_mode,schema_version") {
+    throw new Error(
+      "yss-project.yaml 只能包含 schema_version 和 repository_mode",
+    );
+  }
+
+  if (fields.schema_version !== "1") {
+    throw new Error("yss-project.yaml 的 schema_version 必须为 1");
+  }
+
+  if (!["template-source", "project-instance"].includes(fields.repository_mode)) {
+    throw new Error(
+      "yss-project.yaml 的 repository_mode 必须是 template-source 或 project-instance",
+    );
+  }
+
+  return fields;
+}
+
 function renderTemplateFile(relativePath, content, variables) {
   if (relativePath === "yss-project.yaml") {
-    return PROJECT_INSTANCE_MANIFEST;
+    const identity = parseRepositoryIdentity(content);
+    if (identity.repository_mode !== "template-source") {
+      throw new Error(
+        "模板 yss-project.yaml 必须声明 repository_mode: template-source",
+      );
+    }
+
+    const renderedContent = content.replace(
+      /^repository_mode:\s*template-source$/m,
+      "repository_mode: project-instance",
+    );
+
+    const renderedIdentity = parseRepositoryIdentity(renderedContent);
+    if (renderedIdentity.repository_mode !== "project-instance") {
+      throw new Error("生成项目 yss-project.yaml 未转换为 project-instance");
+    }
+
+    return renderedContent;
   }
 
   if (relativePath === "AGENTS.md") {
@@ -298,12 +271,21 @@ function renderTemplateFile(relativePath, content, variables) {
   }
 
   if (relativePath === "README.md") {
-    return content
+    const renderedContent = content
       .replace(/^# YSS Spec Project Template/m, `# ${variables.projectName}`)
       .replace(
         /^> Matt Pocock Engineering Skills/m,
         `> 默认 Issue Tracker：${variables.issueTracker}\n>\n> Matt Pocock Engineering Skills`,
       );
+
+    if (!variables.includeExampleDocs) {
+      return renderedContent.replace(
+        /^\| \[docs\/discovery\/IDEATION\.md\]\(\.\/docs\/discovery\/IDEATION\.md\) \|.*\r?\n/m,
+        "",
+      );
+    }
+
+    return renderedContent;
   }
 
   return content;
@@ -313,17 +295,13 @@ function collectManagedFileHashes(operations) {
   const managedFiles = {};
 
   for (const operation of operations) {
-    if (
-      operation.type !== "copy" &&
-      operation.type !== "render" &&
-      operation.type !== "symlink"
-    ) {
+    if (operation.type !== "copy" && operation.type !== "render") {
       continue;
     }
 
     managedFiles[operation.relativePath] = {
       type: operation.type,
-      contentHash: managedPathHash(operation.targetPath),
+      contentHash: sha256(fs.readFileSync(operation.targetPath)),
     };
   }
 
@@ -393,19 +371,6 @@ function buildCopyPlan(sourceDir, targetDir, variables, relativeDir = "") {
       operations.push(
         ...buildCopyPlan(sourcePath, targetPath, variables, relativePath),
       );
-      continue;
-    }
-
-    if (entry.isSymbolicLink()) {
-      const linkTarget = fs.readlinkSync(sourcePath);
-      assertSafeTemplateSymlink(relativePath, linkTarget);
-      operations.push({
-        type: "symlink",
-        relativePath,
-        sourcePath,
-        targetPath,
-        linkTarget,
-      });
       continue;
     }
 
@@ -499,13 +464,6 @@ function executePlan(operations, variables) {
       continue;
     }
 
-    if (operation.type === "symlink") {
-      fs.mkdirSync(path.dirname(operation.targetPath), { recursive: true });
-      fs.rmSync(operation.targetPath, { recursive: true, force: true });
-      fs.symlinkSync(operation.linkTarget, operation.targetPath);
-      continue;
-    }
-
     fs.mkdirSync(path.dirname(operation.targetPath), { recursive: true });
     fs.copyFileSync(operation.sourcePath, operation.targetPath);
   }
@@ -522,6 +480,34 @@ function initializeGitRepository(targetDir) {
   }
 }
 
+function runTemplateVerification(targetDir, scriptPath) {
+  const commandPath = path.join(targetDir, scriptPath);
+  const result = spawnSync(commandPath, ["--check"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+  const output = [result.stdout, result.stderr].filter(Boolean).join("");
+
+  if (output) {
+    process.stdout.write(output.endsWith("\n") ? output : `${output}\n`);
+  }
+
+  if (result.status !== 0) {
+    const detail = result.error?.message || output.trim();
+    throw new Error(`生成项目校验失败：${scriptPath}${detail ? `\n${detail}` : ""}`);
+  }
+}
+
+function verifyGeneratedTemplate(targetDir) {
+  for (const scriptPath of [
+    "scripts/sync-skills",
+    "scripts/update-skill-lock",
+    "scripts/verify-template",
+  ]) {
+    runTemplateVerification(targetDir, scriptPath);
+  }
+}
+
 function loadTemplateMetadata(targetDir) {
   const metadataPath = path.join(targetDir, TEMPLATE_METADATA_FILENAME);
 
@@ -535,241 +521,6 @@ function loadTemplateMetadata(targetDir) {
     metadataPath,
     metadata: JSON.parse(fs.readFileSync(metadataPath, "utf8")),
   };
-}
-
-function assertSupportedTargetRepositoryMode(targetDir) {
-  const manifestPath = path.join(targetDir, "yss-project.yaml");
-  if (!fs.existsSync(manifestPath)) {
-    return;
-  }
-
-  const content = fs.readFileSync(manifestPath, "utf8");
-  const values = parseProjectManifest(content, "目标 yss-project.yaml ");
-  if (values.schema_version !== "1") {
-    throw new Error(
-      `不支持的目标 yss-project.yaml schema_version：${values.schema_version || "缺失"}`,
-    );
-  }
-
-  const repositoryMode = values.repository_mode;
-  if (
-    repositoryMode !== "template-source" &&
-    repositoryMode !== "project-instance"
-  ) {
-    throw new Error(
-      `不支持的目标 yss-project.yaml repository_mode：${repositoryMode || "缺失"}`,
-    );
-  }
-}
-
-function collectFilesRecursively(rootDir, relativeDir = "") {
-  if (!fs.existsSync(rootDir)) {
-    return [];
-  }
-
-  const files = [];
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    const relativePath = relativeDir
-      ? path.posix.join(relativeDir, entry.name)
-      : entry.name;
-    const absolutePath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...collectFilesRecursively(absolutePath, relativePath));
-    } else if (entry.isFile()) {
-      files.push(relativePath);
-    }
-  }
-  return files;
-}
-
-function buildLegacyMigrationPlan(targetDir) {
-  const moves = [];
-  const removeFiles = [];
-  const removeDirectories = [];
-  const conflicts = [];
-  const targetManifestPath = path.join(targetDir, "yss-project.yaml");
-  const rewriteProjectManifest =
-    fs.existsSync(targetManifestPath) &&
-    fs.readFileSync(targetManifestPath, "utf8") !== PROJECT_INSTANCE_MANIFEST;
-  const addMove = (legacyPath, nextPath) => {
-    const sourcePath = path.join(targetDir, legacyPath);
-    const targetPath = path.join(targetDir, nextPath);
-    if (!fs.existsSync(sourcePath)) {
-      return;
-    }
-    if (!fs.existsSync(targetPath)) {
-      moves.push({ legacyPath, nextPath, sourcePath, targetPath });
-      return;
-    }
-
-    const sourceHash = sha256(fs.readFileSync(sourcePath));
-    const targetHash = sha256(fs.readFileSync(targetPath));
-    if (sourceHash === targetHash) {
-      removeFiles.push({ legacyPath, sourcePath });
-    } else {
-      conflicts.push({ legacyPath, nextPath });
-    }
-  };
-
-  addMove(
-    "docs/templates/prd-template.md",
-    "docs/templates/spec-template.md",
-  );
-  addMove(
-    "docs/templates/vertical-slice-issue-template.md",
-    "docs/templates/vertical-slice-ticket-template.md",
-  );
-
-  const legacyIssuesDir = path.join(targetDir, "docs/requirements/issues");
-  for (const relativePath of collectFilesRecursively(legacyIssuesDir)) {
-    addMove(
-      path.posix.join("docs/requirements/issues", relativePath),
-      path.posix.join("docs/requirements/tickets", relativePath),
-    );
-  }
-  if (fs.existsSync(legacyIssuesDir)) {
-    removeDirectories.push("docs/requirements/issues");
-  }
-
-  const requirementsDir = path.join(targetDir, "docs/requirements");
-  if (fs.existsSync(requirementsDir)) {
-    for (const entry of fs.readdirSync(requirementsDir, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name.endsWith("-prd.md")) {
-        addMove(
-          path.posix.join("docs/requirements", entry.name),
-          path.posix.join(
-            "docs/requirements",
-            entry.name.replace(/-prd\.md$/, "-spec.md"),
-          ),
-        );
-      }
-    }
-  }
-
-  for (const agentRoot of [
-    ".agents",
-    ".claude",
-    ".codex",
-    ".hermes",
-    ".pi",
-    ".trae",
-    ".codebuddy",
-    ".qoder",
-    ".qwen",
-  ]) {
-    for (const skillName of ["to-prd", "to-issues"]) {
-      const relativePath = `${agentRoot}/skills/${skillName}`;
-      if (fs.existsSync(path.join(targetDir, relativePath))) {
-        removeDirectories.push(relativePath);
-      }
-    }
-  }
-
-  return {
-    moves,
-    removeFiles,
-    removeDirectories,
-    conflicts,
-    rewriteProjectManifest,
-  };
-}
-
-function assertNoLegacyMigrationConflicts(migrationPlan) {
-  if (migrationPlan.conflicts.length === 0) {
-    return;
-  }
-
-  const details = migrationPlan.conflicts
-    .map(
-      ({ legacyPath, nextPath }) =>
-        `- ${legacyPath} -> ${nextPath}`,
-    )
-    .join("\n");
-  throw new Error(`检测到旧、新资产内容冲突，未执行任何写入：\n${details}`);
-}
-
-function updateManagedFilesForMigration(metadata, migrationPlan) {
-  const managedFiles = metadata.managedFiles || {};
-  for (const operation of migrationPlan.moves) {
-    if (managedFiles[operation.legacyPath] && !managedFiles[operation.nextPath]) {
-      managedFiles[operation.nextPath] = managedFiles[operation.legacyPath];
-    }
-    delete managedFiles[operation.legacyPath];
-  }
-  for (const operation of migrationPlan.removeFiles) {
-    delete managedFiles[operation.legacyPath];
-  }
-
-  for (const relativeDir of migrationPlan.removeDirectories) {
-    for (const relativePath of Object.keys(managedFiles)) {
-      if (
-        relativePath === relativeDir ||
-        relativePath.startsWith(`${relativeDir}/`)
-      ) {
-        delete managedFiles[relativePath];
-      }
-    }
-  }
-  if (migrationPlan.rewriteProjectManifest) {
-    managedFiles["yss-project.yaml"] = {
-      type: "render",
-      contentHash: sha256(PROJECT_INSTANCE_MANIFEST),
-    };
-  }
-  metadata.managedFiles = managedFiles;
-}
-
-function applyLegacyMigration(targetDir, metadata, migrationPlan) {
-  for (const operation of migrationPlan.moves) {
-    fs.mkdirSync(path.dirname(operation.targetPath), { recursive: true });
-    fs.renameSync(operation.sourcePath, operation.targetPath);
-  }
-
-  for (const operation of migrationPlan.removeFiles) {
-    fs.rmSync(operation.sourcePath, { force: true });
-  }
-
-  for (const relativeDir of migrationPlan.removeDirectories) {
-    fs.rmSync(path.join(targetDir, relativeDir), {
-      recursive: true,
-      force: true,
-    });
-  }
-
-  if (migrationPlan.rewriteProjectManifest) {
-    fs.writeFileSync(
-      path.join(targetDir, "yss-project.yaml"),
-      PROJECT_INSTANCE_MANIFEST,
-      "utf8",
-    );
-  }
-
-  updateManagedFilesForMigration(metadata, migrationPlan);
-}
-
-function printLegacyMigration(migrationPlan, dryRun) {
-  if (
-    migrationPlan.moves.length === 0 &&
-    migrationPlan.removeFiles.length === 0 &&
-    migrationPlan.removeDirectories.length === 0 &&
-    !migrationPlan.rewriteProjectManifest
-  ) {
-    return;
-  }
-
-  console.log(dryRun ? "旧版迁移 dry-run 预览" : "旧版迁移完成");
-  for (const operation of migrationPlan.moves) {
-    console.log(`migrate: ${operation.legacyPath} -> ${operation.nextPath}`);
-  }
-  for (const operation of migrationPlan.removeFiles) {
-    console.log(`remove-duplicate: ${operation.legacyPath}`);
-  }
-  for (const relativeDir of migrationPlan.removeDirectories) {
-    console.log(`remove-obsolete: ${relativeDir}`);
-  }
-  if (migrationPlan.rewriteProjectManifest) {
-    console.log("rewrite: yss-project.yaml -> project-instance");
-  }
 }
 
 function buildSyncVariables(metadata) {
@@ -791,10 +542,7 @@ function buildDesiredManagedOperations(targetDir, metadata) {
   const variables = buildSyncVariables(metadata);
 
   return buildCopyPlan(TEMPLATE_ROOT, targetDir, variables).filter(
-    (operation) =>
-      operation.type === "copy" ||
-      operation.type === "render" ||
-      operation.type === "symlink",
+    (operation) => operation.type === "copy" || operation.type === "render",
   );
 }
 
@@ -812,14 +560,6 @@ function buildDesiredManagedFile(operation, metadata) {
       ...operation,
       desiredContent: renderedContent,
       desiredHash: sha256(renderedContent),
-    };
-  }
-
-
-  if (operation.type === "symlink") {
-    return {
-      ...operation,
-      desiredHash: symlinkHash(operation.linkTarget),
     };
   }
 
@@ -853,7 +593,7 @@ function classifySyncPlan(targetDir, metadata) {
         continue;
       }
 
-      const currentHash = managedPathHash(operation.targetPath);
+      const currentHash = sha256(fs.readFileSync(operation.targetPath));
       if (currentHash === operation.desiredHash) {
         unchanged.push(operation);
       } else {
@@ -870,7 +610,7 @@ function classifySyncPlan(targetDir, metadata) {
       continue;
     }
 
-    const currentHash = managedPathHash(operation.targetPath);
+    const currentHash = sha256(fs.readFileSync(operation.targetPath));
     if (currentHash !== existingRecord.contentHash) {
       skipped.push({
         ...operation,
@@ -933,12 +673,6 @@ function applyManagedFileOperation(operation) {
     return;
   }
 
-  if (operation.type === "symlink") {
-    fs.rmSync(operation.targetPath, { recursive: true, force: true });
-    fs.symlinkSync(operation.linkTarget, operation.targetPath);
-    return;
-  }
-
   fs.copyFileSync(operation.sourcePath, operation.targetPath);
 }
 
@@ -960,7 +694,7 @@ function syncTemplateInstance(targetDir, metadata, dryRun) {
       continue;
     }
 
-    const currentHash = managedPathHash(operation.targetPath);
+    const currentHash = sha256(fs.readFileSync(operation.targetPath));
     if (currentHash !== operation.desiredHash) {
       continue;
     }
@@ -1013,7 +747,6 @@ function syncTemplateInstance(targetDir, metadata, dryRun) {
 }
 
 async function runInit(argv = []) {
-  readBundledProjectManifest();
   const promptedOptions = await promptForMissingOptions(parseArgs(argv));
   assertRequiredOptions(promptedOptions);
 
@@ -1034,6 +767,8 @@ async function runInit(argv = []) {
     buildTemplateMetadata(targetDir, promptedOptions, operations),
   );
 
+  verifyGeneratedTemplate(targetDir);
+
   if (promptedOptions.gitInit) {
     initializeGitRepository(targetDir);
   }
@@ -1051,17 +786,9 @@ async function runInit(argv = []) {
 }
 
 function runSync(argv = []) {
-  readBundledProjectManifest();
   const options = parseArgs(argv);
   const targetDir = normalizeTargetDir(options.targetDir || ".");
   const { metadata } = loadTemplateMetadata(targetDir);
-  assertSupportedTargetRepositoryMode(targetDir);
-  const migrationPlan = buildLegacyMigrationPlan(targetDir);
-  assertNoLegacyMigrationConflicts(migrationPlan);
-  if (!options.dryRun) {
-    applyLegacyMigration(targetDir, metadata, migrationPlan);
-  }
-  printLegacyMigration(migrationPlan, Boolean(options.dryRun));
   syncTemplateInstance(targetDir, metadata, Boolean(options.dryRun));
 }
 
