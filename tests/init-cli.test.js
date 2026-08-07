@@ -39,6 +39,19 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
+  for (const removedPath of [
+    "docs/templates/prd-template.md",
+    ".agent/skills",
+    ".codex/skills/yss-file/SKILL.md",
+    ".codex/skills/yss-domain-modeling/SKILL.md",
+    ".agents/skills/yss-quality/SKILL.md",
+  ]) {
+    assert.equal(
+      fs.existsSync(path.join(targetDir, removedPath)),
+      false,
+      `${removedPath} must not be generated`,
+    );
+  }
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
@@ -293,6 +306,7 @@ test("manifest-driven optional flags affect rendered output and example docs", (
   const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
 
   assert.match(readmeContent, /默认 Issue Tracker：gitlab/);
+  assert.doesNotMatch(readmeContent, /docs\/discovery\/IDEATION\.md/);
   assert.equal(
     fs.existsSync(path.join(targetDir, "docs/discovery/IDEATION.md")),
     false,
