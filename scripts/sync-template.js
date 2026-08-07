@@ -10,7 +10,6 @@ const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || "main";
-const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), "yss-spec-template-"));
 
 function run(command, args, cwd = packageRoot) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8" });
@@ -20,7 +19,7 @@ function run(command, args, cwd = packageRoot) {
   return result.stdout;
 }
 
-function copyTrackedFiles(sourceRoot, manifest) {
+function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
   const excludedRootEntries = new Set([...manifest.excludeRootEntries, "dist"]);
   const excludedRootFiles = new Set(manifest.excludeRootFiles);
   const excludedPaths = new Set(manifest.excludePaths);
@@ -38,19 +37,45 @@ function copyTrackedFiles(sourceRoot, manifest) {
     );
   };
 
+  const resolveSourceEntry = (sourceRelativePath) => {
+    const sourcePath = path.join(sourceRoot, sourceRelativePath);
+    const sourceLink = fs.lstatSync(sourcePath);
+    const resolvedPath = sourceLink.isSymbolicLink()
+      ? fs.realpathSync(sourcePath)
+      : sourcePath;
+    const resolvedRelativePath = path
+      .relative(resolvedCheckoutRoot, fs.realpathSync(resolvedPath))
+      .split(path.sep)
+      .join("/");
+
+    if (
+      resolvedRelativePath === ".." ||
+      resolvedRelativePath.startsWith("../") ||
+      path.isAbsolute(resolvedRelativePath)
+    ) {
+      throw new Error(`模板投影链接必须指向仓库内部目录：${sourceRelativePath}`);
+    }
+
+    return {
+      sourceLink,
+      resolvedPath,
+      sourceTarget: fs.statSync(resolvedPath),
+    };
+  };
+
   const copyFile = (sourceRelativePath, targetRelativePath) => {
     if (!shouldCopy(targetRelativePath)) {
       return;
     }
 
-    const sourcePath = path.join(sourceRoot, sourceRelativePath);
-    if (!fs.statSync(sourcePath).isFile()) {
+    const sourceEntry = resolveSourceEntry(sourceRelativePath);
+    if (!sourceEntry.sourceTarget.isFile()) {
       return;
     }
 
-    const targetPath = path.join(targetTemplateRoot, targetRelativePath);
+    const targetPath = path.join(destinationRoot, targetRelativePath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(sourcePath, targetPath);
+    fs.copyFileSync(sourceEntry.resolvedPath, targetPath);
   };
 
   for (const relativePath of trackedFiles) {
@@ -58,21 +83,22 @@ function copyTrackedFiles(sourceRoot, manifest) {
       continue;
     }
 
-    const sourcePath = path.join(sourceRoot, relativePath);
-    const sourceLink = fs.lstatSync(sourcePath);
-    const sourceTarget = fs.statSync(sourcePath);
+    const sourceEntry = resolveSourceEntry(relativePath);
 
-    if (sourceTarget.isFile()) {
+    if (sourceEntry.sourceTarget.isFile()) {
       copyFile(relativePath, relativePath);
       continue;
     }
 
-    if (!sourceLink.isSymbolicLink() || !sourceTarget.isDirectory()) {
+    if (
+      !sourceEntry.sourceLink.isSymbolicLink() ||
+      !sourceEntry.sourceTarget.isDirectory()
+    ) {
       continue;
     }
 
     const resolvedProjectionRoot = path
-      .relative(resolvedCheckoutRoot, fs.realpathSync(sourcePath))
+      .relative(resolvedCheckoutRoot, sourceEntry.resolvedPath)
       .split(path.sep)
       .join("/");
     if (
@@ -96,14 +122,60 @@ function copyTrackedFiles(sourceRoot, manifest) {
   }
 }
 
-try {
-  const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
-  run("git", ["clone", "--depth", "1", "--branch", templateRef, templateRepo, checkoutRoot]);
+function replaceTemplateRoot(stagingRoot) {
+  const backupParent = fs.mkdtempSync(
+    path.join(packageRoot, ".template-backup-"),
+  );
+  const backupRoot = path.join(backupParent, "previous-template");
+  let previousMoved = false;
+  let installed = false;
 
-  fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
-  fs.mkdirSync(targetTemplateRoot, { recursive: true });
-  copyTrackedFiles(checkoutRoot, manifest);
+  try {
+    if (fs.existsSync(targetTemplateRoot)) {
+      fs.renameSync(targetTemplateRoot, backupRoot);
+      previousMoved = true;
+    }
+
+    fs.renameSync(stagingRoot, targetTemplateRoot);
+    installed = true;
+
+    if (previousMoved) {
+      fs.rmSync(backupRoot, { recursive: true, force: true });
+    }
+  } catch (error) {
+    if (installed && fs.existsSync(targetTemplateRoot)) {
+      fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
+    }
+    if (
+      previousMoved &&
+      fs.existsSync(backupRoot) &&
+      !fs.existsSync(targetTemplateRoot)
+    ) {
+      fs.renameSync(backupRoot, targetTemplateRoot);
+    }
+    throw error;
+  } finally {
+    if (!fs.existsSync(backupRoot)) {
+      fs.rmSync(backupParent, { recursive: true, force: true });
+    }
+  }
+}
+
+const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
+const checkoutRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), "yss-spec-template-"),
+);
+const stagingRoot = fs.mkdtempSync(
+  path.join(packageRoot, ".template-staging-"),
+);
+
+try {
+  run("git", ["clone", "--depth", "1", "--branch", templateRef, templateRepo, checkoutRoot]);
+  copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  replaceTemplateRoot(stagingRoot);
+
   console.log(`已从 ${templateRepo}#${templateRef} 同步模板快照`);
 } finally {
   fs.rmSync(checkoutRoot, { recursive: true, force: true });
+  fs.rmSync(stagingRoot, { recursive: true, force: true });
 }

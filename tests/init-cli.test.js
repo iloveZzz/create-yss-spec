@@ -31,6 +31,9 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /初始化完成/);
   assert.match(result.stdout, /下一步建议/);
+  assert.match(result.stdout, /skill projections are synchronized/);
+  assert.match(result.stdout, /skills-lock\.json matches distributed skills/);
+  assert.match(result.stdout, /模板发布校验通过/);
   assert.ok(fs.existsSync(path.join(targetDir, "AGENTS.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "README.md")));
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
@@ -98,10 +101,61 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.doesNotMatch(agentsContent, /\[填写\]/);
   assert.match(readmeContent, /^# Demo Project/m);
   assert.match(projectIdentity, /^repository_mode:\s*project-instance$/m);
+  assert.deepEqual(
+    [...projectIdentity.matchAll(/^([a-z_][a-z0-9_-]*):/gm)]
+      .map((match) => match[1])
+      .sort(),
+    ["repository_mode", "schema_version"],
+  );
   assert.equal(metadata.templateName, "create-yss-spec");
   assert.equal(metadata.templateVersion, packageVersion);
   assert.equal(metadata.variables.projectName, "Demo Project");
   assert.equal(metadata.variables.businessDomain, "Data Platform");
+});
+
+test("init fails closed for unsupported template identity", () => {
+  const identityPath = path.join(repoRoot, "template/yss-project.yaml");
+  const originalIdentity = fs.readFileSync(identityPath, "utf8");
+  const invalidIdentities = [
+    {
+      content: "schema_version: 2\nrepository_mode: template-source\n",
+      message: /schema_version.*必须为 1/,
+    },
+    {
+      content: "schema_version: 1\nrepository_mode: unsupported\n",
+      message: /repository_mode.*template-source 或 project-instance/,
+    },
+  ];
+
+  try {
+    for (const [index, invalidIdentity] of invalidIdentities.entries()) {
+      const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+      const targetDir = path.join(sandboxDir, `invalid-identity-${index}`);
+      fs.writeFileSync(identityPath, invalidIdentity.content, "utf8");
+
+      const result = spawnSync(
+        process.execPath,
+        [
+          cliBin,
+          "--project-name",
+          "Invalid Identity Project",
+          "--business-domain",
+          "Platform",
+          "--target-dir",
+          targetDir,
+        ],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+        },
+      );
+
+      assert.notEqual(result.status, 0);
+      assert.match(`${result.stdout}${result.stderr}`, invalidIdentity.message);
+    }
+  } finally {
+    fs.writeFileSync(identityPath, originalIdentity, "utf8");
+  }
 });
 
 test("dry-run previews the plan without writing or deleting files", () => {

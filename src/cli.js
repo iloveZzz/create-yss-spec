@@ -205,17 +205,56 @@ function shouldSkipRepoDevelopmentPath(relativePath, isDirectory) {
   return !REPO_TRACKED_STATE.files.has(normalizedPath);
 }
 
+function parseRepositoryIdentity(content) {
+  const fields = {};
+
+  for (const match of content.matchAll(
+    /^([a-z_][a-z0-9_-]*):\s*([^\s#]+)\s*$/gm,
+  )) {
+    const [, key, value] = match;
+    if (fields[key] !== undefined) {
+      throw new Error(`yss-project.yaml 不允许重复字段：${key}`);
+    }
+    fields[key] = value;
+  }
+
+  const keys = Object.keys(fields).sort();
+  if (keys.join(",") !== "repository_mode,schema_version") {
+    throw new Error(
+      "yss-project.yaml 只能包含 schema_version 和 repository_mode",
+    );
+  }
+
+  if (fields.schema_version !== "1") {
+    throw new Error("yss-project.yaml 的 schema_version 必须为 1");
+  }
+
+  if (!["template-source", "project-instance"].includes(fields.repository_mode)) {
+    throw new Error(
+      "yss-project.yaml 的 repository_mode 必须是 template-source 或 project-instance",
+    );
+  }
+
+  return fields;
+}
+
 function renderTemplateFile(relativePath, content, variables) {
   if (relativePath === "yss-project.yaml") {
+    const identity = parseRepositoryIdentity(content);
+    if (identity.repository_mode !== "template-source") {
+      throw new Error(
+        "模板 yss-project.yaml 必须声明 repository_mode: template-source",
+      );
+    }
+
     const renderedContent = content.replace(
       /^repository_mode:\s*template-source$/m,
       "repository_mode: project-instance",
     );
 
-    if (renderedContent === content) {
-      throw new Error(
-        "模板 yss-project.yaml 必须声明 repository_mode: template-source",
-      );
+    const renderedIdentity = parseRepositoryIdentity(renderedContent);
+    if (renderedIdentity.repository_mode !== "project-instance") {
+      throw new Error("生成项目 yss-project.yaml 未转换为 project-instance");
     }
 
     return renderedContent;
@@ -232,12 +271,21 @@ function renderTemplateFile(relativePath, content, variables) {
   }
 
   if (relativePath === "README.md") {
-    return content
+    const renderedContent = content
       .replace(/^# YSS Spec Project Template/m, `# ${variables.projectName}`)
       .replace(
         /^> Matt Pocock Engineering Skills/m,
         `> 默认 Issue Tracker：${variables.issueTracker}\n>\n> Matt Pocock Engineering Skills`,
       );
+
+    if (!variables.includeExampleDocs) {
+      return renderedContent.replace(
+        /^\| \[docs\/discovery\/IDEATION\.md\]\(\.\/docs\/discovery\/IDEATION\.md\) \|.*\r?\n/m,
+        "",
+      );
+    }
+
+    return renderedContent;
   }
 
   return content;
@@ -429,6 +477,34 @@ function initializeGitRepository(targetDir) {
 
   if (result.status !== 0) {
     throw new Error(result.stderr.trim() || "git init 执行失败");
+  }
+}
+
+function runTemplateVerification(targetDir, scriptPath) {
+  const commandPath = path.join(targetDir, scriptPath);
+  const result = spawnSync(commandPath, ["--check"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+  const output = [result.stdout, result.stderr].filter(Boolean).join("");
+
+  if (output) {
+    process.stdout.write(output.endsWith("\n") ? output : `${output}\n`);
+  }
+
+  if (result.status !== 0) {
+    const detail = result.error?.message || output.trim();
+    throw new Error(`生成项目校验失败：${scriptPath}${detail ? `\n${detail}` : ""}`);
+  }
+}
+
+function verifyGeneratedTemplate(targetDir) {
+  for (const scriptPath of [
+    "scripts/sync-skills",
+    "scripts/update-skill-lock",
+    "scripts/verify-template",
+  ]) {
+    runTemplateVerification(targetDir, scriptPath);
   }
 }
 
@@ -690,6 +766,8 @@ async function runInit(argv = []) {
     targetDir,
     buildTemplateMetadata(targetDir, promptedOptions, operations),
   );
+
+  verifyGeneratedTemplate(targetDir);
 
   if (promptedOptions.gitInit) {
     initializeGitRepository(targetDir);
