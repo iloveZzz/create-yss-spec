@@ -206,6 +206,21 @@ function shouldSkipRepoDevelopmentPath(relativePath, isDirectory) {
 }
 
 function renderTemplateFile(relativePath, content, variables) {
+  if (relativePath === "yss-project.yaml") {
+    const renderedContent = content.replace(
+      /^repository_mode:\s*template-source$/m,
+      "repository_mode: project-instance",
+    );
+
+    if (renderedContent === content) {
+      throw new Error(
+        "模板 yss-project.yaml 必须声明 repository_mode: template-source",
+      );
+    }
+
+    return renderedContent;
+  }
+
   if (relativePath === "AGENTS.md") {
     return content
       .replace(/(\*\*项目名称：\*\*\s*)\[填写\]/, `$1${variables.projectName}`)

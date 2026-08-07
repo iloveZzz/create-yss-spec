@@ -27,24 +27,72 @@ function copyTrackedFiles(sourceRoot, manifest) {
   const trackedFiles = run("git", ["ls-files", "-z"], sourceRoot)
     .split("\0")
     .filter(Boolean);
+  const resolvedCheckoutRoot = fs.realpathSync(sourceRoot);
 
-  for (const relativePath of trackedFiles) {
+  const shouldCopy = (relativePath) => {
     const segments = relativePath.split("/");
-    if (
+    return !(
       excludedRootEntries.has(segments[0]) ||
       (segments.length === 1 && excludedRootFiles.has(relativePath)) ||
       excludedPaths.has(relativePath)
-    ) {
+    );
+  };
+
+  const copyFile = (sourceRelativePath, targetRelativePath) => {
+    if (!shouldCopy(targetRelativePath)) {
+      return;
+    }
+
+    const sourcePath = path.join(sourceRoot, sourceRelativePath);
+    if (!fs.statSync(sourcePath).isFile()) {
+      return;
+    }
+
+    const targetPath = path.join(targetTemplateRoot, targetRelativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+  };
+
+  for (const relativePath of trackedFiles) {
+    if (!shouldCopy(relativePath)) {
       continue;
     }
 
     const sourcePath = path.join(sourceRoot, relativePath);
-    if (!fs.lstatSync(sourcePath).isFile()) {
+    const sourceLink = fs.lstatSync(sourcePath);
+    const sourceTarget = fs.statSync(sourcePath);
+
+    if (sourceTarget.isFile()) {
+      copyFile(relativePath, relativePath);
       continue;
     }
-    const targetPath = path.join(targetTemplateRoot, relativePath);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(sourcePath, targetPath);
+
+    if (!sourceLink.isSymbolicLink() || !sourceTarget.isDirectory()) {
+      continue;
+    }
+
+    const resolvedProjectionRoot = path
+      .relative(resolvedCheckoutRoot, fs.realpathSync(sourcePath))
+      .split(path.sep)
+      .join("/");
+    if (
+      !resolvedProjectionRoot ||
+      resolvedProjectionRoot === ".." ||
+      resolvedProjectionRoot.startsWith("../") ||
+      path.isAbsolute(resolvedProjectionRoot)
+    ) {
+      throw new Error(`模板投影链接必须指向仓库内部目录：${relativePath}`);
+    }
+
+    const sourcePrefix = `${resolvedProjectionRoot}/`;
+    for (const trackedTargetPath of trackedFiles) {
+      if (!trackedTargetPath.startsWith(sourcePrefix)) {
+        continue;
+      }
+
+      const suffix = trackedTargetPath.slice(sourcePrefix.length);
+      copyFile(trackedTargetPath, `${relativePath}/${suffix}`);
+    }
   }
 }
 

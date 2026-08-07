@@ -34,10 +34,28 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "AGENTS.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "README.md")));
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/prd-template.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/to-spec/SKILL.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/to-tickets/SKILL.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".codex/skills/wayfinder/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
+  for (const projectionRoot of [".claude", ".codex", ".hermes", ".pi", ".trae"]) {
+    for (const skill of [
+      "yss-backend-scaffold-adapter",
+      "yss-backend-scaffold-parent",
+      "yss-backend-scaffold-application",
+      "yss-backend-scaffold-domain",
+      "yss-backend-scaffold-infrastructure",
+      "yss-backend-scaffold-web",
+    ]) {
+      assert.ok(
+        fs.existsSync(
+          path.join(targetDir, projectionRoot, "skills", skill, "SKILL.md"),
+        ),
+        `${projectionRoot}/${skill} projection is missing`,
+      );
+    }
+  }
   assert.ok(
     fs.existsSync(path.join(targetDir, ".codex/skills/yss-openapi/img.png")),
   );
@@ -69,15 +87,17 @@ test("interactive init generates a template instance in an empty directory", () 
 
   const agentsContent = fs.readFileSync(path.join(targetDir, "AGENTS.md"), "utf8");
   const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
+  const projectIdentity = fs.readFileSync(
+    path.join(targetDir, "yss-project.yaml"),
+    "utf8",
+  );
   const metadata = JSON.parse(
     fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"),
   );
 
-  assert.match(agentsContent, /项目名称：\*\* Demo Project/);
-  assert.match(agentsContent, /业务领域：\*\* Data Platform/);
-  assert.match(agentsContent, /团队规模：\*\* 12/);
   assert.doesNotMatch(agentsContent, /\[填写\]/);
   assert.match(readmeContent, /^# Demo Project/m);
+  assert.match(projectIdentity, /^repository_mode:\s*project-instance$/m);
   assert.equal(metadata.templateName, "create-yss-spec");
   assert.equal(metadata.templateVersion, packageVersion);
   assert.equal(metadata.variables.projectName, "Demo Project");
