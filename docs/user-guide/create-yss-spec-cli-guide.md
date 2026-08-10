@@ -1,6 +1,6 @@
 # create-yss-spec 使用手册
 
-本文档面向需要初始化 `yss-spec-project-template` 模板实例仓库的内部开发者、Tech Lead、项目初始化负责人。
+本文档面向需要初始化、接管已有项目或持续同步 `yss-spec-project-template` 研发管理资产的内部开发者、Tech Lead、项目初始化负责人。
 
 ## 适用场景
 
@@ -11,13 +11,15 @@
 - 初始化新的 Spec / 架构 / OpenAPI / Ticket 管理仓库
 - 统一生成项目级文档骨架、Agent 协作约定和模板目录结构
 - 通过参数渲染项目名称、业务领域、团队规模等元信息
+- 在已有项目中只补齐 manifest 声明的研发管理资产
+- 基于 CLI 包内置的固定模板 commit 持续同步受管资产
 
 它不负责做的事：
 
 - 生成前端 / 后端运行时代码工程
 - 自动安装依赖
 - 自动创建远端 Git 仓库、CI 或 Issue Board
-- 直接接管没有模板元数据的历史老项目
+- 自动修改前后端运行时代码、业务目录、用户文件或 `.git`
 - 自动解决本地已修改受管文件的冲突
 
 ## 快速开始
@@ -79,6 +81,30 @@ npx create-yss-spec@latest \
 
 `--dry-run` 只展示计划，不会创建目录，也不会删除已有文件。
 
+### 接管已有项目
+
+在已有项目根目录执行 `attach`。它不会触碰运行时代码和 `.git`，但会检查并补齐根规则、`docs/`、skills、投影、校验脚本和模板 metadata：
+
+```bash
+npx create-yss-spec@latest attach \
+  --target-dir . \
+  --project-name "Acme Application" \
+  --business-domain "Data Platform" \
+  --dry-run
+```
+
+确认 dry-run 计划后才写入：
+
+```bash
+npx create-yss-spec@latest attach \
+  --target-dir . \
+  --project-name "Acme Application" \
+  --business-domain "Data Platform" \
+  --apply [--force]
+```
+
+`attach` 必须显式选择 `--dry-run` 或 `--apply`，两者互斥。已有 `.yss-template.json` 的项目不能重复 attach，应改用 `sync`。`--force` 只用于覆盖受管冲突文件；unsafe 路径和迁移冲突始终阻断。发生覆盖时，CLI 会在目标目录外保留备份，并输出恢复目录和清理命令。
+
 ### 同步已有模板实例仓库
 
 ```bash
@@ -95,6 +121,13 @@ npx create-yss-spec@latest sync --dry-run
 
 适合在升级前先查看版本变化、Spec / Ticket 旧路径迁移、将要更新的文件、将被跳过的本地改动文件，以及模板已删除但不会自动删除的文件。
 
+同步使用当前 CLI 包内置的模板快照；“最新”由 `npx create-yss-spec@latest` 的发布版本决定，运行时不会直接拉取模板仓库。普通同步只更新 baseline 未被本地修改的文件，`--force` 才覆盖受管冲突文件：
+
+```bash
+npx create-yss-spec@latest sync --target-dir . --dry-run
+npx create-yss-spec@latest sync --target-dir . [--force]
+```
+
 ## 参数说明
 
 | 参数 | 含义 | 默认行为 |
@@ -104,8 +137,9 @@ npx create-yss-spec@latest sync --dry-run
 | `--team-size` | 团队规模 | 不传则进入交互输入，可留空 |
 | `--target-dir` | 输出目录 | 不传则进入交互输入 |
 | `--issue-tracker github\|gitlab` | 默认 issue tracker 偏好 | 默认 `github` |
-| `--dry-run` | 只预览复制 / 渲染计划，不写入文件 | 默认关闭 |
-| `--force` | 目标目录非空时允许清空后重新生成 | 默认关闭 |
+| `--dry-run` | 只预览复制、接管或同步计划，不写入文件 | 默认关闭 |
+| `--apply` | `attach` 确认执行写入；不能与 `--dry-run` 同时使用 | 默认关闭 |
+| `--force` | 初始化时允许清空非空目录；`attach` / `sync` 时允许覆盖受管冲突文件 | 默认关闭 |
 | `--git-init` | 初始化完成后执行 `git init` | 默认关闭 |
 | `--include-example-docs` | 显式保留示例文档 | 默认开启 |
 | `--no-example-docs` | 不生成示例文档 | 默认关闭 |
@@ -114,7 +148,7 @@ npx create-yss-spec@latest sync --dry-run
 
 - 在模板实例仓库根目录执行
 - 仓库内已存在 `.yss-template.json`
-- 以当前 npm 已发布包内置模板快照作为同步源
+- 以当前 npm 已发布包内置、绑定 40 位 `templateCommit` 的模板快照作为同步源
 
 ## 输出内容说明
 
@@ -142,7 +176,7 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 
 - `.yss-template.json`
 
-这个文件用于记录模板名称、模板版本、模板来源、最近同步时间、受管模板文件基线和关键渲染变量。后续 `sync` 能否安全工作，依赖这份模板元数据。
+这个文件用于记录 metadata schema、模板名称、CLI 版本、模板来源、不可变 `templateCommit`、manifest hash、最近同步时间、受管模板文件 baseline 和关键渲染变量。后续 `sync` 能否安全工作，依赖这份模板元数据。
 
 ## 默认安全策略
 
@@ -152,6 +186,8 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - 只有显式传入 `--force` 时，才允许清空目标目录后重新生成
 - 目标目录不能位于模板源仓库内部
 - `--dry-run` 没有副作用
+- `attach` 和 `sync` apply 前会把将被覆盖的文件备份到目标目录外；成功后默认保留备份，失败会用操作日志回滚
+- Git worktree 有脏改动时只提醒，不自动 stash 或提交
 
 对于 `sync`，默认安全策略还包括：
 
@@ -230,7 +266,15 @@ printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
 
 这是设计上的非目标范围。当前 CLI 只负责初始化研发管理模板实例仓库，组织级权限操作和后续 bootstrap 仍由人工控制。
 
-### 5. 为什么 `sync` 提示缺少模板元数据
+### 5. 为什么 `attach` 提示已有模板元数据
+
+说明当前项目已经被接管或初始化过。`attach` 不会重复建立 baseline；请使用：
+
+```bash
+npx create-yss-spec@latest sync --target-dir . --dry-run
+```
+
+### 6. 为什么 `sync` 提示缺少模板元数据
 
 说明当前目录不是受支持的模板实例仓库，或者它是一个早期初始化的历史项目，还没有 `.yss-template.json` 基线。
 
@@ -238,9 +282,9 @@ printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
 
 - 先确认当前目录是否真的是由 `create-yss-spec` 初始化出来的项目
 - 当前版本的 `sync` 只支持带模板元数据的项目
-- 历史老项目的接管 / attach 不在本版范围内
+- 没有 metadata 的历史项目先使用 `attach --dry-run`，确认无 unsafe / conflict 后再 `attach --apply`
 
-### 6. 为什么 `sync` 没有覆盖我改过的文件
+### 7. 为什么 `sync` 没有覆盖我改过的文件
 
 这是刻意的默认安全策略。CLI 会把这类文件识别为“本地已修改的受管文件”，只报告、跳过，不自动覆盖。
 
@@ -249,8 +293,9 @@ printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
 - 查看输出中的跳过文件列表
 - 用 `git diff` 比较当前项目版本和模板版本的差异
 - 人工决定是否合并模板变更
+- 确认模板内容应覆盖本地版本时，使用 `sync --force`；CLI 会先保存外部备份
 
-### 7. 为什么 `sync` 报告旧、新资产冲突
+### 8. 为什么 `sync` 报告旧、新资产冲突
 
 说明旧版 PRD / Issue 路径与新版 Spec / Ticket 路径同时存在，且文件内容不一致。CLI 会 fail closed，避免覆盖任一版本。
 
@@ -265,13 +310,8 @@ printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
 如果你在维护这个 CLI，本地验证命令是：
 
 ```bash
-npm test
-```
-
-发布前可检查打包内容：
-
-```bash
-npm pack --dry-run
+YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
+YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 ```
 
 ## 继续阅读

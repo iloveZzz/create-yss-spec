@@ -17,6 +17,35 @@ function sha256(content) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
+function snapshotTreeHash(rootPath) {
+  const digest = crypto.createHash("sha256");
+
+  function visit(currentPath, relativeDir = "") {
+    for (const entry of fs
+      .readdirSync(currentPath, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      if (entry.name === ".DS_Store") {
+        continue;
+      }
+      const relativePath = relativeDir
+        ? `${relativeDir}/${entry.name}`
+        : entry.name;
+      const absolutePath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        digest.update(`dir:${relativePath}\0`);
+        visit(absolutePath, relativePath);
+      } else if (entry.isFile()) {
+        digest.update(`file:${relativePath}\0`);
+        digest.update(fs.readFileSync(absolutePath));
+        digest.update("\0");
+      }
+    }
+  }
+
+  visit(rootPath);
+  return digest.digest("hex");
+}
+
 test("interactive init generates a template instance in an empty directory", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "demo-project");
@@ -55,20 +84,21 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
-  for (const projectionRoot of [".claude", ".codex", ".hermes", ".pi", ".trae"]) {
-    for (const skill of [
-      "yss-backend-scaffold-adapter",
-      "yss-backend-scaffold-parent",
-      "yss-backend-scaffold-application",
-      "yss-backend-scaffold-domain",
-      "yss-backend-scaffold-infrastructure",
-      "yss-backend-scaffold-web",
-    ]) {
+  const scaffoldSkillPaths = [
+    "yss-backend-scaffold-application/SKILL.md",
+    "yss-backend-scaffold-domain/SKILL.md",
+    "yss-backend-scaffold-infrastructure/SKILL.md",
+    "yss-backend-scaffold-web/SKILL.md",
+    "yss-ddd-scaffold-generator/references/yss-backend-scaffold-adapter/SKILL.md",
+    "yss-ddd-scaffold-generator/references/yss-backend-scaffold-parent/SKILL.md",
+  ];
+  for (const projectionRoot of [".claude", ".codex", ".hermes", ".pi", ".qoder", ".trae"]) {
+    for (const skillPath of scaffoldSkillPaths) {
       assert.ok(
         fs.existsSync(
-          path.join(targetDir, projectionRoot, "skills", skill, "SKILL.md"),
+          path.join(targetDir, projectionRoot, "skills", skillPath),
         ),
-        `${projectionRoot}/${skill} projection is missing`,
+        `${projectionRoot}/${skillPath} projection is missing`,
       );
     }
   }
@@ -98,7 +128,7 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   assert.equal(fs.existsSync(path.join(targetDir, ".pi/settings.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".codebuddy")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, ".qoder")), false);
+  assert.ok(fs.existsSync(path.join(targetDir, ".qoder")));
   assert.equal(fs.existsSync(path.join(targetDir, ".qwen")), false);
 
   const agentsContent = fs.readFileSync(path.join(targetDir, "AGENTS.md"), "utf8");
@@ -128,7 +158,9 @@ test("interactive init generates a template instance in an empty directory", () 
 
 test("init fails closed for unsupported template identity", () => {
   const identityPath = path.join(repoRoot, "template/yss-project.yaml");
+  const snapshotPath = path.join(repoRoot, "template.snapshot.json");
   const originalIdentity = fs.readFileSync(identityPath, "utf8");
+  const originalSnapshot = fs.readFileSync(snapshotPath, "utf8");
   const invalidIdentities = [
     {
       content: "schema_version: 2\nrepository_mode: template-source\n",
@@ -145,6 +177,9 @@ test("init fails closed for unsupported template identity", () => {
       const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
       const targetDir = path.join(sandboxDir, `invalid-identity-${index}`);
       fs.writeFileSync(identityPath, invalidIdentity.content, "utf8");
+      const snapshot = JSON.parse(originalSnapshot);
+      snapshot.snapshotHash = snapshotTreeHash(path.join(repoRoot, "template"));
+      fs.writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
 
       const result = spawnSync(
         process.execPath,
@@ -168,6 +203,7 @@ test("init fails closed for unsupported template identity", () => {
     }
   } finally {
     fs.writeFileSync(identityPath, originalIdentity, "utf8");
+    fs.writeFileSync(snapshotPath, originalSnapshot, "utf8");
   }
 });
 
@@ -585,4 +621,443 @@ test("sync skips locally modified managed files and reports removed managed file
   assert.equal(fs.readFileSync(readmePath, "utf8"), localReadme);
   assert.ok(fs.existsSync(restoredPath));
   assert.ok(fs.existsSync(removedPath));
+});
+
+test("attach dry-run previews an arbitrary existing project without writing or deleting .git", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "existing-application");
+  const runtimeFile = path.join(targetDir, "src/app.js");
+
+  fs.mkdirSync(path.dirname(runtimeFile), { recursive: true });
+  fs.mkdirSync(path.join(targetDir, ".git"));
+  fs.writeFileSync(runtimeFile, "console.log('keep');\n", "utf8");
+  const beforeRuntime = fs.readFileSync(runtimeFile, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Existing Application",
+      "--business-domain",
+      "Payments",
+      "--dry-run",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /attach dry-run/i);
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "AGENTS.md")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
+  assert.equal(fs.readFileSync(runtimeFile, "utf8"), beforeRuntime);
+});
+
+test("attach applies management assets while preserving runtime files and .git", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "attached-application");
+  const runtimeFile = path.join(targetDir, "packages/api/index.js");
+
+  fs.mkdirSync(path.dirname(runtimeFile), { recursive: true });
+  fs.mkdirSync(path.join(targetDir, ".git"));
+  fs.writeFileSync(runtimeFile, "module.exports = 'runtime';\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Attached Application",
+      "--business-domain",
+      "Operations",
+      "--apply",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /接管完成/);
+  assert.equal(fs.readFileSync(runtimeFile, "utf8"), "module.exports = 'runtime';\n");
+  assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
+
+  const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
+  assert.match(identity, /^repository_mode:\s*project-instance$/m);
+  const metadata = JSON.parse(
+    fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"),
+  );
+  assert.equal(metadata.metadataSchemaVersion, 2);
+  assert.equal(metadata.cliVersion, packageVersion);
+  assert.match(metadata.templateCommit, /^[0-9a-f]{40}$/);
+});
+
+test("attach requires --force for root conflicts and keeps an external backup", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "conflicting-application");
+  const readmePath = path.join(targetDir, "README.md");
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.mkdirSync(path.join(targetDir, ".git"));
+  fs.writeFileSync(readmePath, "local README\n", "utf8");
+
+  const blockedResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Conflict Application",
+      "--business-domain",
+      "Operations",
+      "--apply",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(blockedResult.status, 0);
+  assert.match(`${blockedResult.stdout}${blockedResult.stderr}`, /conflict|--force/i);
+  assert.equal(fs.readFileSync(readmePath, "utf8"), "local README\n");
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+
+  const forcedResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Conflict Application",
+      "--business-domain",
+      "Operations",
+      "--apply",
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(forcedResult.status, 0, forcedResult.stderr);
+  assert.match(forcedResult.stdout, /备份目录/);
+  const backupPath = forcedResult.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
+  assert.ok(backupPath);
+  assert.equal(fs.readFileSync(path.join(backupPath, "README.md"), "utf8"), "local README\n");
+  assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
+});
+
+test("attach rejects an existing metadata file and directs the user to sync", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "already-managed-project");
+  const metadataPath = path.join(targetDir, metadataFileName);
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(metadataPath, "{}\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Already Managed",
+      "--business-domain",
+      "Operations",
+      "--dry-run",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /已有模板元数据|使用 sync/);
+  assert.equal(fs.readFileSync(metadataPath, "utf8"), "{}\n");
+});
+
+test("attach blocks flat legacy tickets as unsafe even with force", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unsafe-legacy-project");
+  const legacyTicket = path.join(targetDir, "docs/requirements/tickets/legacy.md");
+
+  fs.mkdirSync(path.dirname(legacyTicket), { recursive: true });
+  fs.writeFileSync(legacyTicket, "# Legacy ticket\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Unsafe Legacy",
+      "--business-domain",
+      "Operations",
+      "--apply",
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /unsafe/);
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+  assert.equal(fs.readFileSync(legacyTicket, "utf8"), "# Legacy ticket\n");
+});
+
+test("attach migrates a known legacy template path before writing metadata", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "legacy-template-project");
+  const oldTemplate = path.join(targetDir, "docs/templates/prd-template.md");
+
+  fs.mkdirSync(path.dirname(oldTemplate), { recursive: true });
+  fs.writeFileSync(oldTemplate, "# Legacy PRD template\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Legacy Template",
+      "--business-domain",
+      "Operations",
+      "--apply",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(oldTemplate), false);
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
+});
+
+test("attach migrates the legacy issues directory into tickets", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "legacy-issues-project");
+  const oldTicket = path.join(targetDir, "docs/requirements/issues/legacy.md");
+  const newTicket = path.join(targetDir, "docs/requirements/tickets/legacy.md");
+
+  fs.mkdirSync(path.dirname(oldTicket), { recursive: true });
+  fs.writeFileSync(oldTicket, "# Legacy ticket\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Legacy Issues",
+      "--business-domain",
+      "Operations",
+      "--apply",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(oldTicket), false);
+  assert.equal(fs.readFileSync(newTicket, "utf8"), "# Legacy ticket\n");
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/requirements/issues")), false);
+  assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
+});
+
+test("attach blocks a conflicting legacy issues migration before writing", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "conflicting-legacy-issues-project");
+  const oldTicket = path.join(targetDir, "docs/requirements/issues/legacy.md");
+  const newTicket = path.join(targetDir, "docs/requirements/tickets/legacy.md");
+
+  fs.mkdirSync(path.dirname(oldTicket), { recursive: true });
+  fs.mkdirSync(path.dirname(newTicket), { recursive: true });
+  fs.writeFileSync(oldTicket, "# Legacy ticket\n", "utf8");
+  fs.writeFileSync(newTicket, "# Local ticket\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Conflicting Legacy Issues",
+      "--business-domain",
+      "Operations",
+      "--apply",
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /conflict|冲突/i);
+  assert.equal(fs.readFileSync(oldTicket, "utf8"), "# Legacy ticket\n");
+  assert.equal(fs.readFileSync(newTicket, "utf8"), "# Local ticket\n");
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+});
+
+test("sync force overwrites a managed conflict and retains an external backup", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "force-sync-project");
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Force Sync",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const readmePath = path.join(targetDir, "README.md");
+  const originalReadme = fs.readFileSync(readmePath, "utf8");
+  fs.writeFileSync(readmePath, "local README\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliBin, "sync", "--target-dir", targetDir, "--force"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
+  const backupPath = result.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
+  assert.ok(backupPath);
+  assert.equal(fs.readFileSync(path.join(backupPath, "README.md"), "utf8"), "local README\n");
+});
+
+test("sync force does not overwrite a file outside the managed baseline", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "unmanaged-sync-project");
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Unmanaged Sync",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const readmePath = path.join(targetDir, "README.md");
+  const metadataPath = path.join(targetDir, metadataFileName);
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  fs.writeFileSync(readmePath, "local unmanaged README\n", "utf8");
+  delete metadata.managedFiles["README.md"];
+  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliBin, "sync", "--target-dir", targetDir, "--force"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /README\.md/);
+  assert.equal(fs.readFileSync(readmePath, "utf8"), "local unmanaged README\n");
+  const backupPath = result.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
+  assert.ok(backupPath);
+  assert.equal(fs.existsSync(path.join(backupPath, "README.md")), false);
+});
+
+test("sync converts a valid template-source identity to project-instance", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "template-source-project");
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Template Source Project",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const identityPath = path.join(targetDir, "yss-project.yaml");
+  const metadataPath = path.join(targetDir, metadataFileName);
+  const templateSourceIdentity = "schema_version: 1\nrepository_mode: template-source\n";
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  fs.writeFileSync(identityPath, templateSourceIdentity, "utf8");
+  metadata.managedFiles["yss-project.yaml"].contentHash = sha256(templateSourceIdentity);
+  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliBin, "sync", "--target-dir", targetDir],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    fs.readFileSync(identityPath, "utf8"),
+    /^repository_mode:\s*project-instance$/m,
+  );
+  const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  assert.equal(
+    syncedMetadata.managedFiles["yss-project.yaml"].contentHash,
+    sha256(fs.readFileSync(identityPath)),
+  );
+});
+
+test("attach blocks intermediate symlinks before writing outside the project", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "symlinked-project");
+  const externalDir = path.join(sandboxDir, "external-management");
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.mkdirSync(externalDir, { recursive: true });
+  fs.symlinkSync(externalDir, path.join(targetDir, "docs"), "dir");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "Symlinked Project",
+      "--business-domain",
+      "Operations",
+      "--apply",
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /符号链接|安全写入|越界/);
+  assert.equal(fs.existsSync(path.join(externalDir, "AGENTS.md")), false);
+  assert.equal(fs.existsSync(path.join(externalDir, "templates")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+  assert.equal(fs.lstatSync(path.join(targetDir, "docs")).isSymbolicLink(), true);
 });

@@ -6,14 +6,15 @@
     ".idea",
     ".uploads",
     "node_modules",
-    ".qoder",
+    ".ua",
     ".qwen",
     "packages"
   ],
   "excludeRootFiles": [
     "package-lock.json",
     "package.json",
-    "template.manifest.json"
+    "template.manifest.json",
+    "template.snapshot.json"
   ],
   "excludePaths": [
     ".claude/settings.local.json",

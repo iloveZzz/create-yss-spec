@@ -98,6 +98,48 @@ test("sync expands internal directory projections into the bundled template", ()
   );
 });
 
+test("sync encodes npm-ignored dotfiles and records their logical paths", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "ignored\n", "utf8");
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".agents/skills/shared-skill/.npmrc"),
+    "audit=false\n",
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "dotfiles"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  const snapshot = JSON.parse(
+    fs.readFileSync(path.join(runnerRoot, "template.snapshot.json"), "utf8"),
+  );
+  assert.equal(snapshot.encodedPaths[".gitignore"], "__yss_dotfile__.gitignore");
+  assert.equal(
+    snapshot.encodedPaths[".agents/skills/shared-skill/.npmrc"],
+    ".agents/skills/shared-skill/__yss_dotfile__.npmrc",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(runnerRoot, "template/__yss_dotfile__.gitignore"),
+      "utf8",
+    ),
+    "ignored\n",
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(
+        runnerRoot,
+        "template/.agents/skills/shared-skill/__yss_dotfile__.npmrc",
+      ),
+      "utf8",
+    ),
+    "audit=false\n",
+  );
+});
+
 test("sync rejects external symlinks without replacing the existing snapshot", () => {
   const fixtureRoot = createTemplateFixture({ externalSymlink: true });
   const runnerRoot = createSyncRunner();

@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -6,10 +7,13 @@ const { spawnSync } = require("node:child_process");
 const packageRoot = path.resolve(__dirname, "..");
 const targetTemplateRoot = path.join(packageRoot, "template");
 const targetManifestPath = path.join(packageRoot, "template.manifest.json");
+const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || "main";
+const DEFAULT_TEMPLATE_REF = "6b4880ccbff08bd8a2cd20c1f9704ef445d6280f";
+const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
+const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
 function run(command, args, cwd = packageRoot) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8" });
@@ -17,6 +21,10 @@ function run(command, args, cwd = packageRoot) {
     throw new Error(result.stderr || result.stdout || `${command} 执行失败`);
   }
   return result.stdout;
+}
+
+function sha256(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
@@ -27,6 +35,25 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
     .split("\0")
     .filter(Boolean);
   const resolvedCheckoutRoot = fs.realpathSync(sourceRoot);
+  const encodedPaths = {};
+
+  const packageRelativePath = (relativePath) => {
+    const basename = path.posix.basename(relativePath);
+    if (!NPM_IGNORED_BASENAMES.has(basename)) {
+      return relativePath;
+    }
+
+    const directory = path.posix.dirname(relativePath);
+    const encoded = path.posix.join(
+      directory === "." ? "" : directory,
+      `__yss_dotfile__${basename}`,
+    );
+    if (Object.values(encodedPaths).includes(encoded)) {
+      throw new Error(`模板路径编码冲突：${relativePath} -> ${encoded}`);
+    }
+    encodedPaths[relativePath] = encoded;
+    return encoded;
+  };
 
   const shouldCopy = (relativePath) => {
     const segments = relativePath.split("/");
@@ -63,10 +90,12 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
     };
   };
 
-  const copyFile = (sourceRelativePath, targetRelativePath) => {
-    if (!shouldCopy(targetRelativePath)) {
+  const copyFile = (sourceRelativePath, logicalTargetPath) => {
+    if (!shouldCopy(logicalTargetPath)) {
       return;
     }
+
+    const targetRelativePath = packageRelativePath(logicalTargetPath);
 
     const sourceEntry = resolveSourceEntry(sourceRelativePath);
     if (!sourceEntry.sourceTarget.isFile()) {
@@ -76,6 +105,7 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
     const targetPath = path.join(destinationRoot, targetRelativePath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.copyFileSync(sourceEntry.resolvedPath, targetPath);
+    fs.chmodSync(targetPath, sourceEntry.sourceTarget.mode & 0o777);
   };
 
   for (const relativePath of trackedFiles) {
@@ -120,44 +150,107 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
       copyFile(trackedTargetPath, `${relativePath}/${suffix}`);
     }
   }
+
+  return encodedPaths;
 }
 
-function replaceTemplateRoot(stagingRoot) {
+function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
   const backupParent = fs.mkdtempSync(
     path.join(packageRoot, ".template-backup-"),
   );
   const backupRoot = path.join(backupParent, "previous-template");
-  let previousMoved = false;
+  const snapshotBackup = path.join(backupParent, "previous-snapshot.json");
+  let previousTemplateMoved = false;
+  let previousSnapshotMoved = false;
   let installed = false;
 
   try {
     if (fs.existsSync(targetTemplateRoot)) {
       fs.renameSync(targetTemplateRoot, backupRoot);
-      previousMoved = true;
+      previousTemplateMoved = true;
+    }
+    if (fs.existsSync(targetSnapshotPath)) {
+      fs.renameSync(targetSnapshotPath, snapshotBackup);
+      previousSnapshotMoved = true;
     }
 
     fs.renameSync(stagingRoot, targetTemplateRoot);
     installed = true;
+    writeSnapshotMetadata(snapshotMetadata);
 
-    if (previousMoved) {
-      fs.rmSync(backupRoot, { recursive: true, force: true });
-    }
+    fs.rmSync(backupParent, { recursive: true, force: true });
   } catch (error) {
-    if (installed && fs.existsSync(targetTemplateRoot)) {
-      fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
+    try {
+      if (fs.existsSync(targetSnapshotPath)) {
+        fs.rmSync(targetSnapshotPath, { force: true });
+      }
+      if (
+        previousSnapshotMoved &&
+        fs.existsSync(snapshotBackup) &&
+        !fs.existsSync(targetSnapshotPath)
+      ) {
+        fs.renameSync(snapshotBackup, targetSnapshotPath);
+      }
+      if (installed && fs.existsSync(targetTemplateRoot)) {
+        fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
+      }
+      if (
+        previousTemplateMoved &&
+        fs.existsSync(backupRoot) &&
+        !fs.existsSync(targetTemplateRoot)
+      ) {
+        fs.renameSync(backupRoot, targetTemplateRoot);
+      }
+    } catch (rollbackError) {
+      throw new Error(
+        `${error.message}\n模板快照替换回滚失败：${rollbackError.message}；备份保留于 ${backupParent}`,
+      );
     }
-    if (
-      previousMoved &&
-      fs.existsSync(backupRoot) &&
-      !fs.existsSync(targetTemplateRoot)
-    ) {
-      fs.renameSync(backupRoot, targetTemplateRoot);
-    }
+    fs.rmSync(backupParent, { recursive: true, force: true });
     throw error;
-  } finally {
-    if (!fs.existsSync(backupRoot)) {
-      fs.rmSync(backupParent, { recursive: true, force: true });
+  }
+}
+
+function snapshotHash(snapshotRoot) {
+  const digest = crypto.createHash("sha256");
+
+  function visit(currentRoot, relativeDir = "") {
+    for (const entry of fs
+      .readdirSync(currentRoot, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      if (entry.name === ".DS_Store") {
+        continue;
+      }
+
+      const relativePath = relativeDir
+        ? `${relativeDir}/${entry.name}`
+        : entry.name;
+      const absolutePath = path.join(currentRoot, entry.name);
+      if (entry.isDirectory()) {
+        digest.update(`dir:${relativePath}\0`);
+        visit(absolutePath, relativePath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        digest.update(`file:${relativePath}\0`);
+        digest.update(fs.readFileSync(absolutePath));
+        digest.update("\0");
+      }
     }
+  }
+
+  visit(snapshotRoot);
+  return digest.digest("hex");
+}
+
+function writeSnapshotMetadata(metadata) {
+  const temporaryPath = `${targetSnapshotPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+    fs.renameSync(temporaryPath, targetSnapshotPath);
+  } finally {
+    fs.rmSync(temporaryPath, { force: true });
   }
 }
 
@@ -170,11 +263,27 @@ const stagingRoot = fs.mkdtempSync(
 );
 
 try {
-  run("git", ["clone", "--depth", "1", "--branch", templateRef, templateRepo, checkoutRoot]);
-  copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
-  replaceTemplateRoot(stagingRoot);
+  run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
+  run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
+  run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
+  const encodedPaths = copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
+  const snapshotMetadata = {
+    schemaVersion: 1,
+    templateName: "yss-spec-project-template",
+    templateSource: "github:iloveZzz/yss-spec-project-template",
+    templateRepository: templateRepo,
+    requestedRef: templateRef,
+    templateCommit,
+    encodedPaths,
+    snapshotHash: snapshotHash(stagingRoot),
+    generatedAt: new Date().toISOString(),
+  };
+  replaceTemplateRoot(stagingRoot, snapshotMetadata);
 
-  console.log(`已从 ${templateRepo}#${templateRef} 同步模板快照`);
+  console.log(
+    `已从 ${templateRepo}#${templateRef} 同步模板快照（commit ${templateCommit}）`,
+  );
 } finally {
   fs.rmSync(checkoutRoot, { recursive: true, force: true });
   fs.rmSync(stagingRoot, { recursive: true, force: true });
