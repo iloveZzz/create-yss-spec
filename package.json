@@ -1,6 +1,6 @@
 {
   "name": "create-yss-spec",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Initialize a YSS spec project template repository",
   "repository": {
     "type": "git",
@@ -14,7 +14,8 @@
     "bin",
     "src",
     "template",
-    "template.manifest.json"
+    "template.manifest.json",
+    "template.snapshot.json"
   ],
   "bin": {
     "create-yss-spec": "./bin/create-yss-spec.js"
