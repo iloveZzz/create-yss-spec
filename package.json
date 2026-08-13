@@ -18,7 +18,7 @@
     "template.snapshot.json"
   ],
   "bin": {
-    "create-yss-spec": "./bin/create-yss-spec.js"
+    "create-yss-spec": "bin/create-yss-spec.js"
   },
   "scripts": {
     "sync-template": "node scripts/sync-template.js",

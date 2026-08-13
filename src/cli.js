@@ -1744,7 +1744,7 @@ function runSync(argv = []) {
 }
 
 function printHelp() {
-  console.log(`create-yss-spec 2.1.0
+  console.log(`create-yss-spec ${PACKAGE_MANIFEST.version}
 
 初始化：create-yss-spec --project-name <name> --business-domain <domain> --target-dir <dir>
 接管已有项目：create-yss-spec attach --target-dir <dir> --project-name <name> --business-domain <domain> --dry-run|--apply [--force]
