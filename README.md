@@ -33,7 +33,7 @@ npx create-yss-spec@latest
 - 旧、新资产内容冲突或清单 schema / mode 非法时 fail closed
 - 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
 
-本次新增能力按 `2.1.2` 发布。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
+本次新增能力按 `2.1.3` 发布。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
 
 ## 接管已有项目
 

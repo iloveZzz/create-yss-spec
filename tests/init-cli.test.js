@@ -164,6 +164,40 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(metadata.variables.businessDomain, "Data Platform");
 });
 
+test("attach verifies the generated template under an ASCII locale", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "ascii-locale-project");
+  fs.mkdirSync(targetDir);
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      targetDir,
+      "--project-name",
+      "ASCII Locale Project",
+      "--business-domain",
+      "Reporting",
+      "--apply",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        LC_ALL: "C",
+        LANG: "C",
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /接管完成/);
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /invalid multibyte/);
+});
+
 test("init fails closed for unsupported template identity", () => {
   const identityPath = path.join(repoRoot, "template/yss-project.yaml");
   const snapshotPath = path.join(repoRoot, "template.snapshot.json");
