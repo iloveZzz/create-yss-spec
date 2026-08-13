@@ -23,7 +23,15 @@ function snapshotTreeHash(rootPath) {
   function visit(currentPath, relativeDir = "") {
     for (const entry of fs
       .readdirSync(currentPath, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name))) {
+      .sort((left, right) => {
+        if (left.name < right.name) {
+          return -1;
+        }
+        if (left.name > right.name) {
+          return 1;
+        }
+        return 0;
+      })) {
       if (entry.name === ".DS_Store") {
         continue;
       }

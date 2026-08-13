@@ -59,7 +59,12 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
 function createSyncRunner() {
   const runnerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "yss-sync-runner-"));
   fs.mkdirSync(path.join(runnerRoot, "scripts"), { recursive: true });
+  fs.mkdirSync(path.join(runnerRoot, "src"), { recursive: true });
   fs.copyFileSync(syncScript, path.join(runnerRoot, "scripts/sync-template.js"));
+  fs.copyFileSync(
+    path.join(repoRoot, "src/template-hash.js"),
+    path.join(runnerRoot, "src/template-hash.js"),
+  );
   fs.copyFileSync(
     path.join(repoRoot, "template.manifest.json"),
     path.join(runnerRoot, "template.manifest.json"),
@@ -67,7 +72,7 @@ function createSyncRunner() {
   return runnerRoot;
 }
 
-function runSyncTemplate(runnerRoot, fixtureRoot) {
+function runSyncTemplate(runnerRoot, fixtureRoot, environment = {}) {
   return spawnSync(
     process.execPath,
     [path.join(runnerRoot, "scripts/sync-template.js")],
@@ -76,11 +81,32 @@ function runSyncTemplate(runnerRoot, fixtureRoot) {
       encoding: "utf8",
       env: {
         ...process.env,
+        ...environment,
         YSS_SPEC_TEMPLATE_REPO: fixtureRoot,
         YSS_SPEC_TEMPLATE_REF: "main",
       },
     },
   );
+}
+
+function createCliRunner() {
+  const runnerRoot = createSyncRunner();
+  fs.mkdirSync(path.join(runnerRoot, "src"), { recursive: true });
+  fs.mkdirSync(path.join(runnerRoot, "bin"), { recursive: true });
+  for (const relativePath of [
+    "package.json",
+    "src/cli.js",
+    "bin/create-yss-spec.js",
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(runnerRoot, relativePath)), {
+      recursive: true,
+    });
+    fs.copyFileSync(
+      path.join(repoRoot, relativePath),
+      path.join(runnerRoot, relativePath),
+    );
+  }
+  return runnerRoot;
 }
 
 test("sync expands internal directory projections into the bundled template", () => {
@@ -96,6 +122,56 @@ test("sync expands internal directory projections into the bundled template", ()
     ),
     "shared skill\n",
   );
+});
+
+test("sync snapshot remains valid when packaging and running use different locales", () => {
+  const fixtureRoot = createTemplateFixture();
+  const localizedDocsRoot = path.join(fixtureRoot, "docs/user-guide");
+  fs.mkdirSync(localizedDocsRoot, { recursive: true });
+  for (const fileName of [
+    "templates",
+    "产品生命周期工作流.md",
+    "产品研发全生命周期最佳实践.md",
+    "规格与任务迁移指南.md",
+  ]) {
+    fs.writeFileSync(path.join(localizedDocsRoot, fileName), `${fileName}\n`, "utf8");
+  }
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "localized paths"]);
+
+  const runnerRoot = createCliRunner();
+  const syncResult = runSyncTemplate(runnerRoot, fixtureRoot, {
+    LC_ALL: "zh_CN.UTF-8",
+    LANG: "zh_CN.UTF-8",
+  });
+  assert.equal(syncResult.status, 0, syncResult.stderr);
+
+  const targetDir = path.join(runnerRoot, "dry-run-target");
+  const cliResult = spawnSync(
+    process.execPath,
+    [
+      path.join(runnerRoot, "bin/create-yss-spec.js"),
+      "--project-name",
+      "Locale Test",
+      "--business-domain",
+      "Platform",
+      "--target-dir",
+      targetDir,
+      "--dry-run",
+    ],
+    {
+      cwd: runnerRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        LC_ALL: "C",
+        LANG: "C",
+      },
+    },
+  );
+
+  assert.equal(cliResult.status, 0, cliResult.stderr);
+  assert.match(cliResult.stdout, /dry-run/);
 });
 
 test("sync encodes npm-ignored dotfiles and records their logical paths", () => {

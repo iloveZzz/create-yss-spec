@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { treeHash } = require("../src/template-hash");
 
 const packageRoot = path.resolve(__dirname, "..");
 const targetTemplateRoot = path.join(packageRoot, "template");
@@ -211,39 +212,6 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
   }
 }
 
-function snapshotHash(snapshotRoot) {
-  const digest = crypto.createHash("sha256");
-
-  function visit(currentRoot, relativeDir = "") {
-    for (const entry of fs
-      .readdirSync(currentRoot, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name))) {
-      if (entry.name === ".DS_Store") {
-        continue;
-      }
-
-      const relativePath = relativeDir
-        ? `${relativeDir}/${entry.name}`
-        : entry.name;
-      const absolutePath = path.join(currentRoot, entry.name);
-      if (entry.isDirectory()) {
-        digest.update(`dir:${relativePath}\0`);
-        visit(absolutePath, relativePath);
-        continue;
-      }
-
-      if (entry.isFile()) {
-        digest.update(`file:${relativePath}\0`);
-        digest.update(fs.readFileSync(absolutePath));
-        digest.update("\0");
-      }
-    }
-  }
-
-  visit(snapshotRoot);
-  return digest.digest("hex");
-}
-
 function writeSnapshotMetadata(metadata) {
   const temporaryPath = `${targetSnapshotPath}.tmp-${process.pid}-${Date.now()}`;
   try {
@@ -276,7 +244,7 @@ try {
     requestedRef: templateRef,
     templateCommit,
     encodedPaths,
-    snapshotHash: snapshotHash(stagingRoot),
+    snapshotHash: treeHash(stagingRoot),
     generatedAt: new Date().toISOString(),
   };
   replaceTemplateRoot(stagingRoot, snapshotMetadata);
