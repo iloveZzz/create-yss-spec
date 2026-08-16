@@ -12,7 +12,7 @@ const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "41c68b545caaa439a999ec9d6786bf80a06c70ba";
+const DEFAULT_TEMPLATE_REF = "b6e005a538daae46309daaf9ade7ce8dc6bb93a7";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 

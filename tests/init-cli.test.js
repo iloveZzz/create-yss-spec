@@ -111,10 +111,14 @@ test("interactive init generates a template instance in an empty directory", () 
     }
   }
   assert.ok(
-    fs.existsSync(path.join(targetDir, ".codex/skills/yss-openapi/img.png")),
+    fs.existsSync(
+      path.join(targetDir, ".codex/skills/yss-openapi-draft-review/SKILL.md"),
+    ),
   );
   assert.ok(
-    fs.existsSync(path.join(targetDir, ".codex/skills/yss-openapi/img_1.png")),
+    fs.existsSync(
+      path.join(targetDir, ".codex/skills/yss-openapi-governance/SKILL.md"),
+    ),
   );
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
