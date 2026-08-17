@@ -54,6 +54,37 @@ function snapshotTreeHash(rootPath) {
   return digest.digest("hex");
 }
 
+function createPathWithoutRipgrep() {
+  const restrictedBin = fs.mkdtempSync(
+    path.join(os.tmpdir(), "create-yss-spec-no-rg-path-"),
+  );
+  const linkedCommands = new Set();
+  for (const directory of (process.env.PATH || "").split(path.delimiter)) {
+    if (!directory || !fs.existsSync(directory)) {
+      continue;
+    }
+    for (const name of fs.readdirSync(directory)) {
+      if (name === "rg" || linkedCommands.has(name)) {
+        continue;
+      }
+      const sourcePath = path.join(directory, name);
+      try {
+        if (!fs.statSync(sourcePath).isFile()) {
+          continue;
+        }
+        fs.symlinkSync(sourcePath, path.join(restrictedBin, name));
+        linkedCommands.add(name);
+      } catch {
+        // Ignore duplicate or non-linkable workstation entries.
+      }
+    }
+  }
+  if (!linkedCommands.has("node")) {
+    fs.symlinkSync(process.execPath, path.join(restrictedBin, "node"));
+  }
+  return restrictedBin;
+}
+
 test("interactive init generates a template instance in an empty directory", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "demo-project");
@@ -168,6 +199,64 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(metadata.templateVersion, packageVersion);
   assert.equal(metadata.variables.projectName, "Demo Project");
   assert.equal(metadata.variables.businessDomain, "Data Platform");
+});
+
+test("init and attach do not require ripgrep in the runtime PATH", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const restrictedBin = createPathWithoutRipgrep();
+  const environment = {
+    ...process.env,
+    PATH: restrictedBin,
+  };
+  try {
+    const initTarget = path.join(sandboxDir, "no-rg-init");
+    const initResult = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "--project-name",
+        "No Ripgrep Init",
+        "--business-domain",
+        "Platform",
+        "--target-dir",
+        initTarget,
+        "--git-init",
+      ],
+      { cwd: repoRoot, encoding: "utf8", env: environment },
+    );
+    assert.equal(
+      initResult.status,
+      0,
+      `init failed\nstdout:\n${initResult.stdout}\nstderr:\n${initResult.stderr}`,
+    );
+    assert.doesNotMatch(`${initResult.stdout}${initResult.stderr}`, /command not found|rg:/i);
+
+    const attachTarget = path.join(sandboxDir, "no-rg-attach");
+    fs.mkdirSync(path.join(attachTarget, ".git"), { recursive: true });
+    const attachResult = spawnSync(
+      process.execPath,
+      [
+        cliBin,
+        "attach",
+        "--target-dir",
+        attachTarget,
+        "--project-name",
+        "No Ripgrep Attach",
+        "--business-domain",
+        "Platform",
+        "--apply",
+      ],
+      { cwd: repoRoot, encoding: "utf8", env: environment },
+    );
+    assert.equal(
+      attachResult.status,
+      0,
+      `attach failed\nstdout:\n${attachResult.stdout}\nstderr:\n${attachResult.stderr}`,
+    );
+    assert.doesNotMatch(`${attachResult.stdout}${attachResult.stderr}`, /command not found|rg:/i);
+  } finally {
+    fs.rmSync(restrictedBin, { recursive: true, force: true });
+  }
 });
 
 test("attach verifies the generated template under an ASCII locale", () => {
