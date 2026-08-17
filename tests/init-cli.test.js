@@ -122,6 +122,8 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
   assert.equal(
     fs.existsSync(path.join(targetDir, "scripts/sync-cli-template.js")),
     false,
@@ -489,6 +491,8 @@ test("sync updates unchanged managed files and restores missing managed files", 
   assert.match(syncResult.stdout, new RegExp(packageVersion.replace(/\./g, "\\.")));
   assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
   assert.ok(fs.existsSync(restoredPath));
+  assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
 
   const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   assert.equal(syncedMetadata.templateVersion, packageVersion);
@@ -638,18 +642,38 @@ test("sync skips locally modified managed files and reports removed managed file
   const readmePath = path.join(targetDir, "README.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
   const removedPath = path.join(targetDir, "docs/legacy-note.md");
+  const removedTemplateSourcePath = path.join(
+    targetDir,
+    ".template-source/legacy-review.md",
+  );
+  const removedReviewsPath = path.join(
+    targetDir,
+    "docs/reviews/legacy-review.md",
+  );
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   const localReadme = `${fs.readFileSync(readmePath, "utf8")}\n本地说明：不要覆盖\n`;
 
   fs.writeFileSync(readmePath, localReadme, "utf8");
   fs.rmSync(restoredPath, { force: true });
   fs.writeFileSync(removedPath, "legacy note", "utf8");
+  fs.mkdirSync(path.dirname(removedTemplateSourcePath), { recursive: true });
+  fs.writeFileSync(removedTemplateSourcePath, "legacy template-source review", "utf8");
+  fs.mkdirSync(path.dirname(removedReviewsPath), { recursive: true });
+  fs.writeFileSync(removedReviewsPath, "legacy docs review", "utf8");
 
   metadata.templateVersion = "0.9.0";
   delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
   metadata.managedFiles["docs/legacy-note.md"] = {
     type: "copy",
     contentHash: sha256("legacy note"),
+  };
+  metadata.managedFiles[".template-source/legacy-review.md"] = {
+    type: "copy",
+    contentHash: sha256("legacy template-source review"),
+  };
+  metadata.managedFiles["docs/reviews/legacy-review.md"] = {
+    type: "copy",
+    contentHash: sha256("legacy docs review"),
   };
   fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
 
@@ -660,13 +684,28 @@ test("sync skips locally modified managed files and reports removed managed file
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /跳过文件：1/);
-  assert.match(result.stdout, /删除差异：1/);
+  assert.match(result.stdout, /删除差异：3/);
   assert.match(result.stdout, /README\.md/);
   assert.match(result.stdout, /docs\/legacy-note\.md/);
+  assert.match(result.stdout, /\.template-source\/legacy-review\.md/);
+  assert.match(result.stdout, /docs\/reviews\/legacy-review\.md/);
   assert.match(result.stdout, /git diff|git status/);
   assert.equal(fs.readFileSync(readmePath, "utf8"), localReadme);
   assert.ok(fs.existsSync(restoredPath));
   assert.ok(fs.existsSync(removedPath));
+  assert.ok(fs.existsSync(removedTemplateSourcePath));
+  assert.ok(fs.existsSync(removedReviewsPath));
+
+  const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  assert.equal(syncedMetadata.managedFiles["docs/legacy-note.md"], undefined);
+  assert.equal(
+    syncedMetadata.managedFiles[".template-source/legacy-review.md"],
+    undefined,
+  );
+  assert.equal(
+    syncedMetadata.managedFiles["docs/reviews/legacy-review.md"],
+    undefined,
+  );
 });
 
 test("attach dry-run previews an arbitrary existing project without writing or deleting .git", () => {
@@ -734,6 +773,8 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
   assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
 
   const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
   assert.match(identity, /^repository_mode:\s*project-instance$/m);

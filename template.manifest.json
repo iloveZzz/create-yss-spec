@@ -8,6 +8,7 @@
     "node_modules",
     ".ua",
     ".qwen",
+    ".template-source",
     "packages"
   ],
   "excludeRootFiles": [

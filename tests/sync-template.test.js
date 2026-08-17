@@ -27,6 +27,14 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
   fs.mkdirSync(skillRoot, { recursive: true });
   fs.mkdirSync(projectionRoot, { recursive: true });
   fs.writeFileSync(path.join(skillRoot, "SKILL.md"), "shared skill\n", "utf8");
+  fs.mkdirSync(path.join(fixtureRoot, ".template-source/evidence/reviews"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".template-source/evidence/reviews/fixture.md"),
+    "template source evidence\n",
+    "utf8",
+  );
   fs.symlinkSync(
     "../../.agents/skills/shared-skill",
     path.join(projectionRoot, "shared-skill"),
@@ -121,6 +129,15 @@ test("sync expands internal directory projections into the bundled template", ()
       "utf8",
     ),
     "shared skill\n",
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        runnerRoot,
+        "template/.template-source/evidence/reviews/fixture.md",
+      ),
+    ),
+    false,
   );
 });
 
