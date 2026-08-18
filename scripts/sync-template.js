@@ -12,7 +12,7 @@ const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "68c367a13d5006cca83f1c5e369678af28c4bf15";
+const DEFAULT_TEMPLATE_REF = "07a4eda35bd5cddfdf6511c79dce05fca6311d5d";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
@@ -58,10 +58,14 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
 
   const shouldCopy = (relativePath) => {
     const segments = relativePath.split("/");
+    const matchesExcludedPath = [...excludedPaths].some(
+      (excludedPath) =>
+        relativePath === excludedPath || relativePath.startsWith(`${excludedPath}/`),
+    );
     return !(
       excludedRootEntries.has(segments[0]) ||
       (segments.length === 1 && excludedRootFiles.has(relativePath)) ||
-      excludedPaths.has(relativePath)
+      matchesExcludedPath
     );
   };
 

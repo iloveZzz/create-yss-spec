@@ -22,7 +22,9 @@
     ".codex/hooks.json",
     ".codex/settings.local.json",
     ".codex/skills/.DS_Store",
-    ".pi/settings.json"
+    ".pi/settings.json",
+    "docs/.scratch",
+    "docs/reviews"
   ],
   "renderPaths": [
     "AGENTS.md",
