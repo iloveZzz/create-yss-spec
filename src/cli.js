@@ -18,6 +18,15 @@ const TEMPLATE_MANIFEST = JSON.parse(TEMPLATE_MANIFEST_TEXT);
 const ROOT_EXCLUDED_ENTRIES = new Set(TEMPLATE_MANIFEST.excludeRootEntries);
 const ROOT_EXCLUDED_FILES = new Set(TEMPLATE_MANIFEST.excludeRootFiles);
 const EXCLUDED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.excludePaths);
+const INIT_EXCLUDED_ROOT_ENTRIES = new Set(
+  TEMPLATE_MANIFEST.initExcludeRootEntries || [],
+);
+const INIT_EXCLUDED_ROOT_FILES = new Set(
+  TEMPLATE_MANIFEST.initExcludeRootFiles || [],
+);
+const INIT_EXCLUDED_RELATIVE_PATHS = new Set(
+  TEMPLATE_MANIFEST.initExcludePaths || [],
+);
 const RENDERED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.renderPaths);
 const EXAMPLE_DOC_PATHS = new Set(TEMPLATE_MANIFEST.exampleDocPaths);
 const TEMPLATE_METADATA_FILENAME = ".yss-template.json";
@@ -323,12 +332,20 @@ function targetPath(targetDir, relativePath) {
   return resolved;
 }
 
-function shouldExcludeRelativePath(relativePath) {
-  return EXCLUDED_RELATIVE_PATHS.has(normalizeRelativePath(relativePath));
+function shouldExcludeRelativePath(relativePath, mode = "managed") {
+  const normalized = normalizeRelativePath(relativePath);
+  return EXCLUDED_RELATIVE_PATHS.has(normalized) ||
+    (mode === "init" &&
+      (INIT_EXCLUDED_RELATIVE_PATHS.has(normalized) ||
+        INIT_EXCLUDED_ROOT_FILES.has(normalized)));
 }
 
-function shouldSkipRootEntry(entryName) {
-  return ROOT_EXCLUDED_ENTRIES.has(entryName) || ROOT_EXCLUDED_FILES.has(entryName);
+function shouldSkipRootEntry(entryName, mode = "managed") {
+  return ROOT_EXCLUDED_ENTRIES.has(entryName) ||
+    ROOT_EXCLUDED_FILES.has(entryName) ||
+    (mode === "init" &&
+      (INIT_EXCLUDED_ROOT_ENTRIES.has(entryName) ||
+        INIT_EXCLUDED_ROOT_FILES.has(entryName)));
 }
 
 function parseRepositoryIdentity(content) {
@@ -438,12 +455,18 @@ function renderTemplateFile(relativePath, content, variables) {
   return content;
 }
 
-function buildCopyPlan(sourceDir, targetDir, variables, relativeDir = "") {
+function buildCopyPlan(
+  sourceDir,
+  targetDir,
+  variables,
+  relativeDir = "",
+  mode = "managed",
+) {
   const operations = [];
   const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (!relativeDir && shouldSkipRootEntry(entry.name)) {
+    if (!relativeDir && shouldSkipRootEntry(entry.name, mode)) {
       continue;
     }
 
@@ -452,7 +475,7 @@ function buildCopyPlan(sourceDir, targetDir, variables, relativeDir = "") {
       : entry.name;
     const relativePath = logicalTemplatePath(bundledRelativePath);
 
-    if (shouldExcludeRelativePath(relativePath)) {
+    if (shouldExcludeRelativePath(relativePath, mode)) {
       continue;
     }
 
@@ -466,7 +489,13 @@ function buildCopyPlan(sourceDir, targetDir, variables, relativeDir = "") {
     if (entry.isDirectory()) {
       operations.push({ type: "mkdir", relativePath, targetPath: targetPathValue });
       operations.push(
-        ...buildCopyPlan(sourcePath, targetDir, variables, bundledRelativePath),
+        ...buildCopyPlan(
+          sourcePath,
+          targetDir,
+          variables,
+          bundledRelativePath,
+          mode,
+        ),
       );
       continue;
     }
@@ -567,14 +596,14 @@ function buildSyncVariables(metadata) {
   };
 }
 
-function buildDesiredManagedOperations(targetDir, variables) {
-  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, variables)
+function buildDesiredManagedOperations(targetDir, variables, mode = "managed") {
+  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, variables, "", mode)
     .filter((operation) => operation.type === "copy" || operation.type === "render")
     .map((operation) => buildDesiredManagedFile(operation, { variables }));
 }
 
 function buildSyncDesiredOperations(targetDir, variables, identity) {
-  return buildDesiredManagedOperations(targetDir, variables).map((operation) => {
+  return buildDesiredManagedOperations(targetDir, variables, "init").map((operation) => {
     if (
       operation.relativePath !== "yss-project.yaml" ||
       identity.state !== "valid" ||
@@ -1096,13 +1125,45 @@ function runTemplateVerification(targetDir, scriptPath) {
   }
 }
 
-function verifyGeneratedTemplate(targetDir) {
+function verifyGeneratedTemplate(targetDir, mode = "managed") {
+  if (mode === "init") {
+    verifyGeneratedInstance(targetDir);
+    return;
+  }
+
   for (const scriptPath of [
     "scripts/sync-skills",
     "scripts/update-skill-lock",
     "scripts/verify-template",
   ]) {
     runTemplateVerification(targetDir, scriptPath);
+  }
+}
+
+function verifyGeneratedInstance(targetDir) {
+  const forbiddenPaths = [
+    ...[...INIT_EXCLUDED_ROOT_ENTRIES],
+    ...[...INIT_EXCLUDED_ROOT_FILES],
+    ...[...INIT_EXCLUDED_RELATIVE_PATHS],
+  ];
+  for (const relativePath of forbiddenPaths) {
+    if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
+      throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+    }
+  }
+
+  const identity = readTargetIdentity(targetDir);
+  if (
+    identity.state !== "valid" ||
+    identity.fields.repository_mode !== "project-instance"
+  ) {
+    throw new Error("初始化结果的 yss-project.yaml 必须是 project-instance");
+  }
+
+  const agentsContent = fs.readFileSync(targetPath(targetDir, "AGENTS.md"), "utf8");
+  const readmeContent = fs.readFileSync(targetPath(targetDir, "README.md"), "utf8");
+  if (agentsContent.includes("[填写]") || readmeContent.includes("[填写]")) {
+    throw new Error("初始化结果仍包含模板占位信息");
   }
 }
 
@@ -1483,7 +1544,13 @@ function runInit(argv = []) {
     readTemplateSnapshot();
     const targetDir = normalizeTargetDir(promptedOptions.targetDir);
     const targetState = inspectTargetDir(targetDir, promptedOptions.force);
-    const operations = buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, promptedOptions);
+    const operations = buildCopyPlan(
+      BUNDLED_TEMPLATE_ROOT,
+      targetDir,
+      promptedOptions,
+      "",
+      "init",
+    );
 
     if (promptedOptions.dryRun) {
       console.log("dry-run 预览");
@@ -1496,7 +1563,7 @@ function runInit(argv = []) {
 
     prepareTargetDir(targetDir, targetState);
     executePlan(operations, promptedOptions);
-    verifyGeneratedTemplate(targetDir);
+    verifyGeneratedTemplate(targetDir, "init");
     writeTemplateMetadata(
       targetDir,
       buildMetadata(promptedOptions, operations.filter((operation) => operation.type !== "mkdir"), targetDir),
@@ -1671,7 +1738,7 @@ function runSync(argv = []) {
       applyManagedOperation(operation, transaction);
     }
     applyMigrationPlan(migrationPlan, transaction);
-    verifyGeneratedTemplate(targetDir);
+    verifyGeneratedTemplate(targetDir, "init");
     writeTemplateMetadata(
       targetDir,
       buildNextSyncMetadata(metadata, syncPlan, targetDir),

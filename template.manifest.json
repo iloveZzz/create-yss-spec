@@ -33,5 +33,17 @@
   ],
   "exampleDocPaths": [
     "docs/discovery/IDEATION.md"
+  ],
+  "initExcludeRootEntries": [
+    "scripts",
+    "wiki"
+  ],
+  "initExcludeRootFiles": [
+    ".gitignore",
+    ".nvmrc",
+    "yss-public-skills.json"
+  ],
+  "initExcludePaths": [
+    ".github"
   ]
 }

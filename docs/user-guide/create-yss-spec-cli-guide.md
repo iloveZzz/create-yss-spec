@@ -170,6 +170,8 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - `docs/testing/`
 - 项目级 Agent skills 与流程文档
 
+初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/` 和 `yss-public-skills.json`。初始化后的项目不会因此失去生命周期使用所需的文档、skills 或 `skills-lock.json`；`attach` 仍可为已有项目补齐受管校验脚本。
+
 如果启用了 `--git-init`，目标目录下还会生成 `.git/`。
 
 初始化完成后，CLI 还会额外生成：
