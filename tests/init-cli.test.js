@@ -89,21 +89,29 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
-  const scaffoldSkillPaths = [
-    "yss-backend-scaffold-application/SKILL.md",
-    "yss-backend-scaffold-domain/SKILL.md",
-    "yss-backend-scaffold-infrastructure/SKILL.md",
-    "yss-backend-scaffold-web/SKILL.md",
-    "yss-ddd-scaffold-generator/references/yss-backend-scaffold-adapter/SKILL.md",
-    "yss-ddd-scaffold-generator/references/yss-backend-scaffold-parent/SKILL.md",
+  const scaffoldReferenceSkills = [
+    "yss-backend-scaffold-application",
+    "yss-backend-scaffold-domain",
+    "yss-backend-scaffold-infrastructure",
+    "yss-backend-scaffold-web",
+    "yss-backend-scaffold-adapter",
+    "yss-backend-scaffold-parent",
   ];
   for (const projectionRoot of [".claude", ".codex", ".hermes", ".pi", ".qoder", ".trae"]) {
-    for (const skillPath of scaffoldSkillPaths) {
+    for (const skillName of scaffoldReferenceSkills) {
       assert.ok(
         fs.existsSync(
-          path.join(targetDir, projectionRoot, "skills", skillPath),
+          path.join(
+            targetDir,
+            projectionRoot,
+            "skills",
+            "yss-ddd-scaffold-generator",
+            "references",
+            skillName,
+            "SKILL.md",
+          ),
         ),
-        `${projectionRoot}/${skillPath} projection is missing`,
+        `${projectionRoot} missing yss-ddd-scaffold-generator reference ${skillName}`,
       );
     }
   }
