@@ -1,0 +1,4 @@
+{
+  "install": "pip3 install --break-system-packages jsonschema\nnpm run sync-template",
+  "start": "node -v"
+}
