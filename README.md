@@ -14,6 +14,18 @@ npm create yss-spec@latest
 npx create-yss-spec@latest
 ```
 
+查看用法、命令、参数和样例：
+
+```bash
+npx create-yss-spec@latest --help
+```
+
+查看 CLI 版本：
+
+```bash
+npx create-yss-spec@latest --version
+```
+
 ## 当前支持
 
 - 交互式收集 `projectName`、`businessDomain`、`targetDir`

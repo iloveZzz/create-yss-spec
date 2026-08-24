@@ -1221,3 +1221,60 @@ test("attach blocks intermediate symlinks before writing outside the project", (
   assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
   assert.equal(fs.lstatSync(path.join(targetDir, "docs")).isSymbolicLink(), true);
 });
+
+function runCli(args) {
+  return spawnSync(process.execPath, [cliBin, ...args], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+}
+
+function assertHelpOutput(result) {
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, new RegExp(`create-yss-spec ${packageVersion}`));
+  assert.match(result.stdout, /^USAGE$/m);
+  assert.match(result.stdout, /^COMMANDS$/m);
+  assert.match(result.stdout, /^OPTIONS$/m);
+  assert.match(result.stdout, /^EXAMPLES$/m);
+  assert.match(result.stdout, /^LEARN MORE$/m);
+  assert.match(result.stdout, /--project-name <name>/);
+  assert.match(result.stdout, /--business-domain <domain>/);
+  assert.match(result.stdout, /--target-dir <dir>/);
+  assert.match(result.stdout, /--dry-run/);
+  assert.match(result.stdout, /--apply/);
+  assert.match(result.stdout, /attach/);
+  assert.match(result.stdout, /sync/);
+  assert.match(result.stdout, /https:\/\/github\.com\/iloveZzz\/create-yss-spec/);
+}
+
+test("help flags print usage, commands, options, examples, and learn more", () => {
+  for (const flag of ["--help", "-h", "-help"]) {
+    assertHelpOutput(runCli([flag]));
+  }
+});
+
+test("attach and sync help flags print the same usage without requiring a target", () => {
+  assertHelpOutput(runCli(["attach", "--help"]));
+  assertHelpOutput(runCli(["sync", "-h"]));
+});
+
+test("version flags print the package version and exit", () => {
+  for (const flag of ["--version", "-v", "-version"]) {
+    const result = runCli([flag]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), `create-yss-spec ${packageVersion}`);
+  }
+});
+
+test("subcommand version flags print the package version without requiring a target", () => {
+  const result = runCli(["attach", "--version"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), `create-yss-spec ${packageVersion}`);
+});
+
+test("unknown arguments still fail closed", () => {
+  const result = runCli(["--unknown-flag"]);
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /不支持的参数：--unknown-flag/);
+});
+

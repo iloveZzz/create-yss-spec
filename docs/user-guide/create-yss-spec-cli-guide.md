@@ -36,6 +36,18 @@ npm create yss-spec@latest
 npx create-yss-spec@latest
 ```
 
+查看用法、命令、参数和样例：
+
+```bash
+npx create-yss-spec@latest --help
+```
+
+查看 CLI 版本：
+
+```bash
+npx create-yss-spec@latest --version
+```
+
 运行后会按顺序询问：
 
 1. `项目名称`
@@ -143,6 +155,8 @@ npx create-yss-spec@latest sync --target-dir . [--force]
 | `--git-init` | 初始化完成后执行 `git init` | 默认关闭 |
 | `--include-example-docs` | 显式保留示例文档 | 默认开启 |
 | `--no-example-docs` | 不生成示例文档 | 默认关闭 |
+| `-h`, `--help`, `-help` | 显示用法、命令、参数、样例和文档入口 | 立即退出，不执行写入 |
+| `-v`, `--version`, `-version` | 显示 CLI 版本 | 立即退出，不执行写入 |
 
 `sync` 子命令当前只支持：
 
