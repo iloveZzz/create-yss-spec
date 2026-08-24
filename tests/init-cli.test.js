@@ -91,6 +91,35 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".cursorrules")));
+  assert.ok(
+    fs.existsSync(path.join(targetDir, ".agents/rules/yss-ai-skills.md")),
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(targetDir, ".agents/skills/.yss-skills-manifest.json"),
+    ),
+  );
+  for (const frontendSkill of [
+    "yss-ui-business-page-generation",
+    "ytable-usage",
+    "yedit-table-usage",
+    "formily-foundation",
+    "theme-token-usage",
+  ]) {
+    assert.ok(
+      fs.existsSync(
+        path.join(targetDir, ".agents/skills", frontendSkill, "SKILL.md"),
+      ),
+      `missing frontend skill ${frontendSkill}`,
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(targetDir, ".cursor/skills", frontendSkill, "SKILL.md"),
+      ),
+      `missing cursor projection for ${frontendSkill}`,
+    );
+  }
   const scaffoldReferenceSkills = [
     "yss-backend-scaffold-application",
     "yss-backend-scaffold-domain",
@@ -146,6 +175,10 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
+    false,
+  );
   assert.equal(
     fs.existsSync(path.join(targetDir, "scripts/sync-cli-template.js")),
     false,
@@ -855,6 +888,17 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), true);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/ytable-usage/SKILL.md")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(targetDir, "docs/.scratch/code-review-candidates"),
+    ),
+    false,
+  );
 
   const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
   assert.match(identity, /^repository_mode:\s*project-instance$/m);

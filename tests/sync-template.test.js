@@ -288,6 +288,38 @@ test("sync encodes npm-ignored dotfiles and records their logical paths", () => 
   );
 });
 
+test("sync refreshes bundled skills-lock.json after copying template files", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.mkdirSync(path.join(fixtureRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "scripts/update-skill-lock"),
+    [
+      "#!/usr/bin/env node",
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "fs.writeFileSync(path.join(process.cwd(), 'skills-lock.json'), 'refreshed-lock\\n');",
+      "",
+    ].join("\n"),
+    { encoding: "utf8", mode: 0o755 },
+  );
+  fs.writeFileSync(
+    path.join(fixtureRoot, "skills-lock.json"),
+    "stale-lock\n",
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "skill lock"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(path.join(runnerRoot, "template/skills-lock.json"), "utf8"),
+    "refreshed-lock\n",
+  );
+});
+
 test("sync rejects external symlinks without replacing the existing snapshot", () => {
   const fixtureRoot = createTemplateFixture({ externalSymlink: true });
   const runnerRoot = createSyncRunner();
