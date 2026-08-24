@@ -101,7 +101,7 @@ test("interactive init generates a template instance in an empty directory", () 
     ),
   );
   for (const frontendSkill of [
-    "yss-ui-business-page-generation",
+    "yss-page-module-development",
     "ytable-usage",
     "yedit-table-usage",
     "formily-foundation",
@@ -118,6 +118,19 @@ test("interactive init generates a template instance in an empty directory", () 
         path.join(targetDir, ".cursor/skills", frontendSkill, "SKILL.md"),
       ),
       `missing cursor projection for ${frontendSkill}`,
+    );
+  }
+  for (const retiredSkill of [
+    "high-fidelity-html-prototype",
+    "api-integration",
+    "use-table-height",
+    "use-tree-height",
+    "yss-ui-business-page-generation",
+  ]) {
+    assert.equal(
+      fs.existsSync(path.join(targetDir, ".agents/skills", retiredSkill)),
+      false,
+      `retired skill ${retiredSkill} must not be generated`,
     );
   }
   const scaffoldReferenceSkills = [
@@ -888,10 +901,15 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-skill-governance")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), true);
   assert.equal(
     fs.existsSync(path.join(targetDir, ".agents/skills/ytable-usage/SKILL.md")),
     true,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/high-fidelity-html-prototype")),
+    false,
   );
   assert.equal(
     fs.existsSync(

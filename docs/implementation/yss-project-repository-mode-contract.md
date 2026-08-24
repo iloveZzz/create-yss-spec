@@ -17,7 +17,7 @@ owner: ai
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
 | working_branch | `cursor/adapt-template-7373097-8a4c` |
-| template_ref | `737309712b53785f3d8c0524a0e69c44f9b671b1` |
+| template_ref | `23757463ec4b20d171a3ff57733b62322efb63f3` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -55,7 +55,7 @@ npx create-yss-spec@latest attach \
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
-`7373097` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树（修复 `yss-formily` 这类只改了权威源、未同步目录副本的漂移），再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层尚未登记进模板源 lock / 路由注册表，因此不会被 CLI 补投影到全部 Agent 根。
+`2375746` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 

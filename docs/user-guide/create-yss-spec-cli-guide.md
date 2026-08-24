@@ -183,10 +183,10 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - `docs/design/`
 - `docs/testing/`
 - 项目级 Agent skills 与流程文档
-- YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-ui-business-page-generation`）
+- YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）
 - `.cursorrules` 与 `.agents/rules/yss-ai-skills.md`
 
-初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/`、`.template-source/`、`.cursor/environment.json`、`docs/.scratch/` 和 `yss-public-skills.json`。只同步必要文档目录、Spec / Ticket 规范和 Agent skills；模板仓库自己的治理笔记、审查临时文件与源仓工具链不会进入项目实例。`attach` 仍可为已有项目补齐受管校验脚本和 `yss-public-skills.json`（`verify-template` 门禁需要），但同样不会带上源仓 CI 与 Cloud 环境。
+初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/`、`.template-source/`、`.cursor/environment.json`、`docs/.scratch/` 和 `yss-public-skills.json`。已退役的 `high-fidelity-html-prototype` 等独立入口不会生成。只同步必要文档目录、Spec / Ticket 规范和 Agent skills；模板仓库自己的治理笔记、审查临时文件与源仓工具链不会进入项目实例。`attach` 仍可为已有项目补齐受管校验脚本和 `yss-public-skills.json`（`verify-template` 门禁需要），但同样不会带上源仓 CI 与 Cloud 环境。
 
 如果启用了 `--git-init`，目标目录下还会生成 `.git/`。
 
