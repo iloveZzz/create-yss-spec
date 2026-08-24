@@ -9,13 +9,16 @@
     ".ua",
     ".qwen",
     ".template-source",
-    "packages"
+    "packages",
+    "wiki"
   ],
   "excludeRootFiles": [
     "package-lock.json",
     "package.json",
     "template.manifest.json",
-    "template.snapshot.json"
+    "template.snapshot.json",
+    ".nvmrc",
+    ".gitignore"
   ],
   "excludePaths": [
     ".claude/settings.local.json",
@@ -24,7 +27,9 @@
     ".codex/skills/.DS_Store",
     ".pi/settings.json",
     "docs/.scratch",
-    "docs/reviews"
+    "docs/reviews",
+    "docs/discovery/reports",
+    "docs/design/design.md"
   ],
   "renderPaths": [
     "AGENTS.md",
@@ -35,15 +40,13 @@
     "docs/discovery/IDEATION.md"
   ],
   "initExcludeRootEntries": [
-    "scripts",
-    "wiki"
+    "scripts"
   ],
   "initExcludeRootFiles": [
-    ".gitignore",
-    ".nvmrc",
     "yss-public-skills.json"
   ],
   "initExcludePaths": [
-    ".github"
+    ".github",
+    "docs/adr"
   ]
 }

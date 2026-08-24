@@ -45,7 +45,7 @@ npx create-yss-spec@latest --version
 - 旧、新资产内容冲突或清单 schema / mode 非法时 fail closed
 - 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
 
-本次模板适配按 `2.1.15` 发布。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
+本次模板适配按 `2.1.16` 发布。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
 
 ## 接管已有项目
 
@@ -70,6 +70,7 @@ npx create-yss-spec@latest attach \
 - 目标已有 `.yss-template.json` 时拒绝接管，请使用 `sync`。
 - `--dry-run` 与 `--apply` 互斥；非交互执行只依赖显式参数。
 - 根规则文件等受管冲突默认阻断；`--force` 才覆盖，并把被覆盖文件备份到目标目录外的临时目录。
+- 不复制、不覆盖 `.gitignore`、`.nvmrc`、`wiki/`，以及快照级排除的模板源文档（`docs/discovery/reports/`、`docs/design/design.md`）。`docs/adr/` 不进入 init / sync 结果；attach 仍会安装，以通过模板校验。
 - 合法 `template-source` 身份会转换为 `project-instance`；非法身份、迁移冲突和无法判断归属的扁平 Ticket 始终阻断。
 - Git worktree 有脏改动时只提醒，不自动 stash 或提交。
 
@@ -90,6 +91,7 @@ npx create-yss-spec@latest sync --dry-run
 当前同步能力的边界：
 
 - 只支持带模板元数据的模板实例仓库
+- 不写入 `.gitignore`、`.nvmrc`、`wiki/`、`docs/adr/` 和模板源实例文档
 - 默认只更新未被本地修改的受管模板文件
 - 对本地已修改文件只提示和跳过，不自动覆盖
 - `--force` 先备份，再覆盖受管冲突文件；不覆盖模板无关文件

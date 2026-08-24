@@ -49,6 +49,39 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     "template source ticket\n",
     "utf8",
   );
+  fs.mkdirSync(path.join(fixtureRoot, "wiki"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "wiki/README.md"),
+    "template source wiki\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(fixtureRoot, ".nvmrc"), "20\n", "utf8");
+  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "node_modules\n", "utf8");
+  fs.mkdirSync(path.join(fixtureRoot, "docs/adr"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/adr/0001-template-source.md"),
+    "template source adr\n",
+    "utf8",
+  );
+  fs.mkdirSync(path.join(fixtureRoot, "docs/discovery/reports"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/discovery/reports/fixture.md"),
+    "template source report\n",
+    "utf8",
+  );
+  fs.mkdirSync(path.join(fixtureRoot, "docs/design"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/design/design.md"),
+    "template source design\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/design/README.md"),
+    "design readme\n",
+    "utf8",
+  );
   fs.symlinkSync(
     "../../.agents/skills/shared-skill",
     path.join(projectionRoot, "shared-skill"),
@@ -163,6 +196,39 @@ test("sync expands internal directory projections into the bundled template", ()
     ),
     false,
   );
+  assert.equal(fs.existsSync(path.join(runnerRoot, "template/wiki")), false);
+  assert.equal(fs.existsSync(path.join(runnerRoot, "template/.nvmrc")), false);
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/.gitignore")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(runnerRoot, "template/__yss_dotfile__.gitignore"),
+    ),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(
+      path.join(runnerRoot, "template/docs/adr/0001-template-source.md"),
+      "utf8",
+    ),
+    "template source adr\n",
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(runnerRoot, "template/docs/discovery/reports/fixture.md"),
+    ),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/docs/design/design.md")),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(runnerRoot, "template/docs/design/README.md"), "utf8"),
+    "design readme\n",
+  );
 });
 
 test("sync snapshot remains valid when packaging and running use different locales", () => {
@@ -215,9 +281,8 @@ test("sync snapshot remains valid when packaging and running use different local
   assert.match(cliResult.stdout, /dry-run/);
 });
 
-test("sync encodes npm-ignored dotfiles and records their logical paths", () => {
+test("sync encodes nested npm-ignored dotfiles and omits root .gitignore", () => {
   const fixtureRoot = createTemplateFixture();
-  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "ignored\n", "utf8");
   fs.writeFileSync(
     path.join(fixtureRoot, ".agents/skills/shared-skill/.npmrc"),
     "audit=false\n",
@@ -233,17 +298,14 @@ test("sync encodes npm-ignored dotfiles and records their logical paths", () => 
   const snapshot = JSON.parse(
     fs.readFileSync(path.join(runnerRoot, "template.snapshot.json"), "utf8"),
   );
-  assert.equal(snapshot.encodedPaths[".gitignore"], "__yss_dotfile__.gitignore");
+  assert.equal(snapshot.encodedPaths[".gitignore"], undefined);
   assert.equal(
     snapshot.encodedPaths[".agents/skills/shared-skill/.npmrc"],
     ".agents/skills/shared-skill/__yss_dotfile__.npmrc",
   );
   assert.equal(
-    fs.readFileSync(
-      path.join(runnerRoot, "template/__yss_dotfile__.gitignore"),
-      "utf8",
-    ),
-    "ignored\n",
+    fs.existsSync(path.join(runnerRoot, "template/__yss_dotfile__.gitignore")),
+    false,
   );
   assert.equal(
     fs.readFileSync(
