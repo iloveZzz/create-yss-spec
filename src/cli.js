@@ -29,6 +29,7 @@ const INIT_EXCLUDED_RELATIVE_PATHS = new Set(
 );
 const RENDERED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.renderPaths);
 const EXAMPLE_DOC_PATHS = new Set(TEMPLATE_MANIFEST.exampleDocPaths);
+const INSTANCE_FORBIDDEN_ROOT_PATHS = ["wiki", ".nvmrc", ".gitignore"];
 const TEMPLATE_METADATA_FILENAME = ".yss-template.json";
 const TEMPLATE_MANIFEST_VERSION = sha256(TEMPLATE_MANIFEST_TEXT);
 const TEMPLATE_SOURCE = "github:iloveZzz/yss-spec-project-template";
@@ -336,12 +337,27 @@ function targetPath(targetDir, relativePath) {
   return resolved;
 }
 
+function matchesExcludedPath(relativePath, excludedPaths) {
+  const normalized = normalizeRelativePath(relativePath);
+  for (const excludedPath of excludedPaths) {
+    const excluded = normalizeRelativePath(excludedPath);
+    if (normalized === excluded || normalized.startsWith(`${excluded}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function shouldExcludeRelativePath(relativePath, mode = "managed") {
   const normalized = normalizeRelativePath(relativePath);
-  return EXCLUDED_RELATIVE_PATHS.has(normalized) ||
-    (mode === "init" &&
-      (INIT_EXCLUDED_RELATIVE_PATHS.has(normalized) ||
-        INIT_EXCLUDED_ROOT_FILES.has(normalized)));
+  if (matchesExcludedPath(normalized, EXCLUDED_RELATIVE_PATHS)) {
+    return true;
+  }
+  if (mode === "init") {
+    return matchesExcludedPath(normalized, INIT_EXCLUDED_RELATIVE_PATHS) ||
+      INIT_EXCLUDED_ROOT_FILES.has(normalized);
+  }
+  return false;
 }
 
 function shouldSkipRootEntry(entryName, mode = "managed") {
@@ -1146,9 +1162,11 @@ function verifyGeneratedTemplate(targetDir, mode = "managed") {
 
 function verifyGeneratedInstance(targetDir) {
   const forbiddenPaths = [
+    ...INSTANCE_FORBIDDEN_ROOT_PATHS,
     ...[...INIT_EXCLUDED_ROOT_ENTRIES],
     ...[...INIT_EXCLUDED_ROOT_FILES],
     ...[...INIT_EXCLUDED_RELATIVE_PATHS],
+    ...[...EXCLUDED_RELATIVE_PATHS],
   ];
   for (const relativePath of forbiddenPaths) {
     if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {

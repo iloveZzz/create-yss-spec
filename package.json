@@ -1,6 +1,6 @@
 {
   "name": "create-yss-spec",
-  "version": "2.1.15",
+  "version": "2.1.16",
   "description": "Initialize a YSS spec project template repository",
   "repository": {
     "type": "git",
