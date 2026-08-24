@@ -36,25 +36,6 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
     .split("\0")
     .filter(Boolean);
   const resolvedCheckoutRoot = fs.realpathSync(sourceRoot);
-  const encodedPaths = {};
-
-  const packageRelativePath = (relativePath) => {
-    const basename = path.posix.basename(relativePath);
-    if (!NPM_IGNORED_BASENAMES.has(basename)) {
-      return relativePath;
-    }
-
-    const directory = path.posix.dirname(relativePath);
-    const encoded = path.posix.join(
-      directory === "." ? "" : directory,
-      `__yss_dotfile__${basename}`,
-    );
-    if (Object.values(encodedPaths).includes(encoded)) {
-      throw new Error(`模板路径编码冲突：${relativePath} -> ${encoded}`);
-    }
-    encodedPaths[relativePath] = encoded;
-    return encoded;
-  };
 
   const shouldCopy = (relativePath) => {
     const segments = relativePath.split("/");
@@ -100,7 +81,7 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
       return;
     }
 
-    const targetRelativePath = packageRelativePath(logicalTargetPath);
+    const targetRelativePath = logicalTargetPath;
 
     const sourceEntry = resolveSourceEntry(sourceRelativePath);
     if (!sourceEntry.sourceTarget.isFile()) {
@@ -155,7 +136,40 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
       copyFile(trackedTargetPath, `${relativePath}/${suffix}`);
     }
   }
+}
 
+function encodeNpmIgnoredDotfiles(root) {
+  const encodedPaths = {};
+
+  const visit = (currentPath, relativeDir = "") => {
+    for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+      const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+      const absolutePath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath, relativePath);
+        continue;
+      }
+      if (!entry.isFile() || !NPM_IGNORED_BASENAMES.has(entry.name)) {
+        continue;
+      }
+
+      const directory = path.posix.dirname(relativePath);
+      const encoded = path.posix.join(
+        directory === "." ? "" : directory,
+        `__yss_dotfile__${entry.name}`,
+      );
+      if (
+        Object.values(encodedPaths).includes(encoded) ||
+        fs.existsSync(path.join(root, encoded))
+      ) {
+        throw new Error(`模板路径编码冲突：${relativePath} -> ${encoded}`);
+      }
+      encodedPaths[relativePath] = encoded;
+      fs.renameSync(absolutePath, path.join(root, encoded));
+    }
+  };
+
+  visit(root);
   return encodedPaths;
 }
 
@@ -292,8 +306,8 @@ function materializeSharedSkillProjections(templateRoot) {
 
 function refreshBundledSkillLock(templateRoot) {
   // Staging is not a git worktree, so this only recomputes hashes for skills
-  // already in the upstream lock. Unregistered @yss/skills overlays stay copied
-  // but are not added to skills-lock.json.
+  // already in the upstream lock. It must run before npm dotfile encoding so
+  // hashes match the logical names attach restores in project instances.
   const updateLock = path.join(templateRoot, "scripts/update-skill-lock");
   const lockPath = path.join(templateRoot, "skills-lock.json");
   if (!fs.existsSync(updateLock) || !fs.existsSync(lockPath)) {
@@ -315,9 +329,10 @@ try {
   run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
   run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
   run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
-  const encodedPaths = copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
   materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
+  const encodedPaths = encodeNpmIgnoredDotfiles(stagingRoot);
   const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
   const snapshotMetadata = {
     schemaVersion: 1,
