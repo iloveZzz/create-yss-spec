@@ -288,6 +288,53 @@ test("sync encodes npm-ignored dotfiles and records their logical paths", () => 
   );
 });
 
+test("sync recopies drifted shared skill projections from the canonical tree", () => {
+  const fixtureRoot = createTemplateFixture();
+  const driftedProjection = path.join(
+    fixtureRoot,
+    ".codex/skills/shared-skill/SKILL.md",
+  );
+  fs.rmSync(path.join(fixtureRoot, ".codex/skills/shared-skill"), {
+    recursive: true,
+    force: true,
+  });
+  fs.mkdirSync(path.join(fixtureRoot, ".codex/skills/shared-skill"), {
+    recursive: true,
+  });
+  fs.writeFileSync(driftedProjection, "old projection\n", "utf8");
+  fs.writeFileSync(
+    path.join(fixtureRoot, "skills-lock.json"),
+    `${JSON.stringify(
+      {
+        version: 3,
+        projectionRoots: [".codex/skills"],
+        skills: {
+          shared: {
+            "shared-skill": {},
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "drifted projection"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(
+      path.join(runnerRoot, "template/.codex/skills/shared-skill/SKILL.md"),
+      "utf8",
+    ),
+    "shared skill\n",
+  );
+});
+
 test("sync refreshes bundled skills-lock.json after copying template files", () => {
   const fixtureRoot = createTemplateFixture();
   fs.mkdirSync(path.join(fixtureRoot, "scripts"), { recursive: true });

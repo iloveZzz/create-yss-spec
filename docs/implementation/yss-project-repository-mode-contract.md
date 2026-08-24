@@ -55,7 +55,7 @@ npx create-yss-spec@latest attach \
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
-`7373097` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`。快照会在非 git 暂存目录刷新 `skills-lock.json` 的 shared skill hash，使 `yss-formily` 等内容变更与锁文件一致；叠加层尚未登记进模板源 `skills-lock.json` / 路由注册表，因此不会被 CLI 补投影到全部 Agent 根。
+`7373097` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树（修复 `yss-formily` 这类只改了权威源、未同步目录副本的漂移），并在非 git 暂存目录刷新 `skills-lock.json` hash。叠加层尚未登记进模板源 lock / 路由注册表，因此不会被 CLI 补投影到全部 Agent 根。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 

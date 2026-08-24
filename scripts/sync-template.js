@@ -244,6 +244,52 @@ function writeSnapshotMetadata(metadata) {
   }
 }
 
+function materializeSharedSkillProjections(templateRoot) {
+  const lockPath = path.join(templateRoot, "skills-lock.json");
+  if (!fs.existsSync(lockPath)) {
+    return;
+  }
+
+  let lock;
+  try {
+    lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+  } catch {
+    return;
+  }
+
+  const sharedNames = Object.keys(lock.skills?.shared ?? {});
+  if (sharedNames.length === 0) {
+    return;
+  }
+
+  const sourceRoot = path.join(templateRoot, ".agents/skills");
+  const projectionRoots = Array.isArray(lock.projectionRoots) && lock.projectionRoots.length
+    ? lock.projectionRoots
+    : [
+        ".claude/skills",
+        ".codex/skills",
+        ".cursor/skills",
+        ".hermes/skills",
+        ".pi/skills",
+        ".qoder/skills",
+        ".trae/skills",
+      ];
+
+  for (const name of sharedNames) {
+    const source = path.join(sourceRoot, name);
+    if (!fs.existsSync(source) || !fs.statSync(source).isDirectory()) {
+      continue;
+    }
+    for (const root of projectionRoots) {
+      const projectionRoot = path.join(templateRoot, root);
+      const target = path.join(projectionRoot, name);
+      fs.mkdirSync(projectionRoot, { recursive: true });
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.cpSync(source, target, { recursive: true, preserveTimestamps: true });
+    }
+  }
+}
+
 function refreshBundledSkillLock(templateRoot) {
   // Staging is not a git worktree, so this only recomputes hashes for skills
   // already in the upstream lock. Unregistered @yss/skills overlays stay copied
@@ -270,6 +316,7 @@ try {
   run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
   run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
   const encodedPaths = copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
   const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
   const snapshotMetadata = {
