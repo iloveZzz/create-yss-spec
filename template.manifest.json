@@ -28,7 +28,6 @@
     ".pi/settings.json",
     "docs/.scratch",
     "docs/reviews",
-    "docs/adr",
     "docs/discovery/reports",
     "docs/design/design.md"
   ],
@@ -47,6 +46,7 @@
     "yss-public-skills.json"
   ],
   "initExcludePaths": [
-    ".github"
+    ".github",
+    "docs/adr"
   ]
 }

@@ -209,10 +209,11 @@ test("sync expands internal directory projections into the bundled template", ()
     false,
   );
   assert.equal(
-    fs.existsSync(
+    fs.readFileSync(
       path.join(runnerRoot, "template/docs/adr/0001-template-source.md"),
+      "utf8",
     ),
-    false,
+    "template source adr\n",
   );
   assert.equal(
     fs.existsSync(

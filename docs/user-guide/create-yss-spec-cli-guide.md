@@ -184,7 +184,7 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - `docs/testing/`
 - 项目级 Agent skills 与流程文档
 
-初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`wiki/`、`docs/adr/`、`docs/discovery/reports/`、`docs/design/design.md`、`scripts/`、`.github/` 和 `yss-public-skills.json`。其中 `.gitignore`、`.nvmrc`、`wiki/` 和上述模板源实例文档在快照阶段就不会打进 CLI 包，因此 init / attach / sync 都不会写入或覆盖它们。初始化后的项目不会因此失去生命周期使用所需的文档、skills 或 `skills-lock.json`；`attach` 仍可为已有项目补齐受管校验脚本，但不会覆盖目标仓库已有的 `.gitignore`。
+初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`wiki/`、`docs/adr/`、`docs/discovery/reports/`、`docs/design/design.md`、`scripts/`、`.github/` 和 `yss-public-skills.json`。其中 `.gitignore`、`.nvmrc`、`wiki/`、`docs/discovery/reports/` 和 `docs/design/design.md` 在快照阶段就不会打进 CLI 包，因此 init / attach / sync 都不会写入它们。`docs/adr/` 只在 init / sync 时排除；`attach` 仍会复制，因为模板校验脚本依赖其中的生命周期 ADR。初始化后的项目不会因此失去生命周期使用所需的文档、skills 或 `skills-lock.json`；`attach` 仍可为已有项目补齐受管校验脚本，但不会覆盖目标仓库已有的 `.gitignore`。
 
 如果启用了 `--git-init`，目标目录下还会生成 `.git/`。
 
@@ -208,7 +208,7 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 对于 `sync`，默认安全策略还包括：
 
 - 当前目录缺少 `.yss-template.json` 时，直接拒绝同步
-- 不写入 `.gitignore`、`.nvmrc`、`wiki/` 和模板源实例文档
+- 不写入 `.gitignore`、`.nvmrc`、`wiki/`、`docs/adr/` 和模板源实例文档
 - `yss-project.yaml` schema、字段或模式非法时，在写入前拒绝同步
 - 将 `prd-template.md`、`vertical-slice-issue-template.md`、`docs/requirements/issues/` 和 `*-prd.md` 迁移到对应 Spec / Ticket 路径
 - 删除各 Agent root 下的 `to-prd`、`to-issues` 旧 skill，不创建兼容别名

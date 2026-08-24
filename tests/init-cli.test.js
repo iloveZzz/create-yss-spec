@@ -16,12 +16,12 @@ const snapshotExcludedInstancePaths = [
   ".gitignore",
   ".nvmrc",
   "wiki",
-  "docs/adr",
   "docs/discovery/reports",
   "docs/design/design.md",
 ];
 const initExcludedInstancePaths = [
   ...snapshotExcludedInstancePaths,
+  "docs/adr",
   "scripts",
   ".github",
   "yss-public-skills.json",
@@ -817,7 +817,6 @@ test("attach dry-run previews an arbitrary existing project without writing or d
     ".gitignore",
     ".nvmrc",
     "wiki/",
-    "docs/adr/",
     "docs/discovery/reports/",
     "docs/design/design.md",
   ]) {
@@ -863,6 +862,14 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.readFileSync(runtimeFile, "utf8"), "module.exports = 'runtime';\n");
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
   assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), true);
+  assert.ok(
+    fs.existsSync(
+      path.join(
+        targetDir,
+        "docs/adr/0003-machine-readable-lifecycle-registry.md",
+      ),
+    ),
+  );
   assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);

@@ -1165,8 +1165,7 @@ function verifyGeneratedInstance(targetDir) {
     ...INSTANCE_FORBIDDEN_ROOT_PATHS,
     ...[...INIT_EXCLUDED_ROOT_ENTRIES],
     ...[...INIT_EXCLUDED_ROOT_FILES],
-    ...[...INIT_EXCLUDED_RELATIVE_PATHS],
-    ...[...EXCLUDED_RELATIVE_PATHS],
+    ".github",
   ];
   for (const relativePath of forbiddenPaths) {
     if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
