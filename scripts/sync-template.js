@@ -12,7 +12,7 @@ const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "04a6151612289f3cd0ddce2c1411eb3aa2444ba7";
+const DEFAULT_TEMPLATE_REF = "737309712b53785f3d8c0524a0e69c44f9b671b1";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
@@ -244,6 +244,19 @@ function writeSnapshotMetadata(metadata) {
   }
 }
 
+function refreshBundledSkillLock(templateRoot) {
+  // Staging is not a git worktree, so this only recomputes hashes for skills
+  // already in the upstream lock. Unregistered @yss/skills overlays stay copied
+  // but are not added to skills-lock.json.
+  const updateLock = path.join(templateRoot, "scripts/update-skill-lock");
+  const lockPath = path.join(templateRoot, "skills-lock.json");
+  if (!fs.existsSync(updateLock) || !fs.existsSync(lockPath)) {
+    return;
+  }
+
+  run(process.execPath, [updateLock], templateRoot);
+}
+
 const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
 const checkoutRoot = fs.mkdtempSync(
   path.join(os.tmpdir(), "yss-spec-template-"),
@@ -257,6 +270,7 @@ try {
   run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
   run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
   const encodedPaths = copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  refreshBundledSkillLock(stagingRoot);
   const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
   const snapshotMetadata = {
     schemaVersion: 1,
