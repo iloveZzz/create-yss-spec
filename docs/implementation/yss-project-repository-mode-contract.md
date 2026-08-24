@@ -16,8 +16,8 @@ owner: ai
 | repo_role | other / npm CLI |
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
-| working_branch | `cursor/adapt-template-04a6151-ed3f` |
-| template_ref | `04a6151612289f3cd0ddce2c1411eb3aa2444ba7` |
+| working_branch | `cursor/adapt-template-7373097-8a4c` |
+| template_ref | `737309712b53785f3d8c0524a0e69c44f9b671b1` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -54,6 +54,8 @@ npx create-yss-spec@latest attach \
 `attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。快照级排除 `.template-source/`、`.github/` 和 `.cursor/environment.json`。`yss-public-skills.json` 仅 init / sync 排除，attach 会带上以便 `verify-template` 通过。
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
+
+`7373097` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`。快照会在非 git 暂存目录刷新 `skills-lock.json` 的 shared skill hash，使 `yss-formily` 等内容变更与锁文件一致；叠加层尚未登记进模板源 `skills-lock.json` / 路由注册表，因此不会被 CLI 补投影到全部 Agent 根。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 
@@ -101,6 +103,6 @@ npx create-yss-spec@latest attach \
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.2.0`；发布后回写模板与 CLI 的验证记录和回滚点。
+4. 发布 CLI `2.2.1`；发布后回写模板与 CLI 的验证记录和回滚点。
 
 任一仓库未通过共同验证、模板引用仍为浮动 ref、独立 review 未完成或打包失败时，只能声明“本仓库实现完成，跨仓库发布受阻”，不得声明整体可发布。本轮不执行 npm publish。
