@@ -184,7 +184,7 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - `docs/testing/`
 - 项目级 Agent skills 与流程文档
 
-初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/` 和 `yss-public-skills.json`。初始化后的项目不会因此失去生命周期使用所需的文档、skills 或 `skills-lock.json`；`attach` 仍可为已有项目补齐受管校验脚本。
+初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/`、`.template-source/`、`.cursor/environment.json` 和 `yss-public-skills.json`。只同步必要文档目录、Spec / Ticket 规范和 Agent skills；模板仓库自己的治理笔记与源仓工具链不会进入项目实例。`attach` 仍可为已有项目补齐受管校验脚本，但同样不会带上源仓 CI、Cloud 环境和公开发布清单。
 
 如果启用了 `--git-init`，目标目录下还会生成 `.git/`。
 
@@ -204,6 +204,8 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 - `--dry-run` 没有副作用
 - `attach` 和 `sync` apply 前会把将被覆盖的文件备份到目标目录外；成功后默认保留备份，失败会用操作日志回滚
 - Git worktree 有脏改动时只提醒，不自动 stash 或提交
+- `.gitmodules`、gitlink 挂载点和 `apps/` 下已检出的实现仓工作树是用户资产；空 gitlink、uninitialized、detached HEAD 一律阻断，`--force` 不能覆盖挂载点
+- CLI 不创建 git submodule，也不把 CLI 仓库自己的 git root 当成输出目录的 git root
 
 对于 `sync`，默认安全策略还包括：
 

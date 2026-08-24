@@ -44,8 +44,10 @@ npx create-yss-spec@latest --version
 - 接管 / 升级时迁移 Spec / Ticket 路径并删除 `to-prd`、`to-issues` 旧 skill
 - 旧、新资产内容冲突或清单 schema / mode 非法时 fail closed
 - 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
+- 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例
+- 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
 
-本次模板适配按 `2.1.15` 发布。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
+本次模板适配按 `2.2.0` 发布，绑定 `yss-spec-project-template@04a6151`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。
 
 ## 接管已有项目
 
@@ -72,6 +74,7 @@ npx create-yss-spec@latest attach \
 - 根规则文件等受管冲突默认阻断；`--force` 才覆盖，并把被覆盖文件备份到目标目录外的临时目录。
 - 合法 `template-source` 身份会转换为 `project-instance`；非法身份、迁移冲突和无法判断归属的扁平 Ticket 始终阻断。
 - Git worktree 有脏改动时只提醒，不自动 stash 或提交。
+- `.gitmodules`、gitlink 和 `apps/` 挂载工作树是用户资产；空 gitlink / detached HEAD 即使 `--force` 也阻断。
 
 ## 同步已有模板实例仓库
 
@@ -96,7 +99,8 @@ npx create-yss-spec@latest sync --dry-run
 - 对模板已删除文件只报告，不自动删除
 - 对已知的 Spec / Ticket 旧路径执行一次性迁移
 - 迁移目标已存在且内容不一致时停止，不静默覆盖
-- 同步结束会重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；门禁失败会回滚文件和 metadata
+- `.gitmodules`、gitlink（mode `160000`）和 `apps/` 下已挂载实现仓是用户资产，不创建、不覆盖、不删除
+- init / sync 保持瘦实例：不复制 `scripts/`、`wiki/`、`.github/`、`.nvmrc`、`.gitignore`、`.template-source/`；attach 结束后会执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`，门禁失败会回滚文件和 metadata
 
 ```bash
 npx create-yss-spec@latest sync --target-dir . --dry-run
