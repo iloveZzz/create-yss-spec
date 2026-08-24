@@ -9,13 +9,16 @@
     ".ua",
     ".qwen",
     ".template-source",
-    "packages"
+    "packages",
+    ".github"
   ],
   "excludeRootFiles": [
     "package-lock.json",
     "package.json",
     "template.manifest.json",
-    "template.snapshot.json"
+    "template.snapshot.json",
+    "yss-public-skills.json",
+    ".gitmodules"
   ],
   "excludePaths": [
     ".claude/settings.local.json",
@@ -23,6 +26,7 @@
     ".codex/settings.local.json",
     ".codex/skills/.DS_Store",
     ".pi/settings.json",
+    ".cursor/environment.json",
     "docs/.scratch",
     "docs/reviews"
   ],
@@ -40,10 +44,7 @@
   ],
   "initExcludeRootFiles": [
     ".gitignore",
-    ".nvmrc",
-    "yss-public-skills.json"
+    ".nvmrc"
   ],
-  "initExcludePaths": [
-    ".github"
-  ]
+  "initExcludePaths": []
 }
