@@ -91,6 +91,66 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".cursorrules")));
+  assert.ok(
+    fs.existsSync(path.join(targetDir, ".agents/rules/yss-ai-skills.md")),
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(targetDir, ".agents/skills/.yss-skills-manifest.json"),
+    ),
+  );
+  assert.ok(
+    fs.existsSync(path.join(targetDir, "docs/agents/skill-migrations.md")),
+  );
+  const frontendSkills = [
+    "yss-page-module-development",
+    "yss-api-integration",
+    "yss-use-table-height",
+    "yss-use-tree-height",
+    "ytable-usage",
+    "yedit-table-usage",
+    "formily-foundation",
+    "theme-token-usage",
+  ];
+  for (const frontendSkill of frontendSkills) {
+    assert.ok(
+      fs.existsSync(
+        path.join(targetDir, ".agents/skills", frontendSkill, "SKILL.md"),
+      ),
+      `missing canonical frontend skill ${frontendSkill}`,
+    );
+    for (const projectionRoot of [
+      ".claude",
+      ".codex",
+      ".cursor",
+      ".hermes",
+      ".pi",
+      ".qoder",
+      ".trae",
+    ]) {
+      assert.ok(
+        fs.existsSync(
+          path.join(targetDir, projectionRoot, "skills", frontendSkill, "SKILL.md"),
+        ),
+        `missing ${projectionRoot} projection for ${frontendSkill}`,
+      );
+    }
+  }
+  for (const retiredSkill of [
+    "api-integration",
+    "page-module-development",
+    "use-table-height",
+    "use-tree-height",
+    "yss-ui-business-page-generation",
+    "high-fidelity-html-prototype",
+  ]) {
+    assert.equal(
+      fs.existsSync(path.join(targetDir, ".agents/skills", retiredSkill)),
+      false,
+      `${retiredSkill} must not be generated`,
+    );
+  }
   const scaffoldReferenceSkills = [
     "yss-backend-scaffold-application",
     "yss-backend-scaffold-domain",
@@ -146,6 +206,10 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
+    false,
+  );
   assert.equal(
     fs.existsSync(path.join(targetDir, "scripts/sync-cli-template.js")),
     false,
@@ -855,6 +919,29 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), true);
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "scripts/verify-skill-governance")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/ytable-usage/SKILL.md")),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(targetDir, ".agents/skills/yss-page-module-development/SKILL.md"),
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, ".agents/skills/high-fidelity-html-prototype")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
+    false,
+  );
 
   const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
   assert.match(identity, /^repository_mode:\s*project-instance$/m);
