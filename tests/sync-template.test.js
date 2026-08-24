@@ -288,6 +288,136 @@ test("sync encodes npm-ignored dotfiles and records their logical paths", () => 
   );
 });
 
+test("sync recopies drifted shared skill projections from the canonical tree", () => {
+  const fixtureRoot = createTemplateFixture();
+  const driftedProjection = path.join(
+    fixtureRoot,
+    ".codex/skills/shared-skill/SKILL.md",
+  );
+  fs.rmSync(path.join(fixtureRoot, ".codex/skills/shared-skill"), {
+    recursive: true,
+    force: true,
+  });
+  fs.mkdirSync(path.join(fixtureRoot, ".codex/skills/shared-skill"), {
+    recursive: true,
+  });
+  fs.writeFileSync(driftedProjection, "old projection\n", "utf8");
+  fs.writeFileSync(
+    path.join(fixtureRoot, "skills-lock.json"),
+    `${JSON.stringify(
+      {
+        version: 3,
+        projectionRoots: [".codex/skills"],
+        skills: {
+          shared: {
+            "shared-skill": {},
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "drifted projection"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(
+      path.join(runnerRoot, "template/.codex/skills/shared-skill/SKILL.md"),
+      "utf8",
+    ),
+    "shared skill\n",
+  );
+});
+
+test("sync refreshes skills-lock.json using logical dotfile names before npm encoding", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".agents/skills/shared-skill/.gitignore"),
+    "tmp\n",
+    "utf8",
+  );
+  fs.mkdirSync(path.join(fixtureRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "scripts/update-skill-lock"),
+    [
+      "#!/usr/bin/env node",
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "const names = [];",
+      "function visit(dir) {",
+      "  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {",
+      "    const abs = path.join(dir, entry.name);",
+      "    if (entry.isDirectory()) visit(abs);",
+      "    else names.push(entry.name);",
+      "  }",
+      "}",
+      "visit(path.join(process.cwd(), '.agents/skills'));",
+      "fs.writeFileSync(path.join(process.cwd(), 'skills-lock.json'), names.sort().join(',') + '\\n');",
+      "",
+    ].join("\n"),
+    { encoding: "utf8", mode: 0o755 },
+  );
+  fs.writeFileSync(path.join(fixtureRoot, "skills-lock.json"), "stale-lock\n", "utf8");
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "lock before encode"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  const lock = fs.readFileSync(
+    path.join(runnerRoot, "template/skills-lock.json"),
+    "utf8",
+  );
+  assert.match(lock, /\.gitignore/);
+  assert.doesNotMatch(lock, /__yss_dotfile__/);
+  const snapshot = JSON.parse(
+    fs.readFileSync(path.join(runnerRoot, "template.snapshot.json"), "utf8"),
+  );
+  assert.equal(
+    snapshot.encodedPaths[".agents/skills/shared-skill/.gitignore"],
+    ".agents/skills/shared-skill/__yss_dotfile__.gitignore",
+  );
+});
+
+test("sync refreshes bundled skills-lock.json after copying template files", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.mkdirSync(path.join(fixtureRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "scripts/update-skill-lock"),
+    [
+      "#!/usr/bin/env node",
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "fs.writeFileSync(path.join(process.cwd(), 'skills-lock.json'), 'refreshed-lock\\n');",
+      "",
+    ].join("\n"),
+    { encoding: "utf8", mode: 0o755 },
+  );
+  fs.writeFileSync(
+    path.join(fixtureRoot, "skills-lock.json"),
+    "stale-lock\n",
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "."]);
+  runGit(fixtureRoot, ["commit", "-m", "skill lock"]);
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(path.join(runnerRoot, "template/skills-lock.json"), "utf8"),
+    "refreshed-lock\n",
+  );
+});
+
 test("sync rejects external symlinks without replacing the existing snapshot", () => {
   const fixtureRoot = createTemplateFixture({ externalSymlink: true });
   const runnerRoot = createSyncRunner();
