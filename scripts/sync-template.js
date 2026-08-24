@@ -159,6 +159,50 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
   return encodedPaths;
 }
 
+function emptyDirectory(directory) {
+  for (const entry of fs.readdirSync(directory)) {
+    fs.rmSync(path.join(directory, entry), { recursive: true, force: true });
+  }
+}
+
+function removeCopiedSource(source) {
+  try {
+    fs.rmSync(source, { recursive: true, force: true });
+  } catch (error) {
+    if (!fs.existsSync(source)) {
+      return;
+    }
+    if (!fs.statSync(source).isDirectory()) {
+      throw error;
+    }
+    emptyDirectory(source);
+  }
+}
+
+function relocatePath(source, destination) {
+  if (fs.existsSync(destination)) {
+    const destinationStat = fs.statSync(destination);
+    if (destinationStat.isDirectory()) {
+      emptyDirectory(destination);
+      fs.cpSync(source, destination, { recursive: true, preserveTimestamps: true });
+    } else {
+      fs.copyFileSync(source, destination);
+    }
+    removeCopiedSource(source);
+    return;
+  }
+
+  try {
+    fs.renameSync(source, destination);
+  } catch (error) {
+    if (error.code !== "EXDEV") {
+      throw error;
+    }
+    fs.cpSync(source, destination, { recursive: true, preserveTimestamps: true });
+    removeCopiedSource(source);
+  }
+}
+
 function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
   const backupParent = fs.mkdtempSync(
     path.join(packageRoot, ".template-backup-"),
@@ -171,15 +215,15 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
 
   try {
     if (fs.existsSync(targetTemplateRoot)) {
-      fs.renameSync(targetTemplateRoot, backupRoot);
+      relocatePath(targetTemplateRoot, backupRoot);
       previousTemplateMoved = true;
     }
     if (fs.existsSync(targetSnapshotPath)) {
-      fs.renameSync(targetSnapshotPath, snapshotBackup);
+      relocatePath(targetSnapshotPath, snapshotBackup);
       previousSnapshotMoved = true;
     }
 
-    fs.renameSync(stagingRoot, targetTemplateRoot);
+    relocatePath(stagingRoot, targetTemplateRoot);
     installed = true;
     writeSnapshotMetadata(snapshotMetadata);
 
@@ -194,17 +238,27 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
         fs.existsSync(snapshotBackup) &&
         !fs.existsSync(targetSnapshotPath)
       ) {
-        fs.renameSync(snapshotBackup, targetSnapshotPath);
+        relocatePath(snapshotBackup, targetSnapshotPath);
       }
       if (installed && fs.existsSync(targetTemplateRoot)) {
-        fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
+        emptyDirectory(targetTemplateRoot);
       }
       if (
         previousTemplateMoved &&
         fs.existsSync(backupRoot) &&
+        fs.existsSync(targetTemplateRoot)
+      ) {
+        emptyDirectory(targetTemplateRoot);
+        fs.cpSync(backupRoot, targetTemplateRoot, {
+          recursive: true,
+          preserveTimestamps: true,
+        });
+      } else if (
+        previousTemplateMoved &&
+        fs.existsSync(backupRoot) &&
         !fs.existsSync(targetTemplateRoot)
       ) {
-        fs.renameSync(backupRoot, targetTemplateRoot);
+        relocatePath(backupRoot, targetTemplateRoot);
       }
     } catch (rollbackError) {
       throw new Error(
@@ -221,6 +275,12 @@ function writeSnapshotMetadata(metadata) {
   try {
     fs.writeFileSync(temporaryPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
     fs.renameSync(temporaryPath, targetSnapshotPath);
+  } catch (error) {
+    if (error && error.code === "EXDEV") {
+      fs.copyFileSync(temporaryPath, targetSnapshotPath);
+    } else {
+      throw error;
+    }
   } finally {
     fs.rmSync(temporaryPath, { force: true });
   }
