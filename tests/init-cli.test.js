@@ -72,7 +72,9 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "README.md")));
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml")));
   assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".cursor/skills")));
   for (const removedPath of [
     "docs/templates/prd-template.md",
     ".agent/skills",
@@ -133,6 +135,7 @@ test("interactive init generates a template instance in an empty directory", () 
     "wiki",
     ".github",
     "yss-public-skills.json",
+    ".cursor/environment.json",
   ]) {
     assert.equal(
       fs.existsSync(path.join(targetDir, excludedInitPath)),
@@ -222,6 +225,7 @@ test("sync preserves the init distribution boundary", () => {
     "wiki",
     ".github",
     "yss-public-skills.json",
+    ".cursor/environment.json",
   ]) {
     assert.equal(
       fs.existsSync(path.join(targetDir, excludedInitPath)),
@@ -848,6 +852,9 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
 
   const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
   assert.match(identity, /^repository_mode:\s*project-instance$/m);
@@ -1220,6 +1227,191 @@ test("attach blocks intermediate symlinks before writing outside the project", (
   assert.equal(fs.existsSync(path.join(externalDir, "templates")), false);
   assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
   assert.equal(fs.lstatSync(path.join(targetDir, "docs")).isSymbolicLink(), true);
+});
+
+function runGit(cwd, args, extraEnv = {}) {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, ...extraEnv },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result;
+}
+
+function createGitlinkFixture() {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-gitlink-"));
+  const superRoot = path.join(sandboxDir, "harness");
+  const subRoot = path.join(sandboxDir, "backend");
+  const mountRelative = "apps/backend/demo";
+
+  fs.mkdirSync(subRoot, { recursive: true });
+  runGit(subRoot, ["init", "--initial-branch", "main"]);
+  runGit(subRoot, ["config", "user.email", "test@example.com"]);
+  runGit(subRoot, ["config", "user.name", "YSS Test"]);
+  fs.writeFileSync(path.join(subRoot, "README.md"), "backend\n", "utf8");
+  runGit(subRoot, ["add", "."]);
+  runGit(subRoot, ["commit", "-m", "backend"]);
+  const sha = runGit(subRoot, ["rev-parse", "HEAD"]).stdout.trim();
+
+  fs.mkdirSync(superRoot, { recursive: true });
+  runGit(superRoot, ["init", "--initial-branch", "main"]);
+  runGit(superRoot, ["config", "user.email", "test@example.com"]);
+  runGit(superRoot, ["config", "user.name", "YSS Test"]);
+  runGit(superRoot, ["config", "protocol.file.allow", "always"]);
+  fs.mkdirSync(path.join(superRoot, mountRelative), { recursive: true });
+  fs.writeFileSync(
+    path.join(superRoot, ".gitmodules"),
+    `[submodule "${mountRelative}"]\n\tpath = ${mountRelative}\n\turl = ${subRoot}\n`,
+    "utf8",
+  );
+  runGit(superRoot, [
+    "update-index",
+    "--add",
+    "--cacheinfo",
+    `160000,${sha},${mountRelative}`,
+  ]);
+  runGit(superRoot, ["add", ".gitmodules"]);
+  runGit(superRoot, ["commit", "-m", "add empty gitlink"]);
+
+  return {
+    superRoot,
+    subRoot,
+    mountRelative,
+    mount: path.join(superRoot, mountRelative),
+    gitmodules: path.join(superRoot, ".gitmodules"),
+  };
+}
+
+function checkoutGitlinkWorktree(superRoot, subRoot, mountRelative) {
+  const mount = path.join(superRoot, mountRelative);
+  const gitDir = path.join(superRoot, ".git/modules", mountRelative);
+  fs.rmSync(mount, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(mount), { recursive: true });
+  fs.mkdirSync(path.dirname(gitDir), { recursive: true });
+  runGit(
+    superRoot,
+    [
+      "-c",
+      "protocol.file.allow=always",
+      "clone",
+      `--separate-git-dir=${gitDir}`,
+      subRoot,
+      mount,
+    ],
+    {
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "protocol.file.allow",
+      GIT_CONFIG_VALUE_0: "always",
+    },
+  );
+  return mount;
+}
+
+test("init fails closed on an empty gitlink even with --force", () => {
+  const { superRoot, mount, gitmodules } = createGitlinkFixture();
+  const gitmodulesBefore = fs.readFileSync(gitmodules, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Gitlink Project",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      mount,
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /gitlink|git-submodule|--force/);
+  assert.equal(fs.existsSync(path.join(mount, metadataFileName)), false);
+  assert.equal(fs.existsSync(path.join(mount, "AGENTS.md")), false);
+  assert.equal(fs.readFileSync(gitmodules, "utf8"), gitmodulesBefore);
+  assert.equal(fs.existsSync(path.join(superRoot, metadataFileName)), false);
+});
+
+test("attach fails closed on an empty gitlink even with --force", () => {
+  const { mount, gitmodules } = createGitlinkFixture();
+  const gitmodulesBefore = fs.readFileSync(gitmodules, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      mount,
+      "--project-name",
+      "Gitlink Attach",
+      "--business-domain",
+      "Operations",
+      "--apply",
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /gitlink|git-submodule|--force/);
+  assert.equal(fs.existsSync(path.join(mount, metadataFileName)), false);
+  assert.equal(fs.readFileSync(gitmodules, "utf8"), gitmodulesBefore);
+});
+
+test("init fails closed on a detached HEAD gitlink worktree", () => {
+  const { superRoot, subRoot, mountRelative } = createGitlinkFixture();
+  const mount = checkoutGitlinkWorktree(superRoot, subRoot, mountRelative);
+  runGit(mount, ["checkout", "--detach", "HEAD"]);
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Detached Gitlink",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      mount,
+      "--force",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /detached HEAD|gitlink|git-submodule/);
+  assert.equal(fs.existsSync(path.join(mount, metadataFileName)), false);
+});
+
+test("attach on a harness with gitlink does not rewrite .gitmodules or the mount", () => {
+  const { superRoot, mount, gitmodules } = createGitlinkFixture();
+  const gitmodulesBefore = fs.readFileSync(gitmodules, "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "attach",
+      "--target-dir",
+      superRoot,
+      "--project-name",
+      "Harness With Gitlink",
+      "--business-domain",
+      "Operations",
+      "--apply",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(gitmodules, "utf8"), gitmodulesBefore);
+  assert.equal(fs.existsSync(path.join(mount, "AGENTS.md")), false);
+  assert.equal(fs.existsSync(path.join(superRoot, metadataFileName)), true);
+  assert.equal(fs.existsSync(path.join(superRoot, ".github")), false);
 });
 
 function runCli(args) {

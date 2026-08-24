@@ -16,8 +16,8 @@ owner: ai
 | repo_role | other / npm CLI |
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
-| working_branch | `codex/attach-sync-template-lifecycle` |
-| template_ref | 发布前绑定 40 位模板 commit |
+| working_branch | `cursor/adapt-template-04a6151-ed3f` |
+| template_ref | `04a6151612289f3cd0ddce2c1411eb3aa2444ba7` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -28,7 +28,7 @@ owner: ai
 
 ### 初始化
 
-空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。metadata 至少包含：
+空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。init / sync 只分发必要文档目录、Spec 规范和 skills，不复制模板源治理笔记、`scripts/`、`.github/`、`.nvmrc` 或 `.gitignore`。metadata 至少包含：
 
 - `cliVersion`
 - `templateSource: github:iloveZzz/yss-spec-project-template`
@@ -51,7 +51,7 @@ npx create-yss-spec@latest attach \
   --apply [--force]
 ```
 
-`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件和 `.git` 原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。
+`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。快照级排除 `.template-source/`、`.github/` 和 `.cursor/environment.json`。`yss-public-skills.json` 仅 init / sync 排除，attach 会带上以便 `verify-template` 通过。
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
@@ -66,7 +66,8 @@ npx create-yss-spec@latest attach \
 - 普通同步新增缺失文件，更新 baseline 未被本地修改的文件，跳过并报告冲突。
 - `sync --force` 先备份，再覆盖受管冲突文件；模板删除默认只报告。
 - 旧 skill、旧 Spec / Ticket 路径和根 `.scratch/<feature>/` 只在安全迁移计划成功时移动或删除；unsafe / conflict 阻断。
-- 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
+- 空 gitlink、uninitialized、detached HEAD 和 git-submodule 挂载点在写入前 fail closed；`--force` 不能覆盖。
+- init 完成后做瘦实例校验（禁止源仓笔记与工具链泄漏）。sync 对已误进实例的 `.template-source/`、`wiki/`、`docs/reviews/` 只 `remove-report`，不把遗留文件当成校验失败。attach 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
 
 ## 固定迁移映射
 
@@ -86,12 +87,13 @@ npx create-yss-spec@latest attach \
 
 | 场景 | 验证 |
 |---|---|
-| 空目录初始化 | `project-instance`、metadata v2、固定 commit、全部 projection 门禁通过 |
+| 空目录初始化 | `project-instance`、metadata v2、固定 commit、瘦实例不含源仓笔记 / `scripts` / `.github` |
 | 任意已有项目 attach dry-run | 不写文件、不删除 `.git`，运行时代码保持不变 |
 | attach 冲突 | 无 force fail closed；force 覆盖并输出外部备份路径 |
 | attach 旧路径迁移 | Spec / Ticket 映射生效；unsafe / conflict 不落盘 |
+| gitlink 挂载点 | 空 gitlink / detached HEAD / `--force` 覆盖均 fail closed，不改 `.gitmodules` |
 | sync baseline | 新增、更新、跳过、删除报告与 metadata 升级通过 |
-| post-sync gates | 三个模板门禁全部 fresh 通过，失败时文件和 metadata 回滚 |
+| post-attach gates | attach 三个模板门禁全部 fresh 通过，失败时文件和 metadata 回滚 |
 | 固定快照 | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` 与 `npm pack --dry-run` 通过 |
 
 ## 发布顺序与阻断条件
@@ -99,6 +101,6 @@ npx create-yss-spec@latest attach \
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.1.0`；发布后回写模板与 CLI 的验证记录和回滚点。
+4. 发布 CLI `2.2.0`；发布后回写模板与 CLI 的验证记录和回滚点。
 
 任一仓库未通过共同验证、模板引用仍为浮动 ref、独立 review 未完成或打包失败时，只能声明“本仓库实现完成，跨仓库发布受阻”，不得声明整体可发布。本轮不执行 npm publish。

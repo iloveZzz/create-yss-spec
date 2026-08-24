@@ -49,6 +49,23 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     "template source ticket\n",
     "utf8",
   );
+  fs.mkdirSync(path.join(fixtureRoot, ".github/workflows"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".github/workflows/template-node-tooling.yml"),
+    "name: template-source-only\n",
+    "utf8",
+  );
+  fs.mkdirSync(path.join(fixtureRoot, ".cursor"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".cursor/environment.json"),
+    '{"name":"template-source"}\n',
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(fixtureRoot, "yss-public-skills.json"),
+    '{"skills":[]}\n',
+    "utf8",
+  );
   fs.symlinkSync(
     "../../.agents/skills/shared-skill",
     path.join(projectionRoot, "shared-skill"),
@@ -162,6 +179,20 @@ test("sync expands internal directory projections into the bundled template", ()
       path.join(runnerRoot, "template/docs/.scratch/source-change/ticket.md"),
     ),
     false,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(runnerRoot, "template/.github/workflows/template-node-tooling.yml"),
+    ),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/.cursor/environment.json")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/yss-public-skills.json")),
+    true,
   );
 });
 

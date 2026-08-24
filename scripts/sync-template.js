@@ -12,7 +12,7 @@ const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "986ded5d78e2d0bd816f7f8038aec6ef2d7c6d0a";
+const DEFAULT_TEMPLATE_REF = "04a6151612289f3cd0ddce2c1411eb3aa2444ba7";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
@@ -159,6 +159,24 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
   return encodedPaths;
 }
 
+function movePath(source, destination) {
+  try {
+    fs.renameSync(source, destination);
+  } catch (error) {
+    if (error.code !== "EXDEV") {
+      throw error;
+    }
+    const stat = fs.lstatSync(source);
+    if (stat.isDirectory()) {
+      fs.cpSync(source, destination, { recursive: true });
+      fs.rmSync(source, { recursive: true, force: true });
+      return;
+    }
+    fs.copyFileSync(source, destination);
+    fs.rmSync(source, { force: true });
+  }
+}
+
 function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
   const backupParent = fs.mkdtempSync(
     path.join(packageRoot, ".template-backup-"),
@@ -171,15 +189,15 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
 
   try {
     if (fs.existsSync(targetTemplateRoot)) {
-      fs.renameSync(targetTemplateRoot, backupRoot);
+      movePath(targetTemplateRoot, backupRoot);
       previousTemplateMoved = true;
     }
     if (fs.existsSync(targetSnapshotPath)) {
-      fs.renameSync(targetSnapshotPath, snapshotBackup);
+      movePath(targetSnapshotPath, snapshotBackup);
       previousSnapshotMoved = true;
     }
 
-    fs.renameSync(stagingRoot, targetTemplateRoot);
+    movePath(stagingRoot, targetTemplateRoot);
     installed = true;
     writeSnapshotMetadata(snapshotMetadata);
 
@@ -194,7 +212,7 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
         fs.existsSync(snapshotBackup) &&
         !fs.existsSync(targetSnapshotPath)
       ) {
-        fs.renameSync(snapshotBackup, targetSnapshotPath);
+        movePath(snapshotBackup, targetSnapshotPath);
       }
       if (installed && fs.existsSync(targetTemplateRoot)) {
         fs.rmSync(targetTemplateRoot, { recursive: true, force: true });
@@ -204,7 +222,7 @@ function replaceTemplateRoot(stagingRoot, snapshotMetadata) {
         fs.existsSync(backupRoot) &&
         !fs.existsSync(targetTemplateRoot)
       ) {
-        fs.renameSync(backupRoot, targetTemplateRoot);
+        movePath(backupRoot, targetTemplateRoot);
       }
     } catch (rollbackError) {
       throw new Error(
@@ -220,7 +238,7 @@ function writeSnapshotMetadata(metadata) {
   const temporaryPath = `${targetSnapshotPath}.tmp-${process.pid}-${Date.now()}`;
   try {
     fs.writeFileSync(temporaryPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
-    fs.renameSync(temporaryPath, targetSnapshotPath);
+    movePath(temporaryPath, targetSnapshotPath);
   } finally {
     fs.rmSync(temporaryPath, { force: true });
   }

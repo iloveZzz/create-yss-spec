@@ -39,10 +39,20 @@ const AGENT_SKILL_ROOTS = [
   ".agents/skills",
   ".claude/skills",
   ".codex/skills",
+  ".cursor/skills",
   ".hermes/skills",
   ".pi/skills",
   ".qoder/skills",
   ".trae/skills",
+];
+const GITLINK_MODE = "160000";
+const UNMANAGED_USER_PATHS = new Set([".gitmodules"]);
+const INSTANCE_FORBIDDEN_PATHS = [
+  ".template-source",
+  ".github",
+  ".cursor/environment.json",
+  "wiki",
+  "docs/reviews",
 ];
 const LEGACY_SKILL_MAPPINGS = [
   ["to-prd", "to-spec"],
@@ -299,6 +309,235 @@ function isInsideTemplateRoot(targetDir) {
     relativePath === "" ||
     (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
   );
+}
+
+function posixRelative(from, to) {
+  return path.relative(from, to).split(path.sep).join("/");
+}
+
+function collectGitRoots(start) {
+  const roots = [];
+  if (!start) {
+    return roots;
+  }
+  let current = path.resolve(start);
+  while (true) {
+    if (
+      fs.existsSync(path.join(current, ".git")) ||
+      fs.existsSync(path.join(current, ".gitmodules"))
+    ) {
+      roots.push(current);
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return roots;
+}
+
+function parseGitmodules(content) {
+  const modules = [];
+  if (typeof content !== "string" || content.length === 0) {
+    return modules;
+  }
+  let current = null;
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const name = line.match(/^\[submodule "(.+)"\]$/);
+    if (name) {
+      current = { name: name[1], path: "", url: "" };
+      modules.push(current);
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+    const pathMatch = line.match(/^path\s*=\s*(.+)$/);
+    if (pathMatch) {
+      current.path = pathMatch[1].trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    }
+    const urlMatch = line.match(/^url\s*=\s*(.+)$/);
+    if (urlMatch) {
+      current.url = urlMatch[1].trim();
+    }
+  }
+  return modules;
+}
+
+function readGitmodules(repoRoot) {
+  const file = path.join(repoRoot, ".gitmodules");
+  if (!fs.existsSync(file) || pathKind(file) !== "file") {
+    return [];
+  }
+  return parseGitmodules(fs.readFileSync(file, "utf8"));
+}
+
+function gitLsFilesStage(repoRoot, relativePath) {
+  const result = spawnSync(
+    "git",
+    ["-C", repoRoot, "ls-files", "--stage", "--", relativePath],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    return null;
+  }
+  const line = (result.stdout || "").trim().split(/\r?\n/).filter(Boolean)[0];
+  if (!line) {
+    return null;
+  }
+  const match = line.match(/^(\d+)\s+([0-9a-f]+)\s+(\d+)\s+(.+)$/i);
+  if (!match) {
+    return null;
+  }
+  return { mode: match[1], sha: match[2], stage: match[3], path: match[4] };
+}
+
+function gitShowSuperproject(cwd) {
+  const result = spawnSync(
+    "git",
+    ["-C", cwd, "rev-parse", "--show-superproject-working-tree"],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    return "";
+  }
+  return (result.stdout || "").trim();
+}
+
+function gitAbbrevRef(cwd) {
+  const result = spawnSync(
+    "git",
+    ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    return null;
+  }
+  return (result.stdout || "").trim();
+}
+
+function isEmptyDir(dir) {
+  if (!fs.existsSync(dir)) {
+    return true;
+  }
+  try {
+    return fs.readdirSync(dir).filter((name) => name !== "." && name !== "..")
+      .length === 0;
+  } catch {
+    return false;
+  }
+}
+
+function isGitSubmoduleMount(repoRoot, targetPathValue) {
+  const relative = posixRelative(repoRoot, path.resolve(targetPathValue));
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return false;
+  }
+  if (readGitmodules(repoRoot).some((item) => item.path === relative)) {
+    return true;
+  }
+  const staged = gitLsFilesStage(repoRoot, relative);
+  return staged?.mode === GITLINK_MODE;
+}
+
+function inspectCheckoutState(repoRoot, targetPathValue) {
+  const resolved = path.resolve(targetPathValue);
+  const relative = posixRelative(path.resolve(repoRoot), resolved);
+  const inRepo = Boolean(relative) && !relative.startsWith("..");
+  const staged = inRepo ? gitLsFilesStage(repoRoot, relative) : null;
+  const listed = inRepo
+    ? readGitmodules(repoRoot).some((item) => item.path === relative)
+    : false;
+  const superproject = fs.existsSync(path.join(resolved, ".git"))
+    ? gitShowSuperproject(resolved)
+    : "";
+  const isMount = staged?.mode === GITLINK_MODE || listed || Boolean(superproject);
+  const hasGit = fs.existsSync(path.join(resolved, ".git"));
+  if (isMount && !hasGit) {
+    return isEmptyDir(resolved) ? "empty-gitlink" : "uninitialized";
+  }
+  if (isMount && hasGit) {
+    const ref = gitAbbrevRef(resolved);
+    if (ref === "HEAD") {
+      return "detached-head";
+    }
+    return "attached-branch";
+  }
+  return null;
+}
+
+function gitlinkWriteViolation(targetDir, { force = false } = {}) {
+  const resolved = path.resolve(targetDir);
+  const roots = collectGitRoots(resolved);
+  for (const root of roots) {
+    if (path.resolve(root) === PACKAGE_ROOT) {
+      continue;
+    }
+    let current = resolved;
+    while (true) {
+      if (isGitSubmoduleMount(root, current)) {
+        const checkout = inspectCheckoutState(root, current);
+        if (checkout === "empty-gitlink" || checkout === "uninitialized") {
+          return "空 gitlink 不得当成普通目录写入；gitlink 不得由 CLI 覆盖";
+        }
+        if (checkout === "detached-head") {
+          return "detached HEAD 不得当成普通目录写入；gitlink 不得由 CLI 覆盖";
+        }
+        if (path.resolve(current) === resolved) {
+          return force
+            ? "--force 不得把 git-submodule 挂载点当成普通目录覆盖"
+            : "git-submodule gitlink 不得由 CLI 覆盖；先 git submodule update --init，在子仓附加分支的工作树内操作，或改用独立目录";
+        }
+      }
+      if (path.resolve(current) === path.resolve(root)) {
+        break;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+  return null;
+}
+
+function assertTargetWorkingTreeWritable(targetDir, { force = false } = {}) {
+  const violation = gitlinkWriteViolation(targetDir, { force });
+  if (violation) {
+    throw new Error(violation);
+  }
+}
+
+function unmanagedPathReason(targetDir, relativePath) {
+  const normalized = normalizeRelativePath(relativePath);
+  if (UNMANAGED_USER_PATHS.has(normalized) || normalized.split("/")[0] === ".gitmodules") {
+    return ".gitmodules 是用户资产，不属于受管模板文件";
+  }
+  const absolutePath = path.resolve(targetDir, normalized);
+  const roots = collectGitRoots(targetDir);
+  for (const root of roots) {
+    if (path.resolve(root) === PACKAGE_ROOT) {
+      continue;
+    }
+    let current = absolutePath;
+    while (true) {
+      if (isGitSubmoduleMount(root, current)) {
+        return "gitlink / apps 挂载工作树是用户资产，不属于受管模板文件";
+      }
+      if (path.resolve(current) === path.resolve(root)) {
+        break;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+  return null;
 }
 
 function normalizeRelativePath(relativePath) {
@@ -861,6 +1100,14 @@ function classifyAttachPlan(targetDir, variables) {
   };
 
   for (const operation of desiredOperations) {
+    const unmanagedReason = unmanagedPathReason(targetDir, operation.relativePath);
+    if (unmanagedReason) {
+      plan.unsafe.push({
+        ...operation,
+        reason: unmanagedReason,
+      });
+      continue;
+    }
     const kind = pathKind(operation.targetPath);
     if (kind === "missing") {
       plan.missing.push(operation);
@@ -904,6 +1151,14 @@ function classifySyncPlan(targetDir, metadata, identity = readTargetIdentity(tar
   const unsafe = [];
 
   for (const operation of desiredOperations) {
+    const unmanagedReason = unmanagedPathReason(targetDir, operation.relativePath);
+    if (unmanagedReason) {
+      unsafe.push({
+        ...operation,
+        reason: unmanagedReason,
+      });
+      continue;
+    }
     const existingRecord = managedFiles[operation.relativePath];
     const existingKind = pathKind(operation.targetPath);
 
@@ -1028,6 +1283,8 @@ function inspectTargetDir(targetDir, force) {
     throw new Error("目标目录不能位于模板源仓库内部");
   }
 
+  assertTargetWorkingTreeWritable(targetDir, { force });
+
   if (!fs.existsSync(targetDir)) {
     return { exists: false, clearEntries: false };
   }
@@ -1044,13 +1301,14 @@ function inspectTargetDir(targetDir, force) {
   return { exists: true, clearEntries: entries.length > 0 && force };
 }
 
-function inspectExistingTargetDir(targetDir) {
+function inspectExistingTargetDir(targetDir, { force = false } = {}) {
   if (isInsideTemplateRoot(targetDir)) {
     throw new Error("目标目录不能位于模板源仓库内部");
   }
   if (!fs.existsSync(targetDir) || pathKind(targetDir) !== "directory") {
     throw new Error("attach 目标目录必须是已经存在的项目目录");
   }
+  assertTargetWorkingTreeWritable(targetDir, { force });
 }
 
 function prepareTargetDir(targetDir, targetState) {
@@ -1130,8 +1388,8 @@ function runTemplateVerification(targetDir, scriptPath) {
 }
 
 function verifyGeneratedTemplate(targetDir, mode = "managed") {
-  if (mode === "init") {
-    verifyGeneratedInstance(targetDir);
+  if (mode === "init" || mode === "sync") {
+    verifyGeneratedInstance(targetDir, { checkForbiddenPaths: mode === "init" });
     return;
   }
 
@@ -1144,15 +1402,18 @@ function verifyGeneratedTemplate(targetDir, mode = "managed") {
   }
 }
 
-function verifyGeneratedInstance(targetDir) {
-  const forbiddenPaths = [
-    ...[...INIT_EXCLUDED_ROOT_ENTRIES],
-    ...[...INIT_EXCLUDED_ROOT_FILES],
-    ...[...INIT_EXCLUDED_RELATIVE_PATHS],
-  ];
-  for (const relativePath of forbiddenPaths) {
-    if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
-      throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = true } = {}) {
+  if (checkForbiddenPaths) {
+    const forbiddenPaths = [
+      ...INSTANCE_FORBIDDEN_PATHS,
+      ...[...INIT_EXCLUDED_ROOT_ENTRIES],
+      ...[...INIT_EXCLUDED_ROOT_FILES],
+      ...[...INIT_EXCLUDED_RELATIVE_PATHS],
+    ];
+    for (const relativePath of [...new Set(forbiddenPaths)]) {
+      if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
+        throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+      }
     }
   }
 
@@ -1614,7 +1875,7 @@ function runAttach(argv = []) {
 
   readTemplateSnapshot();
   const targetDir = normalizeTargetDir(options.targetDir);
-  inspectExistingTargetDir(targetDir);
+  inspectExistingTargetDir(targetDir, { force: Boolean(options.force) });
   if (pathKind(targetPath(targetDir, TEMPLATE_METADATA_FILENAME)) !== "missing") {
     throw new Error("当前项目已有模板元数据，请使用 sync，不要重复 attach");
   }
@@ -1710,7 +1971,7 @@ function runSync(argv = []) {
   }
   readTemplateSnapshot();
   const targetDir = normalizeTargetDir(options.targetDir || ".");
-  inspectExistingTargetDir(targetDir);
+  inspectExistingTargetDir(targetDir, { force: Boolean(options.force) });
   const { metadata } = loadTemplateMetadata(targetDir);
   const identity = readTargetIdentity(targetDir);
   const syncPlan = classifySyncPlan(targetDir, metadata, identity);
@@ -1754,7 +2015,7 @@ function runSync(argv = []) {
       applyManagedOperation(operation, transaction);
     }
     applyMigrationPlan(migrationPlan, transaction);
-    verifyGeneratedTemplate(targetDir, "init");
+    verifyGeneratedTemplate(targetDir, "sync");
     writeTemplateMetadata(
       targetDir,
       buildNextSyncMetadata(metadata, syncPlan, targetDir),
