@@ -44,7 +44,7 @@ npx create-yss-spec@latest --version
 - 接管 / 升级时迁移 Spec / Ticket 路径并删除 `to-prd`、`to-issues` 旧 skill
 - 旧、新资产内容冲突或清单 schema / mode 非法时 fail closed
 - 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
-- 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例
+- init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
 - 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
 
 本次模板适配按 `2.2.0` 发布，绑定 `yss-spec-project-template@04a6151`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。

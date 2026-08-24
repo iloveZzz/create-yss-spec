@@ -854,7 +854,7 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
 
   const identity = fs.readFileSync(path.join(targetDir, "yss-project.yaml"), "utf8");
   assert.match(identity, /^repository_mode:\s*project-instance$/m);
@@ -1229,10 +1229,11 @@ test("attach blocks intermediate symlinks before writing outside the project", (
   assert.equal(fs.lstatSync(path.join(targetDir, "docs")).isSymbolicLink(), true);
 });
 
-function runGit(cwd, args) {
+function runGit(cwd, args, extraEnv = {}) {
   const result = spawnSync("git", args, {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, ...extraEnv },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return result;
@@ -1275,9 +1276,36 @@ function createGitlinkFixture() {
 
   return {
     superRoot,
+    subRoot,
+    mountRelative,
     mount: path.join(superRoot, mountRelative),
     gitmodules: path.join(superRoot, ".gitmodules"),
   };
+}
+
+function checkoutGitlinkWorktree(superRoot, subRoot, mountRelative) {
+  const mount = path.join(superRoot, mountRelative);
+  const gitDir = path.join(superRoot, ".git/modules", mountRelative);
+  fs.rmSync(mount, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(mount), { recursive: true });
+  fs.mkdirSync(path.dirname(gitDir), { recursive: true });
+  runGit(
+    superRoot,
+    [
+      "-c",
+      "protocol.file.allow=always",
+      "clone",
+      `--separate-git-dir=${gitDir}`,
+      subRoot,
+      mount,
+    ],
+    {
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "protocol.file.allow",
+      GIT_CONFIG_VALUE_0: "always",
+    },
+  );
+  return mount;
 }
 
 test("init fails closed on an empty gitlink even with --force", () => {
@@ -1335,8 +1363,8 @@ test("attach fails closed on an empty gitlink even with --force", () => {
 });
 
 test("init fails closed on a detached HEAD gitlink worktree", () => {
-  const { superRoot, mount } = createGitlinkFixture();
-  runGit(superRoot, ["submodule", "update", "--init", "--", "apps/backend/demo"]);
+  const { superRoot, subRoot, mountRelative } = createGitlinkFixture();
+  const mount = checkoutGitlinkWorktree(superRoot, subRoot, mountRelative);
   runGit(mount, ["checkout", "--detach", "HEAD"]);
 
   const result = spawnSync(

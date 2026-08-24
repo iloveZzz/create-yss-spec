@@ -192,7 +192,7 @@ test("sync expands internal directory projections into the bundled template", ()
   );
   assert.equal(
     fs.existsSync(path.join(runnerRoot, "template/yss-public-skills.json")),
-    false,
+    true,
   );
 });
 

@@ -17,7 +17,6 @@
     "package.json",
     "template.manifest.json",
     "template.snapshot.json",
-    "yss-public-skills.json",
     ".gitmodules"
   ],
   "excludePaths": [
@@ -44,7 +43,8 @@
   ],
   "initExcludeRootFiles": [
     ".gitignore",
-    ".nvmrc"
+    ".nvmrc",
+    "yss-public-skills.json"
   ],
   "initExcludePaths": []
 }

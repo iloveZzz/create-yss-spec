@@ -51,7 +51,6 @@ const INSTANCE_FORBIDDEN_PATHS = [
   ".template-source",
   ".github",
   ".cursor/environment.json",
-  "yss-public-skills.json",
   "wiki",
   "docs/reviews",
 ];
@@ -1389,8 +1388,8 @@ function runTemplateVerification(targetDir, scriptPath) {
 }
 
 function verifyGeneratedTemplate(targetDir, mode = "managed") {
-  if (mode === "init") {
-    verifyGeneratedInstance(targetDir);
+  if (mode === "init" || mode === "sync") {
+    verifyGeneratedInstance(targetDir, { checkForbiddenPaths: mode === "init" });
     return;
   }
 
@@ -1403,16 +1402,18 @@ function verifyGeneratedTemplate(targetDir, mode = "managed") {
   }
 }
 
-function verifyGeneratedInstance(targetDir) {
-  const forbiddenPaths = [
-    ...INSTANCE_FORBIDDEN_PATHS,
-    ...[...INIT_EXCLUDED_ROOT_ENTRIES],
-    ...[...INIT_EXCLUDED_ROOT_FILES],
-    ...[...INIT_EXCLUDED_RELATIVE_PATHS],
-  ];
-  for (const relativePath of [...new Set(forbiddenPaths)]) {
-    if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
-      throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = true } = {}) {
+  if (checkForbiddenPaths) {
+    const forbiddenPaths = [
+      ...INSTANCE_FORBIDDEN_PATHS,
+      ...[...INIT_EXCLUDED_ROOT_ENTRIES],
+      ...[...INIT_EXCLUDED_ROOT_FILES],
+      ...[...INIT_EXCLUDED_RELATIVE_PATHS],
+    ];
+    for (const relativePath of [...new Set(forbiddenPaths)]) {
+      if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
+        throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+      }
     }
   }
 
@@ -2014,7 +2015,7 @@ function runSync(argv = []) {
       applyManagedOperation(operation, transaction);
     }
     applyMigrationPlan(migrationPlan, transaction);
-    verifyGeneratedTemplate(targetDir, "init");
+    verifyGeneratedTemplate(targetDir, "sync");
     writeTemplateMetadata(
       targetDir,
       buildNextSyncMetadata(metadata, syncPlan, targetDir),
