@@ -98,12 +98,12 @@ npx create-yss-spec@latest attach \
 | post-attach gates | attach 三个模板门禁全部 fresh 通过，失败时文件和 metadata 回滚 |
 | 固定快照 | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` 与 `npm pack --dry-run` 通过 |
 
-### 2026-08-25 跨仓库验证回写（`51189ca` / CLI `2.2.1`）
+### 2026-08-25 跨仓库验证回写（`51189ca` / CLI `2.2.2`）
 
 - 模板：`yss-spec-project-template@51189cae987209ff9076a3336269318f47615d5a`（合并 `codex/agents-skills-governance` 与源仓库分发边界归档）
-- CLI：`create-yss-spec@2.2.1`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
+- CLI：`create-yss-spec@2.2.2`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
 - `YSS_SPEC_TEMPLATE_REF=51189cae987209ff9076a3336269318f47615d5a npm test` → **41/41 pass**
-- `YSS_SPEC_TEMPLATE_REF=51189cae987209ff9076a3336269318f47615d5a npm pack --dry-run` → `create-yss-spec-2.2.1.tgz`（5.6 MB / 4908 files）
+- `YSS_SPEC_TEMPLATE_REF=51189cae987209ff9076a3336269318f47615d5a npm pack --dry-run` → `create-yss-spec-2.2.2.tgz`（5.6 MB / 4908 files）
 - 交互式 init 实例：`project-instance`、`templateCommit` 写入 metadata；含 `.cursorrules`、共享 `scripts/`、`scripts/vendor/`、`.nvmrc`、`.gitignore`；不含 `.template-source/`、`.github/`、`wiki/`、`docs/reviews/`、根 `package.json`
 - 本轮不执行 npm publish（由维护者手动发布）
 
@@ -112,6 +112,6 @@ npx create-yss-spec@latest attach \
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.2.1`；验证记录与回滚点已回写（见上文 2026-08-25 条目）。npm publish 由维护者手动执行。
+4. 发布 CLI `2.2.2`；验证记录与回滚点已回写（见上文 2026-08-25 条目）。npm publish 由维护者手动执行。
 
 跨仓库实现与固定快照验证已完成；独立 review 与 npm 发布仍为发布门禁，但不再阻断“CLI 已适配模板 `51189ca`”这一技术结论。
