@@ -12,7 +12,7 @@ const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "23757463ec4b20d171a3ff57733b62322efb63f3";
+const DEFAULT_TEMPLATE_REF = "51189cae987209ff9076a3336269318f47615d5a";
 const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
@@ -29,6 +29,13 @@ function sha256(value) {
 }
 
 function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
+  const allowedRootEntries = manifest.allowRootEntries
+    ? new Set(manifest.allowRootEntries)
+    : null;
+  const allowedRootFiles = manifest.allowRootFiles
+    ? new Set(manifest.allowRootFiles)
+    : null;
+  const allowedFiles = new Set(manifest.allowFiles || []);
   const excludedRootEntries = new Set([...manifest.excludeRootEntries, "dist"]);
   const excludedRootFiles = new Set(manifest.excludeRootFiles);
   const excludedPaths = new Set(manifest.excludePaths);
@@ -39,10 +46,25 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
 
   const shouldCopy = (relativePath) => {
     const segments = relativePath.split("/");
-    const matchesExcludedPath = [...excludedPaths].some(
-      (excludedPath) =>
-        relativePath === excludedPath || relativePath.startsWith(`${excludedPath}/`),
-    );
+    if (allowedRootEntries && allowedRootFiles) {
+      const allowed = segments.length === 1
+        ? allowedRootFiles.has(relativePath)
+        : allowedRootEntries.has(segments[0]);
+      if (!allowed) {
+        return allowedFiles.has(relativePath);
+      }
+    }
+    const matchesExcludedPath = [...excludedPaths].some((excludedPath) => {
+      const isExcluded =
+        relativePath === excludedPath || relativePath.startsWith(`${excludedPath}/`);
+      if (!isExcluded) {
+        return false;
+      }
+      return ![...allowedFiles].some(
+        (allowedFile) =>
+          allowedFile === relativePath || allowedFile.startsWith(`${relativePath}/`),
+      );
+    });
     return !(
       excludedRootEntries.has(segments[0]) ||
       (segments.length === 1 && excludedRootFiles.has(relativePath)) ||
@@ -317,6 +339,50 @@ function refreshBundledSkillLock(templateRoot) {
   run(process.execPath, [updateLock], templateRoot);
 }
 
+function assertSnapshotDistribution(stagingRoot, manifest, encodedPaths) {
+  const logicalByEncodedPath = new Map(
+    Object.entries(encodedPaths).map(([logicalPath, encodedPath]) => [encodedPath, logicalPath]),
+  );
+  const allowedRootEntries = new Set(manifest.allowRootEntries || []);
+  const allowedRootFiles = new Set(manifest.allowRootFiles || []);
+  const allowedFiles = new Set(manifest.allowFiles || []);
+  const excludedPaths = new Set(manifest.excludePaths || []);
+  const logicalPathFor = (relativePath) => logicalByEncodedPath.get(relativePath) || relativePath;
+  const allowed = (relativePath) => {
+    const logicalPath = logicalPathFor(relativePath);
+    const segments = logicalPath.split("/");
+    if (segments.length === 1) {
+      return allowedRootFiles.has(logicalPath);
+    }
+    if (!allowedRootEntries.has(segments[0])) {
+      return allowedFiles.has(logicalPath);
+    }
+    const excluded = [...excludedPaths].some((excludedPath) => {
+      if (logicalPath !== excludedPath && !logicalPath.startsWith(`${excludedPath}/`)) {
+        return false;
+      }
+      return ![...allowedFiles].some(
+        (allowedFile) => allowedFile === logicalPath || allowedFile.startsWith(`${logicalPath}/`),
+      );
+    });
+    return !excluded;
+  };
+
+  const stack = [stagingRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const absolute = path.join(current, entry.name);
+      const relative = path.relative(stagingRoot, absolute).split(path.sep).join("/");
+      if (entry.isDirectory()) {
+        stack.push(absolute);
+      } else if (entry.isFile() && !allowed(relative)) {
+        throw new Error(`模板快照包含未登记的实例资源：${logicalPathFor(relative)}`);
+      }
+    }
+  }
+}
+
 const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
 const checkoutRoot = fs.mkdtempSync(
   path.join(os.tmpdir(), "yss-spec-template-"),
@@ -333,6 +399,7 @@ try {
   materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
   const encodedPaths = encodeNpmIgnoredDotfiles(stagingRoot);
+  assertSnapshotDistribution(stagingRoot, manifest, encodedPaths);
   const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
   const snapshotMetadata = {
     schemaVersion: 1,
@@ -341,6 +408,7 @@ try {
     templateRepository: templateRepo,
     requestedRef: templateRef,
     templateCommit,
+    manifestHash: sha256(fs.readFileSync(targetManifestPath)),
     encodedPaths,
     snapshotHash: treeHash(stagingRoot),
     generatedAt: new Date().toISOString(),

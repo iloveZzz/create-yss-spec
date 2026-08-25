@@ -17,7 +17,7 @@ owner: ai
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
 | working_branch | `cursor/adapt-template-7373097-8a4c` |
-| template_ref | `23757463ec4b20d171a3ff57733b62322efb63f3` |
+| template_ref | `51189cae987209ff9076a3336269318f47615d5a` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -28,7 +28,7 @@ owner: ai
 
 ### 初始化
 
-空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。init / sync 只分发必要文档目录、Spec 规范和 skills，不复制模板源治理笔记、`scripts/`、`.github/`、`.nvmrc` 或 `.gitignore`。metadata 至少包含：
+空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。init / sync 按显式分发清单只复制项目需要的根规则、文档、skills、共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore`；不复制模板源治理笔记、源仓库 ADR、`.github/`、`.cursor/environment.json`、`wiki/`、`docs/reviews/` 或根 `package.json`。metadata 至少包含：
 
 - `cliVersion`
 - `templateSource: github:iloveZzz/yss-spec-project-template`
@@ -51,11 +51,11 @@ npx create-yss-spec@latest attach \
   --apply [--force]
 ```
 
-`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。快照级排除 `.template-source/`、`.github/` 和 `.cursor/environment.json`。`yss-public-skills.json` 仅 init / sync 排除，attach 会带上以便 `verify-template` 通过。
+`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。快照级排除 `.template-source/`、`.github/`、`.cursor/environment.json`、源仓库 ADR、`wiki/`、`docs/reviews/` 和根 `package.json`。`yss-public-skills.json` 仅 init / sync 排除，attach 会带上以便 `verify-template` 通过。
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
-`2375746` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
+`51189ca` 起实例会带上 `@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 
@@ -69,7 +69,7 @@ npx create-yss-spec@latest attach \
 - `sync --force` 先备份，再覆盖受管冲突文件；模板删除默认只报告。
 - 旧 skill、旧 Spec / Ticket 路径和根 `.scratch/<feature>/` 只在安全迁移计划成功时移动或删除；unsafe / conflict 阻断。
 - 空 gitlink、uninitialized、detached HEAD 和 git-submodule 挂载点在写入前 fail closed；`--force` 不能覆盖。
-- init 完成后做瘦实例校验（禁止源仓笔记与工具链泄漏）。sync 对已误进实例的 `.template-source/`、`wiki/`、`docs/reviews/` 只 `remove-report`，不把遗留文件当成校验失败。attach 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
+- init 完成后做实例边界校验（禁止源仓笔记、维护工具和环境配置泄漏）。sync 对已误进实例的 `.template-source/`、`wiki/`、`docs/reviews/` 和源仓库 ADR 只 `remove-report`，不把遗留文件当成校验失败。attach 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
 
 ## 固定迁移映射
 
@@ -89,7 +89,7 @@ npx create-yss-spec@latest attach \
 
 | 场景 | 验证 |
 |---|---|
-| 空目录初始化 | `project-instance`、metadata v2、固定 commit、瘦实例不含源仓笔记 / `scripts` / `.github` |
+| 空目录初始化 | `project-instance`、metadata v2、固定 commit、实例包含共享 `scripts` / `scripts/vendor`，且不含源仓笔记 / `.github` |
 | 任意已有项目 attach dry-run | 不写文件、不删除 `.git`，运行时代码保持不变 |
 | attach 冲突 | 无 force fail closed；force 覆盖并输出外部备份路径 |
 | attach 旧路径迁移 | Spec / Ticket 映射生效；unsafe / conflict 不落盘 |

@@ -18,6 +18,7 @@ const TEMPLATE_MANIFEST = JSON.parse(TEMPLATE_MANIFEST_TEXT);
 const ROOT_EXCLUDED_ENTRIES = new Set(TEMPLATE_MANIFEST.excludeRootEntries);
 const ROOT_EXCLUDED_FILES = new Set(TEMPLATE_MANIFEST.excludeRootFiles);
 const EXCLUDED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.excludePaths);
+const ALLOWED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.allowFiles || []);
 const INIT_EXCLUDED_ROOT_ENTRIES = new Set(
   TEMPLATE_MANIFEST.initExcludeRootEntries || [],
 );
@@ -47,6 +48,7 @@ const AGENT_SKILL_ROOTS = [
 ];
 const GITLINK_MODE = "160000";
 const UNMANAGED_USER_PATHS = new Set([".gitmodules"]);
+const GITLINK_PATH_CACHE = new Map();
 const INSTANCE_FORBIDDEN_PATHS = [
   ".template-source",
   ".github",
@@ -95,6 +97,9 @@ function readTemplateSnapshot() {
 
   if (!/^[0-9a-f]{64}$/.test(snapshot.snapshotHash || "")) {
     throw new Error("模板快照必须包含 64 位 snapshotHash");
+  }
+  if (snapshot.manifestHash !== TEMPLATE_MANIFEST_VERSION) {
+    throw new Error("模板快照与当前 template.manifest.json 不一致，请重新构建 CLI 包");
   }
 
   if (
@@ -322,8 +327,20 @@ function collectGitRoots(start) {
   }
   let current = path.resolve(start);
   while (true) {
+    const gitPath = path.join(current, ".git");
+    let validGitEntry = false;
+    try {
+      const gitStat = fs.lstatSync(gitPath);
+      validGitEntry = gitStat.isDirectory()
+        ? fs.readdirSync(gitPath).length > 0
+        : gitStat.isFile();
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
     if (
-      fs.existsSync(path.join(current, ".git")) ||
+      validGitEntry ||
       fs.existsSync(path.join(current, ".gitmodules"))
     ) {
       roots.push(current);
@@ -378,7 +395,7 @@ function gitLsFilesStage(repoRoot, relativePath) {
   const result = spawnSync(
     "git",
     ["-C", repoRoot, "ls-files", "--stage", "--", relativePath],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 5000 },
   );
   if (result.status !== 0) {
     return null;
@@ -394,11 +411,34 @@ function gitLsFilesStage(repoRoot, relativePath) {
   return { mode: match[1], sha: match[2], stage: match[3], path: match[4] };
 }
 
+function gitlinkPaths(repoRoot) {
+  const resolvedRoot = path.resolve(repoRoot);
+  if (GITLINK_PATH_CACHE.has(resolvedRoot)) {
+    return GITLINK_PATH_CACHE.get(resolvedRoot);
+  }
+  const result = spawnSync(
+    "git",
+    ["-C", resolvedRoot, "ls-files", "--stage", "-z"],
+    { encoding: "utf8", timeout: 5000 },
+  );
+  const paths = new Set();
+  if (result.status === 0) {
+    for (const record of (result.stdout || "").split("\0")) {
+      const match = record.match(/^(160000)\s+[0-9a-f]+\s+\d+\s+(.+)$/i);
+      if (match) {
+        paths.add(match[2].replaceAll("\\", "/"));
+      }
+    }
+  }
+  GITLINK_PATH_CACHE.set(resolvedRoot, paths);
+  return paths;
+}
+
 function gitShowSuperproject(cwd) {
   const result = spawnSync(
     "git",
     ["-C", cwd, "rev-parse", "--show-superproject-working-tree"],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 5000 },
   );
   if (result.status !== 0) {
     return "";
@@ -410,7 +450,7 @@ function gitAbbrevRef(cwd) {
   const result = spawnSync(
     "git",
     ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 5000 },
   );
   if (result.status !== 0) {
     return null;
@@ -432,21 +472,22 @@ function isEmptyDir(dir) {
 
 function isGitSubmoduleMount(repoRoot, targetPathValue) {
   const relative = posixRelative(repoRoot, path.resolve(targetPathValue));
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+  if (!relative || relative === "." || relative.startsWith("..") || path.isAbsolute(relative)) {
     return false;
   }
   if (readGitmodules(repoRoot).some((item) => item.path === relative)) {
     return true;
   }
-  const staged = gitLsFilesStage(repoRoot, relative);
-  return staged?.mode === GITLINK_MODE;
+  return gitlinkPaths(repoRoot).has(relative);
 }
 
 function inspectCheckoutState(repoRoot, targetPathValue) {
   const resolved = path.resolve(targetPathValue);
   const relative = posixRelative(path.resolve(repoRoot), resolved);
   const inRepo = Boolean(relative) && !relative.startsWith("..");
-  const staged = inRepo ? gitLsFilesStage(repoRoot, relative) : null;
+  const staged = inRepo && gitlinkPaths(repoRoot).has(relative)
+    ? { mode: GITLINK_MODE }
+    : null;
   const listed = inRepo
     ? readGitmodules(repoRoot).some((item) => item.path === relative)
     : false;
@@ -577,6 +618,11 @@ function targetPath(targetDir, relativePath) {
 
 function shouldExcludeRelativePath(relativePath, mode = "managed") {
   const normalized = normalizeRelativePath(relativePath);
+  if ([...ALLOWED_RELATIVE_PATHS].some(
+    (allowedPath) => allowedPath === normalized || allowedPath.startsWith(`${normalized}/`),
+  )) {
+    return false;
+  }
   return EXCLUDED_RELATIVE_PATHS.has(normalized) ||
     (mode === "init" &&
       (INIT_EXCLUDED_RELATIVE_PATHS.has(normalized) ||
@@ -1505,6 +1551,7 @@ function gitDirtyWarning(targetDir) {
   const probe = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
     cwd: targetDir,
     encoding: "utf8",
+    timeout: 5000,
   });
   if (probe.status !== 0 || probe.stdout.trim() !== "true") {
     return null;
@@ -1512,6 +1559,7 @@ function gitDirtyWarning(targetDir) {
   const status = spawnSync("git", ["status", "--porcelain"], {
     cwd: targetDir,
     encoding: "utf8",
+    timeout: 5000,
   });
   if (status.status === 0 && status.stdout.trim()) {
     return "警告：目标 Git worktree 存在未提交改动；CLI 不会自动 stash 或提交，请在结果后检查 git diff / git status";

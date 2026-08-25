@@ -171,9 +171,6 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), false);
   for (const excludedInitPath of [
-    ".gitignore",
-    ".nvmrc",
-    "scripts",
     "wiki",
     ".github",
     "yss-public-skills.json",
@@ -188,6 +185,12 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/adr/0001-template-source.md")), false);
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/adr/README.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/vendor/yaml.mjs")));
   assert.equal(
     fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
     false,
@@ -265,9 +268,6 @@ test("sync preserves the init distribution boundary", () => {
   );
   assert.equal(syncResult.status, 0, syncResult.stderr);
   for (const excludedInitPath of [
-    ".gitignore",
-    ".nvmrc",
-    "scripts",
     "wiki",
     ".github",
     "yss-public-skills.json",
@@ -279,6 +279,9 @@ test("sync preserves the init distribution boundary", () => {
       `${excludedInitPath} must remain excluded after sync`,
     );
   }
+  assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
+  assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template")));
 });
 
 test("attach verifies the generated template under an ASCII locale", () => {
@@ -710,9 +713,6 @@ test("legacy attach dry-run excludes sync rollout docs from template additions",
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /sync dry-run/i);
   for (const excludedInitPath of [
-    ".gitignore",
-    ".nvmrc",
-    "scripts/",
     "wiki/",
     ".github/",
     "yss-public-skills.json",
@@ -1531,4 +1531,3 @@ test("unknown arguments still fail closed", () => {
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}${result.stderr}`, /不支持的参数：--unknown-flag/);
 });
-
