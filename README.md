@@ -47,7 +47,7 @@ npx create-yss-spec@latest --version
 - init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
 - 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
 
-本次模板适配按 `2.2.1` 发布，绑定 `yss-spec-project-template@2375746`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上 YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的 `high-fidelity-html-prototype` 等独立入口不进入快照。
+本次模板适配按 `2.2.1` 发布，绑定 `yss-spec-project-template@51189ca`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上 YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的 `high-fidelity-html-prototype` 等独立入口不进入快照。
 
 ## 接管已有项目
 
@@ -100,7 +100,7 @@ npx create-yss-spec@latest sync --dry-run
 - 对已知的 Spec / Ticket 旧路径执行一次性迁移
 - 迁移目标已存在且内容不一致时停止，不静默覆盖
 - `.gitmodules`、gitlink（mode `160000`）和 `apps/` 下已挂载实现仓是用户资产，不创建、不覆盖、不删除
-- init / sync 保持瘦实例：不复制 `scripts/`、`wiki/`、`.github/`、`.nvmrc`、`.gitignore`、`.template-source/`；attach 结束后会执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`，门禁失败会回滚文件和 metadata
+- init / sync 保持实例边界：不复制 `wiki/`、`.github/`、`.template-source/`、源仓库 ADR、Cursor Cloud 环境配置、`docs/reviews/` 或根 `package.json`；共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore` 属于实例门禁所需资产。attach 结束后会执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`，门禁失败会回滚文件和 metadata
 
 ```bash
 npx create-yss-spec@latest sync --target-dir . --dry-run

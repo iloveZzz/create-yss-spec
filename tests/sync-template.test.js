@@ -61,11 +61,27 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     '{"name":"template-source"}\n',
     "utf8",
   );
+  fs.mkdirSync(path.join(fixtureRoot, "docs/adr"), { recursive: true });
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/adr/0001-template-source.md"),
+    "template source ADR\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/adr/README.md"),
+    "project ADR entrypoint\n",
+    "utf8",
+  );
   fs.writeFileSync(
     path.join(fixtureRoot, "yss-public-skills.json"),
     '{"skills":[]}\n',
     "utf8",
   );
+  fs.writeFileSync(path.join(fixtureRoot, ".nvmrc"), "22\n", "utf8");
+  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "node_modules/\n", "utf8");
+  fs.mkdirSync(path.join(fixtureRoot, "scripts/vendor"), { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, "scripts/vendor/yaml.mjs"), "vendor yaml\n", "utf8");
+  fs.writeFileSync(path.join(fixtureRoot, "unlisted-root.md"), "must not ship\n", "utf8");
   fs.symlinkSync(
     "../../.agents/skills/shared-skill",
     path.join(projectionRoot, "shared-skill"),
@@ -190,6 +206,17 @@ test("sync expands internal directory projections into the bundled template", ()
     fs.existsSync(path.join(runnerRoot, "template/.cursor/environment.json")),
     false,
   );
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/docs/adr/0001-template-source.md")),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(runnerRoot, "template/docs/adr/README.md"), "utf8"),
+    "project ADR entrypoint\n",
+  );
+  assert.equal(fs.existsSync(path.join(runnerRoot, "template/unlisted-root.md")), false);
+  assert.equal(fs.readFileSync(path.join(runnerRoot, "template/.nvmrc"), "utf8"), "22\n");
+  assert.equal(fs.readFileSync(path.join(runnerRoot, "template/scripts/vendor/yaml.mjs"), "utf8"), "vendor yaml\n");
   assert.equal(
     fs.existsSync(path.join(runnerRoot, "template/yss-public-skills.json")),
     true,
