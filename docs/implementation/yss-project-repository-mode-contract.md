@@ -17,7 +17,7 @@ owner: ai
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
 | working_branch | `main` |
-| template_ref | `030d8062634018880a3422fd55065d8d8e61e41e` |
+| template_ref | `644111b5c438b1e90dfb5974a327302979410210` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -55,7 +55,7 @@ npx create-yss-spec@latest attach \
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
-`030d806` 起实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、`@yss/skills` 前端技能叠加层、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
+`644111b` 起实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、`@yss/skills` 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 
@@ -116,11 +116,19 @@ npx create-yss-spec@latest attach \
 - 交互式 init 实例：`project-instance`、`templateCommit` 写入 metadata；含 `.cursorrules`、共享 `scripts/`、`scripts/vendor/`、`.nvmrc`、`.gitignore`；不含 `.template-source/`、`.github/`、`wiki/`、`docs/reviews/`、根 `package.json`
 - 本轮不执行 npm publish（由维护者手动发布）
 
+### 2026-08-27 跨仓库验证回写（`37251d0` / CLI `2.2.4`）
+
+- 模板：`yss-spec-project-template@37251d0c7dacbe62a66cd935f1d33031891afedd`（DDD Tactical Design、生命周期转换校验、实例门禁与源仓证据边界修复）
+- CLI：`create-yss-spec@2.2.4`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
+- `YSS_SPEC_TEMPLATE_REF=37251d0c7dacbe62a66cd935f1d33031891afedd npm test` → **55/55 pass**
+- `YSS_SPEC_TEMPLATE_REF=37251d0c7dacbe62a66cd935f1d33031891afedd npm pack --dry-run` → `create-yss-spec-2.2.4.tgz`（5.8 MB / 5160 files）
+- 本轮不执行 npm publish（由维护者手动发布）
+
 ## 发布顺序与阻断条件
 
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.2.3`；验证记录与回滚点已回写（见上文 2026-08-26 条目）。npm publish 由维护者手动执行。
+4. 发布 CLI `2.2.4`；验证记录与回滚点已回写（见上文 2026-08-27 条目）。npm publish 由维护者手动执行。
 
-跨仓库实现与固定快照验证已完成；独立 review 与 npm 发布仍为发布门禁，但不再阻断“CLI 已适配模板 `030d806`”这一技术结论。
+跨仓库实现与固定快照验证已完成；独立 review 与 npm 发布仍为发布门禁，但不再阻断“CLI 已适配模板 `37251d0`”这一技术结论。
