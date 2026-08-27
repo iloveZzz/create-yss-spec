@@ -140,6 +140,21 @@ npx create-yss-spec@latest sync --target-dir . --dry-run
 npx create-yss-spec@latest sync --target-dir . [--force]
 ```
 
+### 升级 CLI 自身
+
+`update`（别名 `upgrade`）检查当前 npm registry 上的最新 `create-yss-spec` 版本，如有更新则自动安装。它升级的是 CLI 包本身，不是项目模板；模板资产请继续使用 `sync`。
+
+```bash
+npx create-yss-spec update
+npx create-yss-spec update --dry-run
+npx create-yss-spec upgrade
+```
+
+- 全局安装：`npm install -g create-yss-spec@latest`
+- 项目本地依赖：在对应项目根执行 `npm install create-yss-spec@latest`
+- npx 或源码目录：只报告当前/最新版本，并提示用 `npx create-yss-spec@latest` 或全局安装，不覆盖当前文件
+- `--dry-run` 只查询和预览安装命令；`--force` 在版本相同时仍重新安装，但不会对 npx / 源码目录执行覆盖，也不会把高于 latest 的开发版降级
+
 ## 参数说明
 
 | 参数 | 含义 | 默认行为 |
@@ -149,9 +164,9 @@ npx create-yss-spec@latest sync --target-dir . [--force]
 | `--team-size` | 团队规模 | 不传则进入交互输入，可留空 |
 | `--target-dir` | 输出目录 | 不传则进入交互输入 |
 | `--issue-tracker github\|gitlab` | 默认 issue tracker 偏好 | 默认 `github` |
-| `--dry-run` | 只预览复制、接管或同步计划，不写入文件 | 默认关闭 |
+| `--dry-run` | 只预览复制、接管、同步或升级计划，不写入文件 / 不安装 | 默认关闭 |
 | `--apply` | `attach` 确认执行写入；不能与 `--dry-run` 同时使用 | 默认关闭 |
-| `--force` | 初始化时允许清空非空目录；`attach` / `sync` 时允许覆盖受管冲突文件 | 默认关闭 |
+| `--force` | 初始化时允许清空非空目录；`attach` / `sync` 时允许覆盖受管冲突文件；`update` 时即使已是最新也重新安装 | 默认关闭 |
 | `--git-init` | 初始化完成后执行 `git init` | 默认关闭 |
 | `--include-example-docs` | 显式保留示例文档 | 默认开启 |
 | `--no-example-docs` | 不生成示例文档 | 默认关闭 |
@@ -163,6 +178,8 @@ npx create-yss-spec@latest sync --target-dir . [--force]
 - 在模板实例仓库根目录执行
 - 仓库内已存在 `.yss-template.json`
 - 以当前 npm 已发布包内置、绑定 40 位 `templateCommit` 的模板快照作为同步源
+
+`update` / `upgrade` 只升级 CLI 包，不改项目文件。已是最新时直接退出；有更新时按全局 / 本地安装位置自动执行 `npm install`。npx 与源码目录只报告版本并给出安装建议。
 
 ## 输出内容说明
 
@@ -234,6 +251,15 @@ CLI 会根据模板清单把源仓库内容分成三类处理：
 ```
 
 如果已经传了 `--git-init`，第二步会提示执行 `git status` 检查初始化结果。
+
+一次典型 CLI 自升级完成后，你会看到类似输出：
+
+```text
+当前版本：2.2.3
+最新版本：2.3.0
+正在安装：npm install -g create-yss-spec@latest
+升级完成：2.2.3 -> 2.3.0
+```
 
 一次典型同步完成后，你会看到类似输出：
 
@@ -324,6 +350,15 @@ npx create-yss-spec@latest sync --target-dir . --dry-run
 - 根据错误中的旧、新路径比较内容
 - 人工合并并只保留目标 Spec / Ticket 路径
 - 重新执行 `sync --dry-run`，确认迁移计划后再正式同步
+
+### 9. `update` 和 `sync` 有什么区别
+
+`update` / `upgrade` 升级的是本机上的 `create-yss-spec` CLI 包。`sync` 使用当前 CLI 包内置的模板快照，去更新项目里的受管研发管理资产。
+
+处理方式：
+
+- 先 `create-yss-spec update`（或继续使用 `npx create-yss-spec@latest`）拿到最新 CLI
+- 再在项目目录执行 `npx create-yss-spec@latest sync --dry-run`
 
 ## 维护与验证
 

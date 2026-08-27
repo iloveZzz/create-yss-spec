@@ -38,6 +38,7 @@ npx create-yss-spec@latest --version
 - `--no-example-docs`
 - `attach` 子命令：在已有项目中补齐研发管理资产
 - `sync` 子命令
+- `update` / `upgrade` 子命令：检查 npm 最新版本，如有更新则安装 CLI 自身
 - 基于 `.yss-template.json` 的模板版本基线和 managed baseline
 - 只使用当前 CLI 包内置、绑定不可变 commit 的模板快照
 - 初始化时将 `yss-project.yaml` 从 `template-source` 改写为 `project-instance`
@@ -106,6 +107,21 @@ npx create-yss-spec@latest sync --dry-run
 npx create-yss-spec@latest sync --target-dir . --dry-run
 npx create-yss-spec@latest sync --target-dir . [--force]
 ```
+
+## 升级 CLI 自身
+
+`update`（别名 `upgrade`）检查 npm registry 上的最新 `create-yss-spec` 版本，如有更新则按当前安装方式自动安装。它升级的是 CLI 包本身，不会同步项目里的模板资产；模板同步仍使用 `sync`。
+
+```bash
+npx create-yss-spec update
+npx create-yss-spec update --dry-run
+npx create-yss-spec upgrade
+```
+
+- 全局安装会执行 `npm install -g create-yss-spec@latest`
+- 项目本地依赖会在对应项目根执行 `npm install create-yss-spec@latest`
+- 通过 npx 运行或在源码目录中运行时只报告版本并给出安装建议，不覆盖当前文件
+- `--dry-run` 只查询和预览，不安装；`--force` 在已是最新时仍重新安装（npx / 源码目录除外）
 
 ## 开发验证
 
