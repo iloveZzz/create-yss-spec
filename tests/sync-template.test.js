@@ -151,6 +151,7 @@ function createCliRunner() {
   for (const relativePath of [
     "package.json",
     "src/cli.js",
+    "src/self-update.js",
     "bin/create-yss-spec.js",
   ]) {
     fs.mkdirSync(path.dirname(path.join(runnerRoot, relativePath)), {

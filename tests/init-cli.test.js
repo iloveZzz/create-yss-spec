@@ -1498,6 +1498,8 @@ function assertHelpOutput(result) {
   assert.match(result.stdout, /--apply/);
   assert.match(result.stdout, /attach/);
   assert.match(result.stdout, /sync/);
+  assert.match(result.stdout, /^ {2}update /m);
+  assert.match(result.stdout, /^ {2}upgrade /m);
   assert.match(result.stdout, /https:\/\/github\.com\/iloveZzz\/create-yss-spec/);
 }
 
@@ -1507,9 +1509,11 @@ test("help flags print usage, commands, options, examples, and learn more", () =
   }
 });
 
-test("attach and sync help flags print the same usage without requiring a target", () => {
+test("attach, sync, and update help flags print the same usage without requiring a target", () => {
   assertHelpOutput(runCli(["attach", "--help"]));
   assertHelpOutput(runCli(["sync", "-h"]));
+  assertHelpOutput(runCli(["update", "--help"]));
+  assertHelpOutput(runCli(["upgrade", "-h"]));
 });
 
 test("version flags print the package version and exit", () => {
