@@ -124,11 +124,19 @@ npx create-yss-spec@latest attach \
 - `YSS_SPEC_TEMPLATE_REF=37251d0c7dacbe62a66cd935f1d33031891afedd npm pack --dry-run` → `create-yss-spec-2.2.4.tgz`（5.8 MB / 5160 files）
 - 本轮不执行 npm publish（由维护者手动发布）
 
+### 2026-08-27 跨仓库验证回写（`0c325d4` / CLI `2.2.5`）
+
+- 模板：`yss-spec-project-template@0c325d4f578481b1aa90c1897c0f986f040ea62b`（技能注册表激活、生命周期路由与前端实现证据门禁同步）
+- CLI：`create-yss-spec@2.2.5`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
+- `YSS_SPEC_TEMPLATE_REF=0c325d4f578481b1aa90c1897c0f986f040ea62b npm test` → **55/55 pass**
+- `YSS_SPEC_TEMPLATE_REF=0c325d4f578481b1aa90c1897c0f986f040ea62b npm pack --dry-run` → `create-yss-spec-2.2.5.tgz`（5.8 MB / 5160 files）
+- 本轮执行 npm publish，并以 npm registry 查询结果作为发布证据
+
 ## 发布顺序与阻断条件
 
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.2.4`；验证记录与回滚点已回写（见上文 2026-08-27 条目）。npm publish 由维护者手动执行。
+4. 发布 CLI `2.2.5`；验证记录与回滚点已回写（见上文 2026-08-27 条目）。
 
-跨仓库实现与固定快照验证已完成；独立 review 与 npm 发布仍为发布门禁，但不再阻断“CLI 已适配模板 `37251d0`”这一技术结论。
+跨仓库实现与固定快照验证已完成；独立 review 仍为发布门禁，但不再阻断“CLI 已适配模板 `0c325d4`”这一技术结论。
