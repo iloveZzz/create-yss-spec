@@ -130,7 +130,7 @@ npx create-yss-spec@latest attach \
 - CLI：`create-yss-spec@2.2.5`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
 - `YSS_SPEC_TEMPLATE_REF=0c325d4f578481b1aa90c1897c0f986f040ea62b npm test` → **55/55 pass**
 - `YSS_SPEC_TEMPLATE_REF=0c325d4f578481b1aa90c1897c0f986f040ea62b npm pack --dry-run` → `create-yss-spec-2.2.5.tgz`（5.8 MB / 5160 files）
-- 本轮执行 npm publish，并以 npm registry 查询结果作为发布证据
+- 已尝试 `npm publish`；因 npm 账户要求一次性密码（`EOTP`）未完成发布，待维护者完成 2FA 后重试并补充 npm registry 证据
 
 ## 发布顺序与阻断条件
 
