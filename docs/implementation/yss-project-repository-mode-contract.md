@@ -17,7 +17,7 @@ owner: ai
 | git_url | `https://github.com/iloveZzz/create-yss-spec.git` |
 | default_branch | `main` |
 | working_branch | `main` |
-| template_ref | `644111b5c438b1e90dfb5974a327302979410210` |
+| template_ref | `4743a3f6805e844be8244c49781eb55f0b3fd644` |
 | ci_system | GitHub Actions 尚未配置 |
 | test_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` |
 | package_command | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run` |
@@ -132,11 +132,19 @@ npx create-yss-spec@latest attach \
 - `YSS_SPEC_TEMPLATE_REF=0c325d4f578481b1aa90c1897c0f986f040ea62b npm pack --dry-run` → `create-yss-spec-2.2.5.tgz`（5.8 MB / 5160 files）
 - 已尝试 `npm publish`；因 npm 账户要求一次性密码（`EOTP`）未完成发布，待维护者完成 2FA 后重试并补充 npm registry 证据
 
+### 2026-08-29 跨仓库验证回写（`4743a3f` / CLI `2.2.6`）
+
+- 模板：`yss-spec-project-template@4743a3f6805e844be8244c49781eb55f0b3fd644`（唯一 `code-review` 入口接线 YSS / Alibaba 专项检查，以及 finding 分流合同）
+- CLI：`create-yss-spec@2.2.6`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
+- `YSS_SPEC_TEMPLATE_REF=4743a3f6805e844be8244c49781eb55f0b3fd644 npm test` → **55/55 pass**
+- `YSS_SPEC_TEMPLATE_REF=4743a3f6805e844be8244c49781eb55f0b3fd644 npm pack --dry-run` → `create-yss-spec-2.2.6.tgz`（5.8 MB / 5168 files）
+- 本轮按维护者要求**不执行 npm publish**；Git 源码与快照已同步，`npx create-yss-spec@latest` 在发布前仍指向 npm 上的 `2.2.5`
+
 ## 发布顺序与阻断条件
 
 1. 模板仓库修复流程资产和 `.qoder` 投影，fresh verification 通过并形成确定 commit。
 2. CLI 绑定该 commit，执行跨仓库 attach / sync 集成测试和独立 review。
 3. 执行 `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test`、`npm pack --dry-run`，确认包内 snapshot 可用。
-4. 发布 CLI `2.2.5`；验证记录与回滚点已回写（见上文 2026-08-27 条目）。
+4. 发布 CLI `2.2.6`（本轮跳过 npm publish，只推送 GitHub）。
 
-跨仓库实现与固定快照验证已完成；独立 review 仍为发布门禁，但不再阻断“CLI 已适配模板 `0c325d4`”这一技术结论。
+跨仓库实现与固定快照验证已完成；独立 review 仍为发布门禁，但不再阻断“CLI 已适配模板 `4743a3f`”这一技术结论。
