@@ -1182,6 +1182,39 @@ test("sync force overwrites a managed conflict and retains an external backup", 
   assert.equal(fs.readFileSync(path.join(backupPath, "README.md"), "utf8"), "local README\n");
 });
 
+test("sync force preserves flat tickets without treating them as legacy migrations", () => {
+  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
+  const targetDir = path.join(sandboxDir, "flat-ticket-sync-project");
+  const initResult = spawnSync(
+    process.execPath,
+    [
+      cliBin,
+      "--project-name",
+      "Flat Ticket Sync",
+      "--business-domain",
+      "Operations",
+      "--target-dir",
+      targetDir,
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const ticketPath = path.join(targetDir, "docs/requirements/tickets/ticket-ds-001.md");
+  fs.mkdirSync(path.dirname(ticketPath), { recursive: true });
+  fs.writeFileSync(ticketPath, "# Data standard ticket\n", "utf8");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliBin, "sync", "--target-dir", targetDir, "--force"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /unsafe|Ticket \u5f52\u5c5e/);
+  assert.equal(fs.readFileSync(ticketPath, "utf8"), "# Data standard ticket\n");
+});
+
 test("sync force does not overwrite a file outside the managed baseline", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "unmanaged-sync-project");

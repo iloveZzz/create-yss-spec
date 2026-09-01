@@ -50,6 +50,10 @@ npx create-yss-spec@latest --version
 
 本次模板适配按 `2.2.6` 绑定 `yss-spec-project-template@4743a3f`（Git 源码快照；本轮不发布 npm）。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的 `high-fidelity-html-prototype` 等独立入口不进入快照。
 
+## 当前版本说明
+
+当前 CLI 版本为 `2.2.7`，模板固定到 `96fb0900f8f49e42fe17d36e4cac4717b341bcf2`，同步 Archify 安全 receipt 写入修复及稳定交付路径示例。
+
 ## 接管已有项目
 
 `attach` 只处理 manifest 声明的研发管理资产，不扫描或覆盖前后端运行时代码、业务目录、用户文件和 `.git`。必须先 dry-run，再显式 apply：
@@ -73,7 +77,7 @@ npx create-yss-spec@latest attach \
 - 目标已有 `.yss-template.json` 时拒绝接管，请使用 `sync`。
 - `--dry-run` 与 `--apply` 互斥；非交互执行只依赖显式参数。
 - 根规则文件等受管冲突默认阻断；`--force` 才覆盖，并把被覆盖文件备份到目标目录外的临时目录。
-- 合法 `template-source` 身份会转换为 `project-instance`；非法身份、迁移冲突和无法判断归属的扁平 Ticket 始终阻断。
+- 合法 `template-source` 身份会转换为 `project-instance`；非法身份、迁移冲突和 attach 时无法判断归属的扁平 Ticket 始终阻断。
 - Git worktree 有脏改动时只提醒，不自动 stash 或提交。
 - `.gitmodules`、gitlink 和 `apps/` 挂载工作树是用户资产；空 gitlink / detached HEAD 即使 `--force` 也阻断。
 
@@ -99,6 +103,7 @@ npx create-yss-spec@latest sync --dry-run
 - `--force` 先备份，再覆盖受管冲突文件；不覆盖模板无关文件
 - 对模板已删除文件只报告，不自动删除
 - 对已知的 Spec / Ticket 旧路径执行一次性迁移
+- `docs/requirements/tickets/` 只在 attach 时检查归属；sync 不迁移、不删除，也不因其中存在 Ticket 而阻断
 - 迁移目标已存在且内容不一致时停止，不静默覆盖
 - `.gitmodules`、gitlink（mode `160000`）和 `apps/` 下已挂载实现仓是用户资产，不创建、不覆盖、不删除
 - init / sync 保持实例边界：不复制 `wiki/`、`.github/`、`.template-source/`、源仓库 ADR、Cursor Cloud 环境配置、`docs/reviews/` 或根 `package.json`；共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore` 属于实例门禁所需资产。attach 结束后会执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`，门禁失败会回滚文件和 metadata

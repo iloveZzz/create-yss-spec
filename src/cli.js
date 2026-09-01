@@ -1037,7 +1037,11 @@ function addDirectoryMigration(from, to, reason, desiredPathSet, plan) {
   plan.legacy.push({ action: "remove-migrated-directory", from, to, reason });
 }
 
-function buildLegacyMigrationPlan(targetDir, desiredOperations) {
+function buildLegacyMigrationPlan(
+  targetDir,
+  desiredOperations,
+  { checkFlatTickets = true } = {},
+) {
   const desiredPathSet = new Set(desiredOperations.map((operation) => operation.relativePath));
   const plan = {
     targetDir,
@@ -1094,9 +1098,7 @@ function buildLegacyMigrationPlan(targetDir, desiredOperations) {
     }
   }
 
-  for (const legacyDirectory of [
-    "docs/requirements/tickets",
-  ]) {
+  for (const legacyDirectory of checkFlatTickets ? ["docs/requirements/tickets"] : []) {
     const directoryPath = targetPath(targetDir, legacyDirectory);
     if (!fs.existsSync(directoryPath) || pathKind(directoryPath) !== "directory") {
       continue;
@@ -2055,7 +2057,11 @@ function runSync(argv = []) {
   const { metadata } = loadTemplateMetadata(targetDir);
   const identity = readTargetIdentity(targetDir);
   const syncPlan = classifySyncPlan(targetDir, metadata, identity);
-  const migrationPlan = buildLegacyMigrationPlan(targetDir, syncPlan.desiredOperations);
+  const migrationPlan = buildLegacyMigrationPlan(
+    targetDir,
+    syncPlan.desiredOperations,
+    { checkFlatTickets: false },
+  );
   const warning = gitDirtyWarning(targetDir);
   if (warning) {
     console.log(warning);

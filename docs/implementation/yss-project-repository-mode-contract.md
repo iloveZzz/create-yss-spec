@@ -57,7 +57,7 @@ npx create-yss-spec@latest attach \
 
 `644111b` 起实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、`@yss/skills` 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
 
-每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe`、旧路径迁移冲突或无法推断功能归属的扁平 Ticket。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
+每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe` 或旧路径迁移冲突。attach 仍会阻断无法推断功能归属的扁平 Ticket；sync 不检查或迁移 `docs/requirements/tickets/`。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 
 ### `sync`
 
@@ -67,7 +67,7 @@ npx create-yss-spec@latest attach \
 - dry-run 展示新增、更新、冲突、迁移和模板删除报告。
 - 普通同步新增缺失文件，更新 baseline 未被本地修改的文件，跳过并报告冲突。
 - `sync --force` 先备份，再覆盖受管冲突文件；模板删除默认只报告。
-- 旧 skill、旧 Spec / Ticket 路径和根 `.scratch/<feature>/` 只在安全迁移计划成功时移动或删除；unsafe / conflict 阻断。
+- 旧 skill、旧 Spec / Ticket 路径和根 `.scratch/<feature>/` 只在安全迁移计划成功时移动或删除；unsafe / conflict 阻断。现存 `docs/requirements/tickets/` 不属于 sync 迁移范围，目录及其内容原样保留。
 - 空 gitlink、uninitialized、detached HEAD 和 git-submodule 挂载点在写入前 fail closed；`--force` 不能覆盖。
 - init 完成后做实例边界校验（禁止源仓笔记、维护工具和环境配置泄漏）。sync 对已误进实例的 `.template-source/`、`wiki/`、`docs/reviews/` 和源仓库 ADR 只 `remove-report`，不把遗留文件当成校验失败。attach 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
 
@@ -81,7 +81,7 @@ npx create-yss-spec@latest attach \
 | `docs/templates/vertical-slice-issue-template.md` | `docs/templates/vertical-slice-ticket-template.md` | 内容冲突阻断 |
 | `docs/requirements/<feature>-prd.md` | `docs/requirements/<feature>-spec.md` | 目标冲突阻断 |
 | `.scratch/<feature>/` | `docs/.scratch/<feature>/` | 目标冲突阻断 |
-| 扁平 `docs/requirements/tickets/*` | `docs/.scratch/<feature>/issues/` | 无法推断功能归属时 `unsafe`，不强制迁移 |
+| 扁平 `docs/requirements/tickets/*` | `docs/.scratch/<feature>/issues/` | 仅 attach 检查；无法推断功能归属时 `unsafe`。sync 不检查、不迁移 |
 
 ## 验证证据
 
@@ -95,6 +95,7 @@ npx create-yss-spec@latest attach \
 | attach 旧路径迁移 | Spec / Ticket 映射生效；unsafe / conflict 不落盘 |
 | gitlink 挂载点 | 空 gitlink / detached HEAD / `--force` 覆盖均 fail closed，不改 `.gitmodules` |
 | sync baseline | 新增、更新、跳过、删除报告与 metadata 升级通过 |
+| sync 现存扁平 Ticket | 不进入迁移计划、不触发 `unsafe`，文件内容原样保留 |
 | post-attach gates | attach 三个模板门禁全部 fresh 通过，失败时文件和 metadata 回滚 |
 | 固定快照 | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` 与 `npm pack --dry-run` 通过 |
 
@@ -148,3 +149,8 @@ npx create-yss-spec@latest attach \
 4. 发布 CLI `2.2.6`（本轮跳过 npm publish，只推送 GitHub）。
 
 跨仓库实现与固定快照验证已完成；独立 review 仍为发布门禁，但不再阻断“CLI 已适配模板 `4743a3f`”这一技术结论。
+
+### 2026-09-01 Archify 安全交付修复（CLI `2.2.7`）
+
+- CLI：`create-yss-spec@2.2.7`，`DEFAULT_TEMPLATE_REF` 已绑定 `96fb0900f8f49e42fe17d36e4cac4717b341bcf2`。
+- 固定快照：`YSS_SPEC_TEMPLATE_REF=96fb0900f8f49e42fe17d36e4cac4717b341bcf2 npm test` → **56/56 pass**。
