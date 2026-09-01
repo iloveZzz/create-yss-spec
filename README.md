@@ -52,7 +52,7 @@ npx create-yss-spec@latest --version
 
 ## 当前版本说明
 
-当前 CLI 版本为 `2.2.7`，模板固定到 `96fb0900f8f49e42fe17d36e4cac4717b341bcf2`，同步 Archify 安全 receipt 写入修复及稳定交付路径示例。
+当前 CLI 版本为 `2.2.8`，模板固定到 `f9f97eb080519b3388be12fed07b2ce0e026b04b`，同步 L3 模板维护证据策略更新。
 
 ## 接管已有项目
 
