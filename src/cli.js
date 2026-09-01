@@ -1418,9 +1418,9 @@ function initializeGitRepository(targetDir) {
   }
 }
 
-function runTemplateVerification(targetDir, scriptPath) {
+function runTemplateVerification(targetDir, scriptPath, args = ["--check"]) {
   const commandPath = targetPath(targetDir, scriptPath);
-  const result = spawnSync(commandPath, ["--check"], {
+  const result = spawnSync(commandPath, args, {
     cwd: targetDir,
     encoding: "utf8",
   });
@@ -1434,19 +1434,50 @@ function runTemplateVerification(targetDir, scriptPath) {
   }
 }
 
+function runTemplateVerificationWithGit(targetDir, scriptPath, args = []) {
+  const gitPath = targetPath(targetDir, ".git");
+  const probe = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: targetDir,
+    encoding: "utf8",
+  });
+  if (probe.status === 0 && probe.stdout.trim() === "true") {
+    runTemplateVerification(targetDir, scriptPath, args);
+    return;
+  }
+
+  let backupRoot;
+  let backupGitPath;
+  try {
+    try {
+      fs.lstatSync(gitPath);
+      backupRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-git-backup-"));
+      backupGitPath = path.join(backupRoot, ".git");
+      fs.renameSync(gitPath, backupGitPath);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    initializeGitRepository(targetDir);
+    runTemplateVerification(targetDir, scriptPath, args);
+  } finally {
+    fs.rmSync(gitPath, { recursive: true, force: true });
+    if (backupGitPath) {
+      fs.renameSync(backupGitPath, gitPath);
+    }
+    if (backupRoot) {
+      fs.rmSync(backupRoot, { recursive: true, force: true });
+    }
+  }
+}
+
 function verifyGeneratedTemplate(targetDir, mode = "managed") {
   if (mode === "init" || mode === "sync") {
     verifyGeneratedInstance(targetDir, { checkForbiddenPaths: mode === "init" });
     return;
   }
 
-  for (const scriptPath of [
-    "scripts/sync-skills",
-    "scripts/update-skill-lock",
-    "scripts/verify-template",
-  ]) {
-    runTemplateVerification(targetDir, scriptPath);
-  }
+  runTemplateVerification(targetDir, "scripts/sync-skills");
+  runTemplateVerification(targetDir, "scripts/update-skill-lock");
+  runTemplateVerificationWithGit(targetDir, "scripts/verify-template");
 }
 
 function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = true } = {}) {

@@ -190,6 +190,13 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
   assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
   assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template-fast")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template-candidate")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/run-template-verification")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/lib/template-verification.mjs")));
+  assert.ok(
+    fs.existsSync(path.join(targetDir, "docs/process/template-verification-profiles.yaml")),
+  );
   assert.ok(fs.existsSync(path.join(targetDir, "scripts/vendor/yaml.mjs")));
   assert.equal(
     fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
