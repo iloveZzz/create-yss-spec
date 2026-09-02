@@ -74,6 +74,9 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml")));
   assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
+  assert.ok(fs.existsSync(path.join(targetDir, "DESIGN.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview.html")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview-dark.html")));
   assert.ok(fs.existsSync(path.join(targetDir, ".cursor/skills")));
   for (const removedPath of [
     "docs/templates/prd-template.md",
