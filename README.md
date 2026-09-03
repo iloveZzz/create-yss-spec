@@ -52,7 +52,7 @@ npx create-yss-spec@latest --version
 
 ## 当前版本说明
 
-当前 CLI 版本为 `2.2.9`，模板固定到 `a7f2c1be9cb96569c1f6d41890edd72719a5f2af`，新增 `DESIGN.md` 与设计预览资产的模板实例分发。
+当前 CLI 版本为 `2.2.10`，模板固定到 `c2308bb36a1f835343af5de1ee9ec2666f9d18cb`，同步 YSS DDD Target Profile 严格边界、跨平台技能投影及最新 CLI gitlink。
 
 ## 接管已有项目
 

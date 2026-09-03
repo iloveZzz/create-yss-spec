@@ -105,6 +105,7 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   for (const frontendSkill of [
     "yss-page-module-development",
+    "yss-ui-business-page-generation",
     "ytable-usage",
     "yedit-table-usage",
     "formily-foundation",
@@ -123,12 +124,22 @@ test("interactive init generates a template instance in an empty directory", () 
       `missing cursor projection for ${frontendSkill}`,
     );
   }
+  for (const mcpConfig of [
+    ".mcp.json",
+    ".gemini/settings.json",
+    ".kiro/settings/mcp.json",
+    ".vscode/mcp.json",
+  ]) {
+    assert.ok(
+      fs.existsSync(path.join(targetDir, mcpConfig)),
+      `missing MCP configuration ${mcpConfig}`,
+    );
+  }
   for (const retiredSkill of [
     "high-fidelity-html-prototype",
     "api-integration",
     "use-table-height",
     "use-tree-height",
-    "yss-ui-business-page-generation",
   ]) {
     assert.equal(
       fs.existsSync(path.join(targetDir, ".agents/skills", retiredSkill)),
