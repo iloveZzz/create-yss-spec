@@ -305,7 +305,6 @@ function materializeSharedSkillProjections(templateRoot) {
         ".claude/skills",
         ".codex/skills",
         ".cursor/skills",
-        ".hermes/skills",
         ".pi/skills",
         ".qoder/skills",
         ".trae/skills",

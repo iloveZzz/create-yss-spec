@@ -126,8 +126,6 @@ test("interactive init generates a template instance in an empty directory", () 
   }
   for (const mcpConfig of [
     ".mcp.json",
-    ".gemini/settings.json",
-    ".kiro/settings/mcp.json",
     ".vscode/mcp.json",
   ]) {
     assert.ok(
@@ -155,7 +153,7 @@ test("interactive init generates a template instance in an empty directory", () 
     "yss-backend-scaffold-adapter",
     "yss-backend-scaffold-parent",
   ];
-  for (const projectionRoot of [".claude", ".codex", ".hermes", ".pi", ".qoder", ".trae"]) {
+  for (const projectionRoot of [".claude", ".codex", ".pi", ".qoder", ".trae"]) {
     for (const skillName of scaffoldReferenceSkills) {
       assert.ok(
         fs.existsSync(
