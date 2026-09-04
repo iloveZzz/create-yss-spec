@@ -52,7 +52,7 @@ npx create-yss-spec@latest --version
 
 ## 当前版本说明
 
-当前 CLI 版本为 `3.0.0`，模板固定到 `ec54212e2a3c3ab2f2496dc27c3979b6f2ecba03`。该主版本将 Web 生成升级为批准的 schema v2 合同，绑定 `yss-dto` wire profile，并要求通过完整首切片验证器后才能声明 `first-slice-verified`。
+当前 CLI 版本为 `3.0.1`，模板固定到 `f454f08950cad6acc6cba2e413e62a3e942677fe`。该主版本将 Web 生成升级为批准的 schema v2 合同，绑定 `yss-dto` wire profile，并要求通过完整首切片验证器后才能声明 `first-slice-verified`。
 
 ## 接管已有项目
 
