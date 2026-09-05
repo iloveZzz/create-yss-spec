@@ -24,6 +24,7 @@ src/
 ├── template/
 │   ├── manifest.js
 │   ├── snapshot.js
+│   ├── plan-schema.js
 │   ├── sync-planner.js
 │   ├── attach-planner.js
 │   ├── renderer.js
@@ -102,9 +103,13 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 
 进行中。
 
-已完成第一片：`src/template/sync-planner.js`。
+已完成：
 
-该模块把 sync 的受管文件分类规则抽成纯函数 `classifySyncOperations`，并通过依赖注入读取 path kind、file hash 与 unmanaged reason，从而避免 planner 直接依赖真实文件系统。当前覆盖的语义包括：
+- `src/template/plan-schema.js`：稳定 Plan Schema v1，统一 `schemaVersion / operation / targetDir / template / changes / conflicts / unsafe / warnings / blocked / stats / migration`。
+- `src/template/sync-planner.js`：纯函数化 sync 分类与 Plan 构建。
+- 测试覆盖 managed baseline、local modification、identity conversion、unsafe、migration conflict 与 Plan Schema。
+
+`classifySyncOperations` 通过依赖注入读取 path kind、file hash 与 unmanaged reason，从而避免 planner 直接依赖真实文件系统。当前覆盖语义：
 
 - 新增文件 `added`
 - 模板更新 `updated`
@@ -115,10 +120,11 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 - unsafe / protected path
 - 模板已删除文件 `removed`
 
-同时新增 `createSyncPlan`，把分类结果与 migration blockers 归一为机器可读 Plan envelope：
+`createSyncPlan` 将分类结果与 migration blockers 归一到 Plan Schema v1：
 
 ```json
 {
+  "schemaVersion": 1,
   "operation": "sync",
   "targetDir": ".",
   "template": { "from": "3.0.0", "to": "4.0.0" },
