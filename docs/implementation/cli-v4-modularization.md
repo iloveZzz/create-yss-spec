@@ -22,19 +22,12 @@ src/
 │   ├── sync.js
 │   └── update.js
 ├── template/
-│   ├── manifest.js
-│   ├── snapshot.js
 │   ├── plan-schema.js
 │   ├── sync-planner.js
 │   ├── sync-planner-runtime.js
 │   ├── attach-planner.js
 │   ├── attach-planner-runtime.js
-│   ├── migration-planner.js
-│   └── renderer.js
-├── project/
-│   ├── metadata.js
-│   ├── identity.js
-│   └── detector.js
+│   └── migration-planner.js
 ├── filesystem/
 │   ├── path-utils.js
 │   ├── copy-path.js
@@ -42,13 +35,12 @@ src/
 │   ├── transaction-runner.js
 │   └── apply-plan.js
 ├── git/
-│   ├── repository.js
-│   ├── worktree.js
-│   └── gitlink.js
+│   ├── submodule.js
+│   └── worktree.js
 └── validation/
-    ├── manifest.js
     ├── snapshot.js
-    ├── project.js
+    ├── metadata.js
+    ├── identity.js
     └── security.js
 ```
 
@@ -167,18 +159,59 @@ verify
 write metadata
 ```
 
-后续生产接入后，attach/sync 中重复的 `new Transaction + prepare + try/catch + rollback + finish` 可以被统一 transaction runner 替代。
-
 ### P0-E：安全与 Git 边界
 
-下一步抽离：
+核心安全/校验模块已完成抽离，生产 wiring 待接入。
 
-- git worktree / dirty warning
-- gitlink / submodule / detached HEAD 检查
-- unmanaged/protected path policy
-- snapshot / metadata / identity validation
+已完成：
 
-完成后 legacy `cli.js` 应只剩薄编排与少量兼容桥接。
+- `src/git/submodule.js`
+  - `.gitmodules` 解析
+  - gitlink mode `160000` 识别
+  - submodule mount 判断
+- `src/git/worktree.js`
+  - Git root 收集
+  - superproject 探测
+  - detached HEAD / attached branch / empty gitlink / uninitialized 状态识别
+  - dirty worktree warning
+- `src/validation/security.js`
+  - `gitlinkWriteViolation`
+  - `assertTargetWorkingTreeWritable`
+  - `.gitmodules` / gitlink / apps mount protected-path policy
+  - `--force` 不可绕过 gitlink / detached HEAD 安全边界
+- `src/validation/snapshot.js`
+  - 40 位 immutable templateCommit
+  - 64 位 snapshotHash
+  - manifestHash 一致性
+  - encodedPaths 越界/重复目标校验
+  - tree hash 一致性
+- `src/validation/metadata.js`
+  - metadata schema version
+  - templateName / cliVersion / templateSource
+  - immutable templateCommit
+  - managedFilesManifestVersion
+  - variables / managedFiles 类型合同
+- `src/validation/identity.js`
+  - `yss-project.yaml` 严格字段合同
+  - schema_version=1
+  - template-source / project-instance 两种合法 mode
+  - template-source -> project-instance 显式转换
+- 新增 `tests/validation-modules.test.js` 覆盖 Git security、snapshot、metadata、identity 契约。
+
+当前安全边界拆分后，Planner 可以只消费 `unmanagedReason` / runtime state，不需要理解 Git 命令；Transaction 只负责执行，不需要理解 ownership policy；Validation 则成为独立 fail-closed gate。
+
+### P0-F：生产 wiring / legacy core 收口
+
+下一步重点：
+
+1. 生产 `classifySyncPlan` 接入 `sync-planner-runtime`。
+2. 生产 `classifyAttachPlan` 接入 `attach-planner-runtime`。
+3. `buildLegacyMigrationPlan` 复用 migration planner primitives。
+4. legacy `Transaction` 替换为 `FileTransaction + runInTransaction`。
+5. Git/security/snapshot/metadata/identity 调用替换为新 validation modules。
+6. legacy `src/cli.js` 收缩为 command orchestration 与兼容桥接。
+
+该步骤需要可靠 patch 或本地执行环境，以避免对约 72KB 单体文件进行高风险整文件覆盖。
 
 ## P1 接口
 
@@ -200,7 +233,7 @@ create-yss-spec sync --json
 - `.yss-template.json` schema 在模块拆分阶段不升级。
 - `template.manifest.json` ownership schema 作为独立版本迁移，不与代码拆分绑在同一发布中。
 - 每个拆分步骤都必须通过现有测试后才能删除 legacy 实现。
-- 新 planner/transaction 在替代生产逻辑之前必须有语义对照测试，确保 fail-closed 和 rollback 行为不弱化。
+- 新 planner/transaction/validation 在替代生产逻辑之前必须有语义对照测试，确保 fail-closed 和 rollback 行为不弱化。
 
 ## 完成定义
 
