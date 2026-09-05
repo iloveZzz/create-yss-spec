@@ -54,6 +54,14 @@ npx create-yss-spec@latest --version
 
 当前 CLI 版本为 `3.1.0`，模板固定到 `248c1723cc0e4e88adabcf00931f78b9aa632d48`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
 
+## CLI v4 模块化重构（进行中）
+
+当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`init` / `attach` / `sync` 仍暂时复用 legacy execution core。
+
+P0-C 的领域 Planner、P0-D 的事务/回滚层、P0-E 的 Git/安全/校验边界都已完成独立模块抽取并配套测试：包括 Sync/Attach/Migration Planner、Plan Schema v1、`FileTransaction`、`runInTransaction`、gitlink/submodule/detached HEAD 检查，以及 snapshot/metadata/identity validation。下一步是生产 wiring：让 legacy `src/cli.js` 逐步改为调用这些模块，并收缩为薄编排层，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
+
+完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
+
 ## 接管已有项目
 
 `attach` 只处理 manifest 声明的研发管理资产，不扫描或覆盖前后端运行时代码、业务目录、用户文件和 `.git`。必须先 dry-run，再显式 apply：

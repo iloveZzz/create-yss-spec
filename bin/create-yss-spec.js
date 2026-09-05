@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { runCli } = require("../src/cli");
+const { runCli } = require("../src/cli/index.js");
 
 (async () => {
   await runCli(process.argv.slice(2));

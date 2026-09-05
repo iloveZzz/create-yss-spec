@@ -24,6 +24,7 @@
     "sync-template": "node scripts/sync-template.js",
     "pretest": "npm run sync-template",
     "test": "node --test tests/*.test.js",
+    "test:unit": "node --test tests/*.test.js",
     "prepack": "npm run sync-template"
   }
 }
