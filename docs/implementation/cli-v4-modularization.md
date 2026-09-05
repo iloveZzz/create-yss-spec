@@ -13,7 +13,6 @@ src/
 ├── cli/
 │   ├── index.js
 │   ├── args.js
-│   ├── flags.js
 │   ├── help.js
 │   ├── prompts.js
 │   └── router.js
@@ -25,7 +24,8 @@ src/
 ├── template/
 │   ├── manifest.js
 │   ├── snapshot.js
-│   ├── planner.js
+│   ├── sync-planner.js
+│   ├── attach-planner.js
 │   ├── renderer.js
 │   └── migration.js
 ├── project/
@@ -77,57 +77,66 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 
 ## 迁移阶段
 
-### P0-A：入口 seam（已完成）
-
-- 新增 `src/cli/index.js` 稳定模块入口。
-- 可执行文件通过 `src/cli` 入口加载 `runCli`。
-- 添加入口兼容测试。
-- 不改变业务行为。
-
-### P0-B：CLI adapter 拆分（外层协议已完成）
+### P0-A：入口 seam
 
 已完成：
 
-1. `cli/flags.js`：统一 help/version flag。
-2. `cli/args.js`：参数 schema 与 parseArgs 兼容实现。
-3. `cli/help.js`：help/version 纯文本渲染与输出。
-4. `cli/prompts.js`：TTY / buffered input 与选项归一化。
-5. `cli/router.js`：全局 flag 优先级和命令分类。
-6. `commands/*`：init/attach/sync/update 独立 command adapter。
-7. `cli/index.js`：真实外层 dispatch；help/version/update 已脱离 legacy `runCli` 执行。
+- 新增 `src/cli/index.js` 稳定模块入口。
+- 可执行文件通过该入口加载 `runCli`。
+- 添加入口兼容测试。
+- 不改变业务行为。
 
-当前 `init` / `attach` / `sync` adapter 仍委托 `src/cli.js` 作为 legacy execution core。这是刻意保留的 strangler seam：后续逐命令迁移实现时，不需要再次修改 bin/router 公共协议。
+### P0-B：CLI adapter 拆分
 
-### P0-C：领域 planner 拆分（下一步）
+已完成外层协议与 seam：
 
-先拆 `attach` / `sync` 的 classify/build plan 逻辑，再建立统一 Plan schema。规划器必须可在没有真实写入的情况下进行单元测试。
+1. `cli/args.js`：flag/option schema、parseArgs。
+2. `cli/help.js`：help/version 输出。
+3. `cli/prompts.js`：TTY / buffered input。
+4. `cli/router.js`：命令解析与 dispatch。
+5. `commands/*`：init / attach / sync / update adapter。
 
-建议 Plan 最低字段：
+`help`、`version`、`update/upgrade` 已经由新模块真实执行；`init` / `attach` / `sync` 当前仍委托 legacy execution core，以小步方式保持兼容。
+
+### P0-C：领域 planner 拆分
+
+进行中。
+
+已完成第一片：`src/template/sync-planner.js`。
+
+该模块把 sync 的受管文件分类规则抽成纯函数 `classifySyncOperations`，并通过依赖注入读取 path kind、file hash 与 unmanaged reason，从而避免 planner 直接依赖真实文件系统。当前覆盖的语义包括：
+
+- 新增文件 `added`
+- 模板更新 `updated`
+- 内容一致 `unchanged`
+- 本地修改冲突 `conflicts / forceableConflicts / skipped`
+- 非 baseline 文件冲突
+- identity conversion
+- unsafe / protected path
+- 模板已删除文件 `removed`
+
+同时新增 `createSyncPlan`，把分类结果与 migration blockers 归一为机器可读 Plan envelope：
 
 ```json
 {
   "operation": "sync",
   "targetDir": ".",
-  "template": { "from": "...", "to": "..." },
+  "template": { "from": "3.0.0", "to": "4.0.0" },
   "changes": [],
   "conflicts": [],
   "unsafe": [],
+  "migration": {},
   "warnings": [],
-  "blocked": false
+  "blocked": false,
+  "stats": {}
 }
 ```
 
-建议迁移顺序：
-
-1. `sync` desired operations / classify plan。
-2. `attach` desired operations / classify plan。
-3. legacy migration plan。
-4. 统一 `Plan` schema 和 formatter。
-5. command adapter 改为直接调用 planner，而不是 legacy `runCli`。
+下一步必须把生产 `classifySyncPlan` 改为复用该 planner，避免 legacy 与新 planner 双实现长期漂移；之后再拆 attach planner 与 migration planner。
 
 ### P0-D：事务与安全边界拆分
 
-迁移 `Transaction`、backup、path safety、gitlink/worktree 检查。所有 command 通过统一 transaction service 应用计划。
+待迁移 `Transaction`、backup、path safety、gitlink/worktree 检查。所有 command 最终通过统一 transaction service 应用计划。
 
 ## P1 接口
 
@@ -149,7 +158,7 @@ create-yss-spec sync --json
 - `.yss-template.json` schema 在模块拆分阶段不升级。
 - `template.manifest.json` ownership schema 作为独立版本迁移，不与代码拆分绑在同一发布中。
 - 每个拆分步骤都必须通过现有测试后才能删除 legacy 实现。
-- 在仓库没有分支 CI 的情况下，不把“已写测试”表述为“CI 已通过”；合并前应在可执行环境运行完整 `npm test`。
+- 新 planner 在替代生产逻辑之前必须有语义对照测试，确保 fail-closed 行为不弱化。
 
 ## 完成定义
 
