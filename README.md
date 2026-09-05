@@ -54,6 +54,14 @@ npx create-yss-spec@latest --version
 
 当前 CLI 版本为 `3.1.0`，模板固定到 `248c1723cc0e4e88adabcf00931f78b9aa632d48`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
 
+## CLI v4 模块化重构（进行中）
+
+当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`init` / `attach` / `sync` 仍暂时复用 legacy execution core。
+
+P0-C 已开始抽离领域 Planner。`src/template/sync-planner.js` 现在提供纯函数化的 sync 分类与机器可读 Plan envelope，用于统一 `changes / conflicts / unsafe / blocked / stats`。下一步会让生产 sync 直接复用该 Planner，随后继续拆 attach/migration/transaction，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
+
+完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
+
 ## 接管已有项目
 
 `attach` 只处理 manifest 声明的研发管理资产，不扫描或覆盖前后端运行时代码、业务目录、用户文件和 `.git`。必须先 dry-run，再显式 apply：
@@ -138,12 +146,6 @@ CLI 源码和研发记录由本仓库独立维护。首次测试会从
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 ```
-
-## CLI v4 模块化重构（开发中）
-
-当前重构分支正在采用 compatibility-first 的 strangler 方式，将命令行协议与领域执行逐步从历史 `src/cli.js` 单体中拆出。外层 `src/cli/` 已建立 args / flags / help / prompts / router 边界，`src/commands/` 已建立 init / attach / sync / update command adapter；下一阶段将优先拆出 sync/attach planner，并统一为 `Plan -> Validate -> Apply` 生命周期。
-
-详细设计见：[`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
 
 ## 研发记录
 
