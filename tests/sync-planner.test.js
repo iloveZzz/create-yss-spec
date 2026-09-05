@@ -118,6 +118,7 @@ test("createSyncPlan produces a machine-readable plan envelope", () => {
     warnings: ["working tree dirty"],
   });
 
+  assert.equal(plan.schemaVersion, 1);
   assert.equal(plan.operation, "sync");
   assert.equal(plan.blocked, false);
   assert.deepEqual(plan.template, { from: "3.0.0", to: "4.0.0" });
