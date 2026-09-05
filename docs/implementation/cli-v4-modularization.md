@@ -26,17 +26,21 @@ src/
 │   ├── snapshot.js
 │   ├── plan-schema.js
 │   ├── sync-planner.js
+│   ├── sync-planner-runtime.js
 │   ├── attach-planner.js
-│   ├── renderer.js
-│   └── migration.js
+│   ├── attach-planner-runtime.js
+│   ├── migration-planner.js
+│   └── renderer.js
 ├── project/
 │   ├── metadata.js
 │   ├── identity.js
 │   └── detector.js
 ├── filesystem/
+│   ├── path-utils.js
+│   ├── copy-path.js
 │   ├── transaction.js
-│   ├── backup.js
-│   └── paths.js
+│   ├── transaction-runner.js
+│   └── apply-plan.js
 ├── git/
 │   ├── repository.js
 │   ├── worktree.js
@@ -101,26 +105,19 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 
 ### P0-C：领域 planner 拆分
 
-进行中。
+领域模型已完成，生产 wiring 待接入。
 
 已完成：
 
-- `src/template/plan-schema.js`：稳定 Plan Schema v1，统一 `schemaVersion / operation / targetDir / template / changes / conflicts / unsafe / warnings / blocked / stats / migration`。
+- `src/template/plan-schema.js`：稳定 Plan Schema v1。
 - `src/template/sync-planner.js`：纯函数化 sync 分类与 Plan 构建。
-- 测试覆盖 managed baseline、local modification、identity conversion、unsafe、migration conflict 与 Plan Schema。
+- `src/template/sync-planner-runtime.js`：文件系统/Git 探测到 planner 的 adapter。
+- `src/template/attach-planner.js`：纯函数化 attach 分类与 Plan 构建。
+- `src/template/attach-planner-runtime.js`：attach runtime adapter。
+- `src/template/migration-planner.js`：move/remove/replace/conflict/unsafe 等迁移领域原语。
+- 测试覆盖 managed baseline、local modification、identity conversion、unsafe、migration conflict、attach conflict 与 Plan Schema。
 
-`classifySyncOperations` 通过依赖注入读取 path kind、file hash 与 unmanaged reason，从而避免 planner 直接依赖真实文件系统。当前覆盖语义：
-
-- 新增文件 `added`
-- 模板更新 `updated`
-- 内容一致 `unchanged`
-- 本地修改冲突 `conflicts / forceableConflicts / skipped`
-- 非 baseline 文件冲突
-- identity conversion
-- unsafe / protected path
-- 模板已删除文件 `removed`
-
-`createSyncPlan` 将分类结果与 migration blockers 归一到 Plan Schema v1：
+统一 machine-readable Plan：
 
 ```json
 {
@@ -138,11 +135,49 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 }
 ```
 
-下一步必须把生产 `classifySyncPlan` 改为复用该 planner，避免 legacy 与新 planner 双实现长期漂移；之后再拆 attach planner 与 migration planner。
+生产 `classifySyncPlan` / `classifyAttachPlan` 尚未替换：当前 GitHub contents 写接口只支持整文件替换，而 legacy `src/cli.js` 约 72KB。为避免高风险全文件覆盖，生产 wiring 延后到具备可靠 patch 或本地执行环境时完成。
 
-### P0-D：事务与安全边界拆分
+### P0-D：事务执行边界
 
-待迁移 `Transaction`、backup、path safety、gitlink/worktree 检查。所有 command 最终通过统一 transaction service 应用计划。
+核心事务能力已完成抽离，生产 wiring 待接入。
+
+已完成：
+
+- `src/filesystem/path-utils.js`：路径归一化、目标路径解析、path kind 探测。
+- `src/filesystem/copy-path.js`：拒绝 symlink/特殊文件的安全复制原语。
+- `src/filesystem/transaction.js`：`FileTransaction`，完整保留 legacy prepare/backup/mutation tracking/rollback/finish 语义。
+- `src/filesystem/apply-plan.js`：managed operation 与 migration operation 的统一 apply service，未知操作 fail closed。
+- `src/filesystem/transaction-runner.js`：统一 prepare -> execute -> finish 与失败 rollback 错误合同。
+- 使用真实临时文件系统测试 rollback、move/remove、父目录清理、backup collapse、finish 生命周期和 apply service。
+
+`FileTransaction` 的目标是让 command 只表达：
+
+```text
+plan affected paths
+      ↓
+runInTransaction
+      ↓
+apply managed operations
+      ↓
+apply migrations
+      ↓
+verify
+      ↓
+write metadata
+```
+
+后续生产接入后，attach/sync 中重复的 `new Transaction + prepare + try/catch + rollback + finish` 可以被统一 transaction runner 替代。
+
+### P0-E：安全与 Git 边界
+
+下一步抽离：
+
+- git worktree / dirty warning
+- gitlink / submodule / detached HEAD 检查
+- unmanaged/protected path policy
+- snapshot / metadata / identity validation
+
+完成后 legacy `cli.js` 应只剩薄编排与少量兼容桥接。
 
 ## P1 接口
 
@@ -164,7 +199,7 @@ create-yss-spec sync --json
 - `.yss-template.json` schema 在模块拆分阶段不升级。
 - `template.manifest.json` ownership schema 作为独立版本迁移，不与代码拆分绑在同一发布中。
 - 每个拆分步骤都必须通过现有测试后才能删除 legacy 实现。
-- 新 planner 在替代生产逻辑之前必须有语义对照测试，确保 fail-closed 行为不弱化。
+- 新 planner/transaction 在替代生产逻辑之前必须有语义对照测试，确保 fail-closed 和 rollback 行为不弱化。
 
 ## 完成定义
 
@@ -175,4 +210,5 @@ P0 完成时应满足：
 - 领域模块不直接读取 argv/TTY，也不直接打印 console。
 - 现有 CLI 行为保持兼容。
 - unsafe / gitlink / snapshot hash 等 fail-closed 规则保持或增强。
+- rollback 与 backup 生命周期有独立测试保障。
 - 为 doctor/diff/JSON/MCP 提供稳定的内部 API。
