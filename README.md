@@ -58,7 +58,7 @@ npx create-yss-spec@latest --version
 
 当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`init` / `attach` / `sync` 仍暂时复用 legacy execution core。
 
-P0-C 的领域 Planner 已完成：Plan Schema v1、Sync/Attach Planner、Migration Planner 及 runtime adapter 已抽离并配套独立测试。P0-D 也已完成核心事务边界抽取：`FileTransaction`、安全 `copyPath`、plan apply service、统一 `runInTransaction` 以及真实临时文件系统 rollback/backup 测试均已落地。下一步会继续拆 Git、安全与校验边界，并在具备可靠 patch / 本地执行环境后完成生产 wiring，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
+P0-C 的领域 Planner、P0-D 的事务/回滚层、P0-E 的 Git/安全/校验边界都已完成独立模块抽取并配套测试：包括 Sync/Attach/Migration Planner、Plan Schema v1、`FileTransaction`、`runInTransaction`、gitlink/submodule/detached HEAD 检查，以及 snapshot/metadata/identity validation。下一步是生产 wiring：让 legacy `src/cli.js` 逐步改为调用这些模块，并收缩为薄编排层，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
 
 完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
 
@@ -145,7 +145,6 @@ CLI 源码和研发记录由本仓库独立维护。首次测试会从
 ```bash
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
-npm run test:unit
 ```
 
 ## 研发记录
