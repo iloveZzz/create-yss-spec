@@ -117,13 +117,40 @@ function createSyncPlan({
 
   const migrationConflicts = migration?.conflicts || [];
   const migrationUnsafe = migration?.unsafe || [];
-  const blocked = classified.unsafe.length > 0 || migrationConflicts.length > 0 || migrationUnsafe.length > 0;
+  const blocked =
+    classified.unsafe.length > 0 ||
+    migrationConflicts.length > 0 ||
+    migrationUnsafe.length > 0;
 
   const changes = [
-    ...classified.updated.map((operation) => ({ action: "update", path: operation.relativePath })),
-    ...classified.added.map((operation) => ({ action: "add", path: operation.relativePath })),
-    ...classified.removed.map((relativePath) => ({ action: "remove-report", path: relativePath })),
+    ...classified.updated.map((operation) => ({
+      action: "update",
+      path: operation.relativePath,
+    })),
+    ...classified.added.map((operation) => ({
+      action: "add",
+      path: operation.relativePath,
+    })),
+    ...classified.removed.map((relativePath) => ({
+      action: "remove-report",
+      path: relativePath,
+    })),
   ];
+
+  const classifiedConflicts = classified.conflicts.map((operation) => ({
+    path: operation.relativePath,
+    reason: operation.reason,
+    forceable: classified.forceableConflicts.includes(operation),
+    source: "managed-file",
+  }));
+  const normalizedMigrationConflicts = migrationConflicts.map((item) => ({
+    path: item.from || item.path || item.to,
+    from: item.from,
+    to: item.to,
+    reason: item.reason,
+    forceable: false,
+    source: "migration",
+  }));
 
   return {
     operation: "sync",
@@ -133,19 +160,25 @@ function createSyncPlan({
       to: toVersion,
     },
     changes,
-    conflicts: classified.conflicts.map((operation) => ({
-      path: operation.relativePath,
-      reason: operation.reason,
-      forceable: classified.forceableConflicts.includes(operation),
-    })),
+    conflicts: [...classifiedConflicts, ...normalizedMigrationConflicts],
     unsafe: [
       ...classified.unsafe.map((operation) => ({
         path: operation.relativePath,
         reason: operation.reason,
+        source: "managed-file",
       })),
-      ...migrationUnsafe.map((item) => ({ path: item.path, reason: item.reason })),
+      ...migrationUnsafe.map((item) => ({
+        path: item.path,
+        reason: item.reason,
+        source: "migration",
+      })),
     ],
-    migration: migration || { operations: [], legacy: [], conflicts: [], unsafe: [] },
+    migration: migration || {
+      operations: [],
+      legacy: [],
+      conflicts: [],
+      unsafe: [],
+    },
     warnings,
     blocked,
     stats: {
@@ -153,7 +186,7 @@ function createSyncPlan({
       added: classified.added.length,
       unchanged: classified.unchanged.length,
       skipped: classified.skipped.length,
-      conflicts: classified.conflicts.length,
+      conflicts: classified.conflicts.length + migrationConflicts.length,
       unsafe: classified.unsafe.length + migrationUnsafe.length,
       removed: classified.removed.length,
     },
