@@ -58,7 +58,7 @@ npx create-yss-spec@latest --version
 
 当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`init` / `attach` / `sync` 仍暂时复用 legacy execution core。
 
-P0-C 已开始抽离领域 Planner。`src/template/sync-planner.js` 现在提供纯函数化的 sync 分类与机器可读 Plan envelope，用于统一 `changes / conflicts / unsafe / blocked / stats`。下一步会让生产 sync 直接复用该 Planner，随后继续拆 attach/migration/transaction，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
+P0-C 的领域 Planner 已完成：Plan Schema v1、Sync/Attach Planner、Migration Planner 及 runtime adapter 已抽离并配套独立测试。P0-D 也已完成核心事务边界抽取：`FileTransaction`、安全 `copyPath`、plan apply service、统一 `runInTransaction` 以及真实临时文件系统 rollback/backup 测试均已落地。下一步会继续拆 Git、安全与校验边界，并在具备可靠 patch / 本地执行环境后完成生产 wiring，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
 
 完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
 
