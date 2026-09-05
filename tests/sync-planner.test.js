@@ -102,12 +102,7 @@ test("createSyncPlan produces a machine-readable plan envelope", () => {
     updated: [op("a.md", "2")],
     added: [op("b.md", "1")],
     unchanged: [],
-    skipped: [
-      {
-        ...op("c.md", "1"),
-        reason: "检测到本地已修改的受管文件",
-      },
-    ],
+    skipped: [],
     conflicts: [],
     forceableConflicts: [],
     unsafe: [],
@@ -137,7 +132,7 @@ test("createSyncPlan produces a machine-readable plan envelope", () => {
   assert.deepEqual(plan.warnings, ["working tree dirty"]);
 });
 
-test("createSyncPlan blocks on unsafe or migration conflicts", () => {
+test("createSyncPlan exposes unsafe and migration conflicts as blockers", () => {
   const classified = {
     updated: [],
     added: [],
@@ -162,5 +157,18 @@ test("createSyncPlan blocks on unsafe or migration conflicts", () => {
   });
 
   assert.equal(plan.blocked, true);
-  assert.equal(plan.unsafe.length, 1);
+  assert.deepEqual(plan.unsafe, [
+    { path: "unsafe", reason: "protected", source: "managed-file" },
+  ]);
+  assert.deepEqual(plan.conflicts, [
+    {
+      path: "old",
+      from: "old",
+      to: "new",
+      reason: "collision",
+      forceable: false,
+      source: "migration",
+    },
+  ]);
+  assert.equal(plan.stats.conflicts, 1);
 });
