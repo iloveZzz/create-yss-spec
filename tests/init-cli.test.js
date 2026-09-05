@@ -17,6 +17,19 @@ function sha256(content) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
+function contextContractFiles(rootPath) {
+  const found = [];
+  function visit(currentPath, relative = "") {
+    for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+      const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) visit(path.join(currentPath, entry.name), nextRelative);
+      else if (["CONTEXT.md", "CONTEXT-MAP.md", "context.md"].includes(entry.name)) found.push(nextRelative);
+    }
+  }
+  visit(rootPath);
+  return found;
+}
+
 function snapshotTreeHash(rootPath) {
   const digest = crypto.createHash("sha256");
 
@@ -73,6 +86,11 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml")));
+  assert.deepEqual(contextContractFiles(targetDir), ["CONTEXT.md"]);
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-context-contract")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-context-reconciliation")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-strategic-context-import")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/process/schemas/context-reconciliation.schema.json")));
   assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
   assert.ok(fs.existsSync(path.join(targetDir, "DESIGN.md")));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview.html")));
@@ -104,6 +122,7 @@ test("interactive init generates a template instance in an empty directory", () 
     ),
   );
   for (const frontendSkill of [
+    "yss-antdv-next-design",
     "yss-page-module-development",
     "yss-ui-business-page-generation",
     "ytable-usage",

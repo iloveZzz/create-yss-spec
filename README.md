@@ -48,11 +48,11 @@ npx create-yss-spec@latest --version
 - init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
 - 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
 
-本次模板适配按 `2.2.6` 绑定 `yss-spec-project-template@4743a3f`（Git 源码快照；本轮不发布 npm）。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的 `high-fidelity-html-prototype` 等独立入口不进入快照。
+本轮模板快照绑定 `yss-spec-project-template@734b5ecf554aa69b1b0df58bf0cc5dce59fe3016`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的 `high-fidelity-html-prototype` 等独立入口不进入快照。
 
 ## 当前版本说明
 
-当前 CLI 版本为 `3.0.1`，模板固定到 `f454f08950cad6acc6cba2e413e62a3e942677fe`。该主版本将 Web 生成升级为批准的 schema v2 合同，绑定 `yss-dto` wire profile，并要求通过完整首切片验证器后才能声明 `first-slice-verified`。
+当前 CLI 版本为 `3.0.2`，模板固定到 `734b5ecf554aa69b1b0df58bf0cc5dce59fe3016`。本补丁同步根 `CONTEXT.md` 合同、context reconciliation、业务方案交接校验和 `yss-antdv-next-design` 设计事实能力。
 
 ## 接管已有项目
 

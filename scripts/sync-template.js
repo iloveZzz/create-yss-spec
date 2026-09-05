@@ -9,11 +9,18 @@ const packageRoot = path.resolve(__dirname, "..");
 const targetTemplateRoot = path.join(packageRoot, "template");
 const targetManifestPath = path.join(packageRoot, "template.manifest.json");
 const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
+const siblingHarness = path.resolve(packageRoot, "../..");
+const defaultRemote = "https://github.com/iloveZzz/yss-spec-project-template.git";
+function isLocalRepo(value) {
+  return fs.existsSync(value) && fs.existsSync(path.join(value, "yss-project.yaml"));
+}
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
-  "https://github.com/iloveZzz/yss-spec-project-template.git";
-const DEFAULT_TEMPLATE_REF = "f454f08950cad6acc6cba2e413e62a3e942677fe";
-const templateRef = process.env.YSS_SPEC_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
+  (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
+const DEFAULT_TEMPLATE_REF = "734b5ecf554aa69b1b0df58bf0cc5dce59fe3016";
+const templateRef =
+  process.env.YSS_SPEC_TEMPLATE_REF ||
+  (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
 function run(command, args, cwd = packageRoot) {
@@ -28,7 +35,7 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
+function copyTrackedFiles(sourceRoot, manifest, destinationRoot, { includeUntracked = false } = {}) {
   const allowedRootEntries = manifest.allowRootEntries
     ? new Set(manifest.allowRootEntries)
     : null;
@@ -39,7 +46,13 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot) {
   const excludedRootEntries = new Set([...manifest.excludeRootEntries, "dist"]);
   const excludedRootFiles = new Set(manifest.excludeRootFiles);
   const excludedPaths = new Set(manifest.excludePaths);
-  const trackedFiles = run("git", ["ls-files", "-z"], sourceRoot)
+  const trackedFiles = run(
+    "git",
+    includeUntracked
+      ? ["ls-files", "-z", "--cached", "--others", "--exclude-standard"]
+      : ["ls-files", "-z"],
+    sourceRoot,
+  )
     .split("\0")
     .filter(Boolean);
   const resolvedCheckoutRoot = fs.realpathSync(sourceRoot);
@@ -391,21 +404,24 @@ const stagingRoot = fs.mkdtempSync(
 );
 
 try {
-  run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
-  run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
-  run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
-  copyTrackedFiles(checkoutRoot, manifest, stagingRoot);
+  const sourceRoot = isLocalRepo(templateRepo) ? path.resolve(templateRepo) : checkoutRoot;
+  if (sourceRoot === checkoutRoot) {
+    run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
+    run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
+    run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
+  }
+  copyTrackedFiles(sourceRoot, manifest, stagingRoot, { includeUntracked: sourceRoot !== checkoutRoot });
   materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
   const encodedPaths = encodeNpmIgnoredDotfiles(stagingRoot);
   assertSnapshotDistribution(stagingRoot, manifest, encodedPaths);
-  const templateCommit = run("git", ["rev-parse", "HEAD"], checkoutRoot).trim();
+  const templateCommit = run("git", ["rev-parse", "HEAD"], sourceRoot).trim();
   const snapshotMetadata = {
     schemaVersion: 1,
     templateName: "yss-spec-project-template",
     templateSource: "github:iloveZzz/yss-spec-project-template",
-    templateRepository: templateRepo,
-    requestedRef: templateRef,
+    templateRepository: defaultRemote,
+    requestedRef: templateCommit,
     templateCommit,
     manifestHash: sha256(fs.readFileSync(targetManifestPath)),
     encodedPaths,
