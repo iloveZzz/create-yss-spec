@@ -145,6 +145,7 @@ CLI 源码和研发记录由本仓库独立维护。首次测试会从
 ```bash
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
+npm run test:unit
 ```
 
 ## 研发记录
