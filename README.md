@@ -139,6 +139,12 @@ YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 ```
 
+## CLI v4 模块化重构（开发中）
+
+当前重构分支正在采用 compatibility-first 的 strangler 方式，将命令行协议与领域执行逐步从历史 `src/cli.js` 单体中拆出。外层 `src/cli/` 已建立 args / flags / help / prompts / router 边界，`src/commands/` 已建立 init / attach / sync / update command adapter；下一阶段将优先拆出 sync/attach planner，并统一为 `Plan -> Validate -> Apply` 生命周期。
+
+详细设计见：[`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
+
 ## 研发记录
 
 - [初始化 CLI Discovery](docs/discovery/yss-spec-cli-init-discovery.md)
