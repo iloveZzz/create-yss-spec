@@ -149,6 +149,7 @@ Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metad
 - `src/filesystem/apply-plan.js`：managed operation 与 migration operation 的统一 apply service，未知操作 fail closed。
 - `src/filesystem/transaction-runner.js`：统一 prepare -> execute -> finish 与失败 rollback 错误合同。
 - 使用真实临时文件系统测试 rollback、move/remove、父目录清理、backup collapse、finish 生命周期和 apply service。
+- `npm run test:unit` 可直接运行 `node --test tests/*.test.js`，用于快速验证新模块；完整 `npm test` 仍会先执行模板快照同步。
 
 `FileTransaction` 的目标是让 command 只表达：
 
