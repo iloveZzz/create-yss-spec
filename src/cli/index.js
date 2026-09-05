@@ -2,8 +2,10 @@
 
 const path = require("node:path");
 const packageManifest = require("../../package.json");
-const { runCli: runLegacyCli } = require("../cli");
-const { runUpdate } = require("../self-update");
+const { runAttach } = require("../commands/attach");
+const { runInit } = require("../commands/init");
+const { runSync } = require("../commands/sync");
+const { runUpdateCommand } = require("../commands/update");
 const { printHelp, printVersion } = require("./help");
 const { resolveCommand } = require("./router");
 
@@ -21,16 +23,19 @@ async function runCli(argv = []) {
     return;
   }
   if (route.command === "update") {
-    return runUpdate(route.args, {
+    return runUpdateCommand(route.args, {
       packageRoot: PACKAGE_ROOT,
       currentVersion: packageManifest.version,
     });
   }
+  if (route.command === "attach") {
+    return runAttach(route.args);
+  }
+  if (route.command === "sync") {
+    return runSync(route.args);
+  }
 
-  // init / attach / sync still execute through the legacy core during P0-B.
-  // The protocol boundary is now modular; command implementations are moved
-  // out one-by-one in P0-C without changing the public entry contract.
-  return runLegacyCli(argv);
+  return runInit(route.args);
 }
 
 module.exports = {
