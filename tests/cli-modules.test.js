@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 
 const { parseArgs } = require("../src/cli/args");
 const { helpText, versionText } = require("../src/cli/help");
+const { normalizeInteractiveOptions } = require("../src/cli/prompts");
 const { resolveCommand } = require("../src/cli/router");
 
 test("parseArgs preserves existing option mapping", () => {
@@ -42,6 +43,31 @@ test("parseArgs preserves existing option mapping", () => {
 test("parseArgs rejects missing values and unsupported flags", () => {
   assert.throws(() => parseArgs(["--project-name"]), /--project-name 需要一个值/);
   assert.throws(() => parseArgs(["--unknown"]), /不支持的参数：--unknown/);
+});
+
+test("interactive option normalization preserves legacy defaults", () => {
+  assert.deepEqual(
+    normalizeInteractiveOptions(
+      { dryRun: true },
+      {
+        projectName: "Demo",
+        businessDomain: "Data",
+        teamSize: "待补充",
+        targetDir: "./demo",
+      },
+    ),
+    {
+      projectName: "Demo",
+      businessDomain: "Data",
+      teamSize: "待补充",
+      targetDir: "./demo",
+      issueTracker: "github",
+      dryRun: true,
+      force: false,
+      gitInit: false,
+      includeExampleDocs: true,
+    },
+  );
 });
 
 test("resolveCommand keeps global help/version precedence", () => {
