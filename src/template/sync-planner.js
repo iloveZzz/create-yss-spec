@@ -1,5 +1,7 @@
 "use strict";
 
+const { normalizePlan } = require("./plan-schema");
+
 function classifySyncOperations({
   managedFiles = {},
   desiredOperations = [],
@@ -152,7 +154,7 @@ function createSyncPlan({
     source: "migration",
   }));
 
-  return {
+  return normalizePlan({
     operation: "sync",
     targetDir,
     template: {
@@ -190,7 +192,7 @@ function createSyncPlan({
       unsafe: classified.unsafe.length + migrationUnsafe.length,
       removed: classified.removed.length,
     },
-  };
+  });
 }
 
 module.exports = {
