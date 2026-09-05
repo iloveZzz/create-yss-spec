@@ -102,6 +102,8 @@ test("interactive init generates a template instance in an empty directory", () 
     ".codex/skills/yss-file/SKILL.md",
     ".codex/skills/yss-domain-modeling/SKILL.md",
     ".agents/skills/yss-quality/SKILL.md",
+    ".agents/skills/yss-page-module-development/SKILL.md",
+    ".cursor/skills/yss-page-module-development/SKILL.md",
   ]) {
     assert.equal(
       fs.existsSync(path.join(targetDir, removedPath)),
@@ -123,7 +125,6 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   for (const frontendSkill of [
     "yss-antdv-next-design",
-    "yss-page-module-development",
     "yss-ui-business-page-generation",
     "ytable-usage",
     "yedit-table-usage",

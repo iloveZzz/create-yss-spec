@@ -224,6 +224,32 @@ test("sync expands internal directory projections into the bundled template", ()
   );
 });
 
+test("sync omits tracked files deleted from a local working tree", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.writeFileSync(
+    path.join(fixtureRoot, "yss-project.yaml"),
+    "schema_version: 1\nrepository_mode: template-source\n",
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "yss-project.yaml"]);
+  runGit(fixtureRoot, ["commit", "-m", "repository identity"]);
+  fs.rmSync(path.join(fixtureRoot, "docs/adr/README.md"));
+  fs.rmSync(path.join(fixtureRoot, ".agents/skills/shared-skill/SKILL.md"));
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(runnerRoot, fixtureRoot);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/docs/adr/README.md")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(runnerRoot, "template/.codex/skills/shared-skill/SKILL.md")),
+    false,
+  );
+});
+
 test("sync snapshot remains valid when packaging and running use different locales", () => {
   const fixtureRoot = createTemplateFixture();
   const localizedDocsRoot = path.join(fixtureRoot, "docs/user-guide");

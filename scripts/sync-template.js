@@ -115,6 +115,9 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot, { includeUntrac
     if (!shouldCopy(logicalTargetPath)) {
       return;
     }
+    if (!fs.existsSync(path.join(sourceRoot, sourceRelativePath))) {
+      return;
+    }
 
     const targetRelativePath = logicalTargetPath;
 
@@ -131,6 +134,9 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot, { includeUntrac
 
   for (const relativePath of trackedFiles) {
     if (!shouldCopy(relativePath)) {
+      continue;
+    }
+    if (!fs.existsSync(path.join(sourceRoot, relativePath))) {
       continue;
     }
 
