@@ -92,6 +92,14 @@ test("resolveCommand classifies supported commands and defaults to init", () => 
     command: "attach",
     args: ["--apply"],
   });
+  assert.deepEqual(resolveCommand(["diff", "--json"]), {
+    command: "diff",
+    args: ["--json"],
+  });
+  assert.deepEqual(resolveCommand(["doctor", "--target-dir", "."]), {
+    command: "doctor",
+    args: ["--target-dir", "."],
+  });
   assert.deepEqual(resolveCommand(["upgrade", "--dry-run"]), {
     command: "update",
     alias: "upgrade",
@@ -107,9 +115,11 @@ test("help and version rendering are pure text functions", () => {
   assert.equal(versionText("3.1.0"), "create-yss-spec 3.1.0");
   assert.match(helpText("3.1.0"), /^create-yss-spec 3\.1\.0/m);
   assert.match(helpText("3.1.0"), /attach\s+向已有项目补齐受管研发管理资产/);
+  assert.match(helpText("3.1.0"), /diff\s+只计算同步差异/);
+  assert.match(helpText("3.1.0"), /doctor\s+检查模板实例/);
   assert.match(helpText("3.1.0"), /upgrade\s+update 的别名/);
   assert.match(helpText("3.1.0"), /--plan\s+sync：输出结构化文本计划/);
-  assert.match(helpText("3.1.0"), /--json\s+sync：输出 Plan Schema v1 JSON/);
+  assert.match(helpText("3.1.0"), /--json\s+sync\/diff\/doctor：输出机器可读 JSON/);
 });
 
 test("renderPlanText renders a stable human planning summary", () => {
