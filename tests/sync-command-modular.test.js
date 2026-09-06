@@ -17,7 +17,7 @@ function runCli(args) {
   });
 }
 
-test("production sync uses modular planner and transaction stack", () => {
+test("production sync uses modular planner, ownership and transaction stack", () => {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-sync-modular-"));
   const targetDir = path.join(sandbox, "project");
 
@@ -68,7 +68,15 @@ test("production sync uses modular planner and transaction stack", () => {
     );
     assert.equal(managedConflict.forceable, true);
     assert.equal(managedConflict.source, "managed-file");
+    assert.equal(managedConflict.ownership, "managed-customizable");
     assert.match(fs.readFileSync(managedFile, "utf8"), /LOCAL MODIFICATION/);
+
+    const conflictText = runCli(["sync", "--target-dir", targetDir, "--plan"]);
+    assert.equal(conflictText.status, 0, conflictText.stderr);
+    assert.match(
+      conflictText.stdout,
+      /AGENTS\.md \[managed-customizable\]/,
+    );
 
     const normalSync = runCli(["sync", "--target-dir", targetDir]);
     assert.equal(normalSync.status, 0, normalSync.stderr);
