@@ -1,5 +1,13 @@
 "use strict";
 
+const OWNERSHIP_TYPES = new Set([
+  "managed",
+  "managed-customizable",
+  "generated",
+  "user-owned",
+  "protected",
+]);
+
 function validateTemplateMetadata(metadata, {
   currentSchemaVersion = 2,
   templateName,
@@ -16,6 +24,22 @@ function validateTemplateMetadata(metadata, {
   }
   if (metadata.managedFiles !== undefined && (typeof metadata.managedFiles !== "object" || metadata.managedFiles === null || Array.isArray(metadata.managedFiles))) {
     throw new Error("模板元数据 managedFiles 必须是 JSON 对象");
+  }
+
+  if (metadata.ownershipPolicyVersion !== undefined && (!Number.isInteger(metadata.ownershipPolicyVersion) || metadata.ownershipPolicyVersion < 1)) {
+    throw new Error("模板元数据 ownershipPolicyVersion 必须是正整数");
+  }
+  if (metadata.ownershipPolicyHash !== undefined && !/^[0-9a-f]{64}$/.test(metadata.ownershipPolicyHash)) {
+    throw new Error("模板元数据 ownershipPolicyHash 必须是 64 位 sha256");
+  }
+
+  for (const [relativePath, record] of Object.entries(metadata.managedFiles || {})) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      throw new Error(`模板元数据 managedFiles.${relativePath} 必须是对象`);
+    }
+    if (record.ownership !== undefined && !OWNERSHIP_TYPES.has(record.ownership)) {
+      throw new Error(`模板元数据 managedFiles.${relativePath}.ownership 非法：${record.ownership}`);
+    }
   }
 
   if (metadata.metadataSchemaVersion === currentSchemaVersion) {
