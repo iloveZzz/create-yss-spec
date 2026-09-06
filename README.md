@@ -34,9 +34,7 @@ npx create-yss-spec@latest --version
 - `sync --plan`：结构化文本计划，不写入文件
 - `sync --json`：Plan Schema v1 JSON，不写入文件
 - `diff` / `diff --json`：复用 Sync Planner 计算差异，不写入文件
-- `doctor` / `doctor --json`：检查模板实例、身份、managed baseline、verifier、Git 与安全状态
-- `--json` 失败返回 Error Envelope v1，并保持非零退出码
-- Ownership Policy v1：`managed / managed-customizable / generated / user-owned / protected`
+- `doctor` / `doctor --json`：检查模板实例、身份、Git、安全、ownership baseline 与 verifier 状态
 - 非空目录默认拒绝，初始化命令的 `--force` 允许重新生成
 - `--git-init`
 - `--issue-tracker github|gitlab`
@@ -45,7 +43,7 @@ npx create-yss-spec@latest --version
 - `attach` 子命令：在已有项目中补齐研发管理资产
 - `sync` 子命令
 - `update` / `upgrade` 子命令：检查 npm 最新版本，如有更新则安装 CLI 自身
-- 基于 `.yss-template.json` 的模板版本基线和 managed baseline
+- 基于 `.yss-template.json` 的模板版本基线、managed baseline 与 ownership policy baseline
 - 只使用当前 CLI 包内置、绑定不可变 commit 的模板快照
 - 初始化时将 `yss-project.yaml` 从 `template-source` 改写为 `project-instance`
 - 接管 / 升级时迁移 Spec / Ticket 路径并删除 `to-prd`、`to-issues` 旧 skill
@@ -53,7 +51,6 @@ npx create-yss-spec@latest --version
 - 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
 - init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
 - 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
-- `user-owned / protected` 路径即使意外进入 desired operations，也会进入 unsafe blocker
 
 本轮模板快照绑定 `yss-spec-project-template@248c1723cc0e4e88adabcf00931f78b9aa632d48`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的独立入口不进入快照。
 
@@ -71,9 +68,15 @@ P0 模块化重构已完成。历史 `src/cli.js` 单体已退役为兼容桥接
 Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metadata
 ```
 
-P1 contract 首轮也已收口：Plan Schema v1、Error Envelope v1 均提供 Draft 2020-12 JSON Schema，并使用 Ajv 做 compile + instance validation；doctor 已扩展 template drift、managed baseline 和 verifier checks。Ownership Policy v1 已进入 manifest、desired operations 和 Sync/Attach Plan，Init 在写入前执行 ownership fail-closed。
+当前已具备 Plan Schema v1、Error Envelope v1、Doctor Report v1、Ownership Policy v1、Sync/Attach/Migration Planner、`FileTransaction`、统一 rollback、gitlink/submodule/detached HEAD 安全边界、snapshot/metadata/identity validation，以及 `sync --plan`、`sync --json`、`diff` 和 `doctor` 等机器友好接口。
 
-机器合同详见 [`docs/implementation/machine-contracts-v1.md`](docs/implementation/machine-contracts-v1.md)，所有权语义详见 [`docs/implementation/ownership-policy-v1.md`](docs/implementation/ownership-policy-v1.md)，完整模块化迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
+Ownership baseline 会写入 `.yss-template.json`：包含 `ownershipPolicyVersion`、`ownershipPolicyHash`，以及每个 managed file 的 `ownership`。旧实例缺失该 baseline 时仍可读取，下一次 attach/sync 会自动补齐；doctor 会报告 missing/drift/matched 状态。
+
+完整设计见：
+
+- [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)
+- [`docs/implementation/machine-contracts-v1.md`](docs/implementation/machine-contracts-v1.md)
+- [`docs/implementation/ownership-policy-v1.md`](docs/implementation/ownership-policy-v1.md)
 
 ## 接管已有项目
 
@@ -123,12 +126,6 @@ npx create-yss-spec@latest sync --plan
 npx create-yss-spec@latest sync --json
 npx create-yss-spec@latest diff
 npx create-yss-spec@latest diff --json
-```
-
-Plan 会显示或返回 ownership，例如：
-
-```text
-conflict [forceable]: AGENTS.md [managed-customizable] (...)
 ```
 
 检查项目健康状态：
@@ -193,8 +190,5 @@ YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 - [模板同步 PRD](docs/requirements/yss-spec-cli-template-sync-prd.md)
 - [垂直切片](docs/requirements/issues/)
 - [`yss-project.yaml` 跨仓库实现记录](docs/implementation/yss-project-repository-mode-contract.md)
-- [Machine Contracts v1](docs/implementation/machine-contracts-v1.md)
-- [Ownership Policy v1](docs/implementation/ownership-policy-v1.md)
-- [CLI v4 模块化方案](docs/implementation/cli-v4-modularization.md)
 - [实施路由与 Build Architecture Checklist](docs/implementation/)
 - [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)
