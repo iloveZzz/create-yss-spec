@@ -37,6 +37,14 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(init.status, 0, init.stderr);
 
     const metadataPath = path.join(targetDir, ".yss-template.json");
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    assert.equal(metadata.ownershipPolicyVersion, 1);
+    assert.match(metadata.ownershipPolicyHash, /^[0-9a-f]{64}$/);
+    assert.equal(
+      metadata.managedFiles["AGENTS.md"].ownership,
+      "managed-customizable",
+    );
+
     const before = fs.readFileSync(metadataPath, "utf8");
 
     const doctor = runCli(["doctor", "--target-dir", targetDir, "--json"]);
@@ -47,6 +55,7 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(doctorReport.ok, true);
     assert.equal(findCheck(doctorReport, "template-metadata")?.status, "ok");
     assert.equal(findCheck(doctorReport, "template-drift")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "ownership-policy")?.status, "ok");
     assert.equal(findCheck(doctorReport, "managed-baseline")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-sync-skills")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-skill-lock")?.status, "ok");
