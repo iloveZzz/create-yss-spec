@@ -40,9 +40,21 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
     assert.equal(metadata.ownershipPolicyVersion, 1);
     assert.match(metadata.ownershipPolicyHash, /^[0-9a-f]{64}$/);
+    assert.equal(metadata.customizationPolicyVersion, 1);
+    assert.match(metadata.customizationPolicyHash, /^[0-9a-f]{64}$/);
+    assert.equal(metadata.generatorPolicyVersion, 1);
+    assert.match(metadata.generatorPolicyHash, /^[0-9a-f]{64}$/);
     assert.equal(
       metadata.managedFiles["AGENTS.md"].ownership,
       "managed-customizable",
+    );
+    assert.equal(
+      metadata.managedFiles["CONTEXT.md"].mergeStrategy,
+      "manual",
+    );
+    assert.equal(
+      metadata.managedFiles["yss-project.yaml"].generatorId,
+      "repository-identity",
     );
 
     const before = fs.readFileSync(metadataPath, "utf8");
@@ -56,6 +68,8 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(findCheck(doctorReport, "template-metadata")?.status, "ok");
     assert.equal(findCheck(doctorReport, "template-drift")?.status, "ok");
     assert.equal(findCheck(doctorReport, "ownership-policy")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "customization-policy")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "generator-policy")?.status, "ok");
     assert.equal(findCheck(doctorReport, "managed-baseline")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-sync-skills")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-skill-lock")?.status, "ok");
