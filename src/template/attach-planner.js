@@ -17,6 +17,7 @@ function classifyAttachOperations({
   const matched = [];
   const identity = [];
   const conflicts = [];
+  const forceableConflicts = [];
   const unsafe = [];
 
   for (const operation of desiredOperations) {
@@ -46,10 +47,17 @@ function classifyAttachOperations({
     } else if (operation.identityConversion) {
       identity.push(operation);
     } else {
-      conflicts.push({
+      const conflict = {
         ...operation,
-        reason: "目标受管文件已存在且内容不一致",
-      });
+        reason:
+          operation.mergeStrategy === "manual"
+            ? "目标可定制文件已存在且内容不一致；mergeStrategy=manual，必须人工处理"
+            : "目标受管文件已存在且内容不一致",
+      };
+      conflicts.push(conflict);
+      if (operation.mergeStrategy !== "manual") {
+        forceableConflicts.push(conflict);
+      }
     }
   }
 
@@ -58,6 +66,7 @@ function classifyAttachOperations({
     matched,
     identity,
     conflicts,
+    forceableConflicts,
     unsafe,
     desiredOperations,
   };
@@ -79,7 +88,7 @@ function createAttachPlan({
     ...classified.conflicts.map((operation) => ({
       path: operation.relativePath,
       reason: operation.reason,
-      forceable: true,
+      forceable: classified.forceableConflicts.includes(operation),
       source: "managed-file",
     })),
     ...migrationConflicts.map((item) => ({
