@@ -23,7 +23,9 @@ OPTIONS
   --team-size <size>                 团队规模；init 不传则可留空，默认「待补充」
   --target-dir <dir>                 目标目录；init 不传则进入交互输入，sync 默认为当前目录
   --issue-tracker github|gitlab      默认 issue tracker 偏好（默认 github）
-  --dry-run                          只预览计划，不写入文件；update 只查询不安装
+  --dry-run                          兼容预演模式，不写入文件
+  --plan                             sync：输出结构化文本计划，不写入文件
+  --json                             sync：输出 Plan Schema v1 JSON，不写入文件
   --apply                            attach 确认执行写入；不能与 --dry-run 同时使用
   --force                            init：允许清空非空目录后重新生成
                                      attach / sync：覆盖受管冲突文件；unsafe 路径始终阻断
@@ -62,6 +64,8 @@ EXAMPLES
       --apply
   $ npx create-yss-spec@latest sync
   $ npx create-yss-spec@latest sync --dry-run
+  $ npx create-yss-spec@latest sync --plan
+  $ npx create-yss-spec@latest sync --json
   $ npx create-yss-spec@latest sync --target-dir . --force
   $ npx create-yss-spec update
   $ npx create-yss-spec update --dry-run
