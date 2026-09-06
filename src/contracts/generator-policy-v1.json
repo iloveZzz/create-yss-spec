@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iloveZzz/create-yss-spec/schemas/generator-policy-v1.json",
+  "title": "create-yss-spec Generator Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rules"],
+  "properties": {
+    "version": { "const": 1 },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "generatorId", "generatorVersion"],
+        "properties": {
+          "pattern": { "type": "string", "minLength": 1 },
+          "generatorId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "generatorVersion": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}
