@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 
 const { parseArgs } = require("../src/cli/args");
 const { helpText, versionText } = require("../src/cli/help");
+const { renderPlanText } = require("../src/cli/plan-output");
 const { normalizeInteractiveOptions } = require("../src/cli/prompts");
 const { resolveCommand } = require("../src/cli/router");
 
@@ -38,6 +39,13 @@ test("parseArgs preserves existing option mapping", () => {
       includeExampleDocs: false,
     },
   );
+});
+
+test("parseArgs accepts plan and json flags", () => {
+  assert.deepEqual(parseArgs(["--plan", "--json"]), {
+    plan: true,
+    json: true,
+  });
 });
 
 test("parseArgs rejects missing values and unsupported flags", () => {
@@ -100,4 +108,32 @@ test("help and version rendering are pure text functions", () => {
   assert.match(helpText("3.1.0"), /^create-yss-spec 3\.1\.0/m);
   assert.match(helpText("3.1.0"), /attach\s+向已有项目补齐受管研发管理资产/);
   assert.match(helpText("3.1.0"), /upgrade\s+update 的别名/);
+  assert.match(helpText("3.1.0"), /--plan\s+sync：输出结构化文本计划/);
+  assert.match(helpText("3.1.0"), /--json\s+sync：输出 Plan Schema v1 JSON/);
+});
+
+test("renderPlanText renders a stable human planning summary", () => {
+  const text = renderPlanText({
+    operation: "sync",
+    targetDir: "/project",
+    template: { from: "3.0.0", to: "4.0.0" },
+    changes: [{ action: "update", path: "AGENTS.md" }],
+    conflicts: [
+      {
+        path: "README.md",
+        reason: "local edit",
+        forceable: true,
+      },
+    ],
+    unsafe: [],
+    warnings: ["dirty"],
+    blocked: false,
+    stats: { updated: 1, conflicts: 1 },
+  });
+
+  assert.match(text, /^sync plan/m);
+  assert.match(text, /update: AGENTS\.md/);
+  assert.match(text, /conflict \[forceable\]: README\.md \(local edit\)/);
+  assert.match(text, /warning: dirty/);
+  assert.match(text, /updated=1/);
 });
