@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iloveZzz/create-yss-spec/schemas/ownership-policy-v1.json",
+  "title": "create-yss-spec Ownership Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "default", "rules"],
+  "properties": {
+    "version": { "const": 1 },
+    "default": {
+      "enum": [
+        "managed",
+        "managed-customizable",
+        "generated",
+        "user-owned",
+        "protected"
+      ]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "ownership"],
+        "properties": {
+          "pattern": { "type": "string", "minLength": 1 },
+          "ownership": {
+            "enum": [
+              "managed",
+              "managed-customizable",
+              "generated",
+              "user-owned",
+              "protected"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
