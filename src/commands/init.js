@@ -21,6 +21,10 @@ const {
   writeTemplateMetadata,
 } = require("../template/instance-runtime");
 const {
+  applyOwnershipToOperations,
+  assertWritableTemplateOperations,
+} = require("../template/ownership-runtime");
+const {
   initializeGitRepository,
   verifyGeneratedInit,
 } = require("../template/verification-runtime");
@@ -127,18 +131,18 @@ async function runInit(argv = []) {
 
   const targetDir = normalizeTargetDir(promptedOptions.targetDir);
   const targetState = inspectTargetDir(targetDir, promptedOptions.force);
-  const desiredOperations = buildDesiredManagedOperations(
-    targetDir,
-    promptedOptions,
-    "init",
+  const desiredOperations = applyOwnershipToOperations(
+    buildDesiredManagedOperations(targetDir, promptedOptions, "init"),
   );
+  assertWritableTemplateOperations(desiredOperations);
   const directoryOperations = parentDirectoryOperations(desiredOperations, targetDir);
 
   if (promptedOptions.dryRun) {
     console.log("dry-run 预览");
     console.log(`输出目录：${targetDir}`);
     for (const operation of [...directoryOperations, ...desiredOperations]) {
-      console.log(`${operation.type}: ${operation.relativePath}`);
+      const ownership = operation.ownership ? ` [${operation.ownership}]` : "";
+      console.log(`${operation.type}: ${operation.relativePath}${ownership}`);
     }
     return;
   }
