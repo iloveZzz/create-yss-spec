@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iloveZzz/create-yss-spec/schemas/customization-policy-v1.json",
+  "title": "create-yss-spec Customization Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "defaultStrategy", "rules"],
+  "properties": {
+    "version": { "const": 1 },
+    "defaultStrategy": {
+      "enum": ["replace-with-force", "manual"]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "strategy"],
+        "properties": {
+          "pattern": { "type": "string", "minLength": 1 },
+          "strategy": {
+            "enum": ["replace-with-force", "manual"]
+          }
+        }
+      }
+    }
+  }
+}
