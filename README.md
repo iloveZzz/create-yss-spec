@@ -1,159 +1,73 @@
 # create-yss-spec
 
-用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
+源码候选版本：`3.1.2`。模板固定到 `017925706a981aec9eadefd470232bb531acd4d6`；最终快照身份与摘要见 `template.snapshot.json`。本次更新用户手册、五家族导航和设备借用教学案例，命令行为沿用既有身份保护。
 
-## 用法
+## 已发布安装与候选版本
+
+截至本轮核验，npm latest 为 `3.1.0`；源码候选尚未发布 npm。后续请自行查询实际发布状态：
 
 ```bash
+npm view create-yss-spec version
 npm create yss-spec@latest
 ```
 
-也可以使用 `npx`：
+`@latest` 获取已发布包，不保证包含 GitHub 最新手册。每次初始化使用包内固定模板，不会在运行时拉取模板仓。
+
+## 首次初始化
 
 ```bash
-npx create-yss-spec@latest
+npx create-yss-spec@latest --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-project
 ```
 
-查看用法、命令、参数和样例：
+生成后进入实例，核对 yss-project.yaml 为 project-instance、家族 metadata 的 templateCommit，然后阅读 docs/user-guide/用户手册索引.md。先让 Agent 只读检查身份、根 CONTEXT.md、profile 和当前上游，再按本仓流程推进。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
+
+## 家族与覆盖边界
+
+五家族分别使用 .yss-template.json、.yss-harness-design.json、.yss-harness-dev.json、.yss-harness-backend.json、.yss-harness-frontend.json。已有 profile 同样参与判定。
+
+异族、多重身份、损坏 metadata、未知/矛盾 profile 在写入前拒绝。`--force` 不能绕过，`--dry-run` 使用同一检查。不要删除 metadata 或用另一家族 CLI 覆盖。后端/前端专职只提供仓内 `node scripts/instantiate-harness --target <新目录>`，没有专用 npm 包、attach/sync 或原地迁移。
+
+## 已有项目与同族升级
+
+attach 用于尚未由本 CLI 管理的项目，必须选择预览或 apply；存在本族 metadata 时改用 sync。先保存 Git 基线，按场景选择命令，不连续盲目执行：
 
 ```bash
-npx create-yss-spec@latest --help
-```
-
-查看 CLI 版本：
-
-```bash
-npx create-yss-spec@latest --version
-```
-
-## 当前支持
-
-- 交互式收集 `projectName`、`businessDomain`、`targetDir`
-- `--team-size`
-- `--dry-run`
-- 非空目录默认拒绝，初始化命令的 `--force` 允许重新生成
-- `--git-init`
-- `--issue-tracker github|gitlab`
-- `--include-example-docs`
-- `--no-example-docs`
-- `attach` 子命令：在已有项目中补齐研发管理资产
-- `sync` 子命令
-- `update` / `upgrade` 子命令：检查 npm 最新版本，如有更新则安装 CLI 自身
-- 基于 `.yss-template.json` 的模板版本基线和 managed baseline
-- 只使用当前 CLI 包内置、绑定不可变 commit 的模板快照
-- 初始化时将 `yss-project.yaml` 从 `template-source` 改写为 `project-instance`
-- 接管 / 升级时迁移 Spec / Ticket 路径并删除 `to-prd`、`to-issues` 旧 skill
-- 旧、新资产内容冲突或清单 schema / mode 非法时 fail closed
-- 保留模板的共享 skill 投影；生成实例可在尚未 `git init` 时运行模板校验
-- init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
-- 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
-
-本轮模板快照绑定 `yss-spec-project-template@ccc53f577babbeff5d8a9e674ef883c69bfac47d`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的独立入口不进入快照。
-
-## 当前版本说明
-
-当前 CLI 版本为 `3.1.1`，模板固定到 `ccc53f577babbeff5d8a9e674ef883c69bfac47d`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
-
-## 接管已有项目
-
-`attach` 只处理 manifest 声明的研发管理资产，不扫描或覆盖前后端运行时代码、业务目录、用户文件和 `.git`。必须先 dry-run，再显式 apply：
-
-```bash
-npx create-yss-spec@latest attach \
-  --target-dir . \
-  --project-name "项目名称" \
-  --business-domain "业务领域" \
-  --dry-run
-
-npx create-yss-spec@latest attach \
-  --target-dir . \
-  --project-name "项目名称" \
-  --business-domain "业务领域" \
-  --apply [--force]
-```
-
-规则：
-
-- 目标已有 `.yss-template.json` 时拒绝接管，请使用 `sync`。
-- `--dry-run` 与 `--apply` 互斥；非交互执行只依赖显式参数。
-- 根规则文件等受管冲突默认阻断；`--force` 才覆盖，并把被覆盖文件备份到目标目录外的临时目录。
-- 合法 `template-source` 身份会转换为 `project-instance`；非法身份、迁移冲突和 attach 时无法判断归属的扁平 Ticket 始终阻断。
-- Git worktree 有脏改动时只提醒，不自动 stash 或提交。
-- `.gitmodules`、gitlink 和 `apps/` 挂载工作树是用户资产；空 gitlink / detached HEAD 即使 `--force` 也阻断。
-
-## 同步已有模板实例仓库
-
-当项目仓库已经由 `create-yss-spec` 初始化，或已经通过 `attach` 接管，并且根目录存在 `.yss-template.json` 时，可以执行：
-
-```bash
-npx create-yss-spec@latest sync
-```
-
-只预演，不真实写入：
-
-```bash
-npx create-yss-spec@latest sync --dry-run
-```
-
-当前同步能力的边界：
-
-- 只支持带模板元数据的模板实例仓库
-- 默认只更新未被本地修改的受管模板文件
-- 对本地已修改文件只提示和跳过，不自动覆盖
-- `--force` 先备份，再覆盖受管冲突文件；不覆盖模板无关文件
-- 对模板已删除文件只报告，不自动删除
-- 对已知的 Spec / Ticket 旧路径执行一次性迁移
-- `docs/requirements/tickets/` 只在 attach 时检查归属；sync 不迁移、不删除，也不因其中存在 Ticket 而阻断
-- 迁移目标已存在且内容不一致时停止，不静默覆盖
-- `.gitmodules`、gitlink（mode `160000`）和 `apps/` 下已挂载实现仓是用户资产，不创建、不覆盖、不删除
-- init / sync 保持实例边界：不复制 `wiki/`、`.github/`、`.template-source/`、源仓库 ADR、Cursor Cloud 环境配置、`docs/reviews/` 或根 `package.json`；共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore` 属于实例门禁所需资产。attach 结束后会执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`，门禁失败会回滚文件和 metadata
-
-```bash
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --dry-run
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --apply
 npx create-yss-spec@latest sync --target-dir . --dry-run
-npx create-yss-spec@latest sync --target-dir . [--force]
+npx create-yss-spec@latest sync --target-dir .
 ```
 
-## 升级 CLI 自身
+普通 sync 更新未被用户修改的 baseline，保留用户冲突并报告删除项；force 仅在身份和路径安全检查通过后处理受管冲突。校验失败事务回滚并保留旧 metadata。成功后的撤销用升级前 Git 基线或备份，不用旧 CLI 强制反向同步。运行时代码、Git 与挂载点按现有保护语义处理。
 
-`update`（别名 `upgrade`）检查 npm registry 上的最新 `create-yss-spec` 版本，如有更新则按当前安装方式自动安装。它升级的是 CLI 包本身，不会同步项目里的模板资产；模板同步仍使用 `sync`。
+## 更新 CLI 程序
 
 ```bash
-npx create-yss-spec update
 npx create-yss-spec update --dry-run
 npx create-yss-spec upgrade
 ```
 
-- 全局安装会执行 `npm install -g create-yss-spec@latest`
-- 项目本地依赖会在对应项目根执行 `npm install create-yss-spec@latest`
-- 通过 npx 运行或在源码目录中运行时只报告版本并给出安装建议，不覆盖当前文件
-- `--dry-run` 只查询和预览，不安装；`--force` 在已是最新时仍重新安装（npx / 源码目录除外）
+update/upgrade 只处理 CLI 程序，不同步实例资产；源码目录和 npx 环境按工具给出的安全提示操作，全局/项目安装按安装位置升级。
 
-## 开发验证
+## 使用尚未发布的候选手册
 
-CLI 源码和研发记录由本仓库独立维护。首次测试会从
-[`iloveZzz/yss-spec-project-template`](https://github.com/iloveZzz/yss-spec-project-template)
-同步受管模板快照；正式发布应显式绑定确定 commit：
+从本 CLI 仓库检出需要的固定提交。先读取 scripts/sync-template.js 的 DEFAULT_TEMPLATE_REF，将下列 `<模板完整SHA>` 替换为该值；在 CLI 仓库根运行。模板源地址须保持本家族。
 
 ```bash
-YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
-YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
+YSS_SPEC_TEMPLATE_REPO=https://github.com/iloveZzz/yss-spec-project-template.git YSS_SPEC_TEMPLATE_REF=<模板完整SHA> pnpm run sync-template
+npm pack --ignore-scripts
 ```
 
-## 研发记录
+`--ignore-scripts` 仅在上一步已成功产生并核对固定快照后使用，以免 prepack 改写输入。检查 tgz 中 template.snapshot.json 的模板 SHA 和 package.json 版本，然后使用实际包路径初始化：
 
-- [初始化 CLI Discovery](docs/discovery/yss-spec-cli-init-discovery.md)
-- [模板同步 Discovery](docs/discovery/yss-spec-cli-template-sync-discovery.md)
-- [初始化 CLI PRD](docs/requirements/yss-spec-cli-init-prd.md)
-- [模板同步 PRD](docs/requirements/yss-spec-cli-template-sync-prd.md)
-- [垂直切片](docs/requirements/issues/)
-- [`yss-project.yaml` 跨仓库实现记录](docs/implementation/yss-project-repository-mode-contract.md)
-- [实施路由与 Build Architecture Checklist](docs/implementation/)
-- [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)
+```bash
+npx --yes --package /absolute/path/create-yss-spec-3.1.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
+```
 
-## 本次身份保护升级
+这是安装本地已构建包的示例，不是 npm 发布操作。候选验证需覆盖新建实例的本地文档链接、身份、Skill 检查与适用交接链路；不要把历史验证日志当当前发布证据。
 
-本版本同步前后端 Harness 拆分后的共享交接资产，保持当前模板家族。init、attach 和 sync 的适用入口在生成计划前检查五种模板身份及已有 profile；异族、多重身份、损坏或矛盾声明均拒绝，`--force` 不能绕过，`--dry-run` 同样返回非零。历史 metadata 继续兼容，`legacy-attach` 仅在旧 schema 路径接受。
+## 详细手册与维护
 
-`update` / `upgrade` 只更新 CLI 程序，不同步实例资产。专职后端和前端新项目分别检出 `yss-harness-backend-agent`、`yss-harness-frontend-agent` 的固定提交，在各自模板目录运行 `node scripts/instantiate-harness --target <新目录>`；这两个入口不提供原地 sync 或跨 profile 迁移。
+[模板使用指南](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/用户手册索引.md)介绍职责、提示词、确认和案例。问题涉及参数/同步/包分发时在本 CLI 跟踪；涉及模板内容或生命周期时在模板源跟踪。
 
-旧实例升级前先保存 Git 基线，再用新版本执行 `sync --dry-run`，审阅后执行普通 `sync`；不默认添加 --force。失败按现有事务机制回滚，成功后的撤销使用升级前基线或保留备份，不用旧 CLI 强制反向同步。
+开发验证优先 `pnpm exec node --test tests/*.test.js`；需要重建快照时显式运行上面的固定输入 sync-template。模板先验证并提交，再绑定其 SHA、测试实际 tgz，最后交付 CLI 和父仓 gitlink。npm 发布须另外获得授权。
