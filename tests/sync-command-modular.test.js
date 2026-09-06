@@ -41,9 +41,34 @@ test("production sync uses modular planner and transaction stack", () => {
     assert.match(dryRun.stdout, /sync dry-run 预览/);
     assert.equal(fs.readFileSync(metadataPath, "utf8"), metadataBeforeDryRun);
 
+    const textPlan = runCli(["sync", "--target-dir", targetDir, "--plan"]);
+    assert.equal(textPlan.status, 0, textPlan.stderr);
+    assert.match(textPlan.stdout, /^sync plan/m);
+    assert.match(textPlan.stdout, /blocked: no/);
+    assert.equal(fs.readFileSync(metadataPath, "utf8"), metadataBeforeDryRun);
+
+    const jsonPlan = runCli(["sync", "--target-dir", targetDir, "--json"]);
+    assert.equal(jsonPlan.status, 0, jsonPlan.stderr);
+    const parsedPlan = JSON.parse(jsonPlan.stdout);
+    assert.equal(parsedPlan.schemaVersion, 1);
+    assert.equal(parsedPlan.operation, "sync");
+    assert.equal(parsedPlan.targetDir, targetDir);
+    assert.equal(parsedPlan.blocked, false);
+    assert.equal(fs.readFileSync(metadataPath, "utf8"), metadataBeforeDryRun);
+
     const managedFile = path.join(targetDir, "AGENTS.md");
     const baseline = fs.readFileSync(managedFile, "utf8");
     fs.writeFileSync(managedFile, `${baseline}\nLOCAL MODIFICATION\n`);
+
+    const conflictJson = runCli(["sync", "--target-dir", targetDir, "--json"]);
+    assert.equal(conflictJson.status, 0, conflictJson.stderr);
+    const conflictPlan = JSON.parse(conflictJson.stdout);
+    const managedConflict = conflictPlan.conflicts.find(
+      (item) => item.path === "AGENTS.md",
+    );
+    assert.equal(managedConflict.forceable, true);
+    assert.equal(managedConflict.source, "managed-file");
+    assert.match(fs.readFileSync(managedFile, "utf8"), /LOCAL MODIFICATION/);
 
     const normalSync = runCli(["sync", "--target-dir", targetDir]);
     assert.equal(normalSync.status, 0, normalSync.stderr);
