@@ -5,6 +5,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const GITLINK_MODE = "160000";
+const GITLINK_PATH_CACHE = new Map();
 
 function posixRelative(from, to) {
   return path.relative(from, to).split(path.sep).join("/");
@@ -24,7 +25,9 @@ function parseGitmodules(content) {
     }
     if (!current) continue;
     const pathMatch = line.match(/^path\s*=\s*(.+)$/);
-    if (pathMatch) current.path = pathMatch[1].trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    if (pathMatch) {
+      current.path = pathMatch[1].trim().replace(/\\/g, "/").replace(/\/+$/, "");
+    }
     const urlMatch = line.match(/^url\s*=\s*(.+)$/);
     if (urlMatch) current.url = urlMatch[1].trim();
   }
@@ -33,27 +36,39 @@ function parseGitmodules(content) {
 
 function readGitmodules(repoRoot, deps = {}) {
   const file = path.join(repoRoot, ".gitmodules");
-  const pathKind = deps.pathKind || ((value) => {
-    try {
-      const stat = fs.lstatSync(value);
-      if (stat.isFile()) return "file";
-      if (stat.isDirectory()) return "directory";
-      return "other";
-    } catch (error) {
-      if (error.code === "ENOENT") return "missing";
-      throw error;
-    }
-  });
+  const pathKind =
+    deps.pathKind ||
+    ((value) => {
+      try {
+        const stat = fs.lstatSync(value);
+        if (stat.isFile()) return "file";
+        if (stat.isDirectory()) return "directory";
+        return "other";
+      } catch (error) {
+        if (error.code === "ENOENT") return "missing";
+        throw error;
+      }
+    });
   if (!fs.existsSync(file) || pathKind(file) !== "file") return [];
   return parseGitmodules(fs.readFileSync(file, "utf8"));
 }
 
 function gitlinkPaths(repoRoot, deps = {}) {
+  const resolvedRoot = path.resolve(repoRoot);
+  const useCache = !deps.disableCache && !deps.spawn;
+  if (useCache && GITLINK_PATH_CACHE.has(resolvedRoot)) {
+    return GITLINK_PATH_CACHE.get(resolvedRoot);
+  }
+
   const spawn = deps.spawn || spawnSync;
-  const result = spawn("git", ["-C", path.resolve(repoRoot), "ls-files", "--stage", "-z"], {
-    encoding: "utf8",
-    timeout: 5000,
-  });
+  const result = spawn(
+    "git",
+    ["-C", resolvedRoot, "ls-files", "--stage", "-z"],
+    {
+      encoding: "utf8",
+      timeout: 5000,
+    },
+  );
   const paths = new Set();
   if (result.status === 0) {
     for (const record of (result.stdout || "").split("\0")) {
@@ -61,14 +76,40 @@ function gitlinkPaths(repoRoot, deps = {}) {
       if (match) paths.add(match[2].replaceAll("\\", "/"));
     }
   }
+
+  if (useCache) GITLINK_PATH_CACHE.set(resolvedRoot, paths);
   return paths;
+}
+
+function clearGitlinkPathCache(repoRoot = null) {
+  if (repoRoot === null) {
+    GITLINK_PATH_CACHE.clear();
+    return;
+  }
+  GITLINK_PATH_CACHE.delete(path.resolve(repoRoot));
 }
 
 function isGitSubmoduleMount(repoRoot, targetPathValue, deps = {}) {
   const relative = posixRelative(repoRoot, path.resolve(targetPathValue));
-  if (!relative || relative === "." || relative.startsWith("..") || path.isAbsolute(relative)) return false;
+  if (
+    !relative ||
+    relative === "." ||
+    relative.startsWith("..") ||
+    path.isAbsolute(relative)
+  ) {
+    return false;
+  }
   if (readGitmodules(repoRoot, deps).some((item) => item.path === relative)) return true;
   return gitlinkPaths(repoRoot, deps).has(relative);
 }
 
-module.exports = { GITLINK_MODE, parseGitmodules, readGitmodules, gitlinkPaths, isGitSubmoduleMount, posixRelative };
+module.exports = {
+  GITLINK_MODE,
+  GITLINK_PATH_CACHE,
+  parseGitmodules,
+  readGitmodules,
+  gitlinkPaths,
+  clearGitlinkPathCache,
+  isGitSubmoduleMount,
+  posixRelative,
+};
