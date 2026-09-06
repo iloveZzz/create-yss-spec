@@ -28,6 +28,10 @@ function parseArgs(argv = []) {
 
     if (current === "--dry-run") {
       options.dryRun = true;
+    } else if (current === "--plan") {
+      options.plan = true;
+    } else if (current === "--json") {
+      options.json = true;
     } else if (current === "--apply") {
       options.apply = true;
     } else if (current === "--force") {
