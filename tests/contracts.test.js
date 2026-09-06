@@ -9,6 +9,10 @@ const Ajv2020 = require("ajv/dist/2020");
 const { normalizePlan } = require("../src/template/plan-schema");
 const { normalizeError } = require("../src/cli/error-output");
 const { OWNERSHIP_POLICY } = require("../src/template/ownership-runtime");
+const {
+  CUSTOMIZATION_POLICY,
+  GENERATOR_POLICY,
+} = require("../src/template/lifecycle-runtime");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -36,21 +40,30 @@ test("Plan Schema v1 compiles and validates normalized plan output", () => {
         action: "update",
         path: "AGENTS.md",
         ownership: "managed-customizable",
+        mergeStrategy: "replace-with-force",
+      },
+      {
+        action: "update",
+        path: "yss-project.yaml",
+        ownership: "generated",
+        generatorId: "repository-identity",
+        generatorVersion: 1,
       },
     ],
     conflicts: [
       {
-        path: "README.md",
+        path: "CONTEXT.md",
         reason: "local modification",
-        forceable: true,
+        forceable: false,
         source: "managed-file",
         ownership: "managed-customizable",
+        mergeStrategy: "manual",
       },
     ],
     unsafe: [],
     warnings: ["dirty worktree"],
     blocked: false,
-    stats: { updated: 1, conflicts: 1 },
+    stats: { updated: 2, conflicts: 1 },
     migration: { operations: [], legacy: [], conflicts: [], unsafe: [] },
   });
 
@@ -106,6 +119,30 @@ test("Ownership Policy v1 compiles and validates repository policy", () => {
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
   assert.equal(
     validate(OWNERSHIP_POLICY),
+    true,
+    JSON.stringify(validate.errors, null, 2),
+  );
+});
+
+test("Customization Policy v1 compiles and validates repository policy", () => {
+  const { schema, validate } = compileSchema(
+    "src/contracts/customization-policy-v1.json",
+  );
+  assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+  assert.equal(
+    validate(CUSTOMIZATION_POLICY),
+    true,
+    JSON.stringify(validate.errors, null, 2),
+  );
+});
+
+test("Generator Policy v1 compiles and validates repository policy", () => {
+  const { schema, validate } = compileSchema(
+    "src/contracts/generator-policy-v1.json",
+  );
+  assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+  assert.equal(
+    validate(GENERATOR_POLICY),
     true,
     JSON.stringify(validate.errors, null, 2),
   );
