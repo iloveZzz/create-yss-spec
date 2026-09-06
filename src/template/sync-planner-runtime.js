@@ -4,6 +4,11 @@ const {
   classifySyncOperations,
   createSyncPlan,
 } = require("./sync-planner");
+const {
+  applyOwnershipToOperations,
+  ownershipAwareUnmanagedReason,
+  decoratePlanWithOwnership,
+} = require("./ownership-runtime");
 
 function buildSyncPlanFromRuntime({
   targetDir,
@@ -17,15 +22,17 @@ function buildSyncPlanFromRuntime({
   getFileHash,
 }) {
   const managedFiles = metadata?.managedFiles || {};
+  const ownedOperations = applyOwnershipToOperations(desiredOperations);
   const classified = classifySyncOperations({
     managedFiles,
-    desiredOperations,
-    getUnmanagedReason,
+    desiredOperations: ownedOperations,
+    getUnmanagedReason: (operation) =>
+      ownershipAwareUnmanagedReason(operation, getUnmanagedReason),
     getPathKind,
     getFileHash,
   });
 
-  const plan = createSyncPlan({
+  const basePlan = createSyncPlan({
     targetDir,
     fromVersion: metadata?.templateVersion || metadata?.cliVersion || "unknown",
     toVersion,
@@ -33,6 +40,7 @@ function buildSyncPlanFromRuntime({
     migration,
     warnings: warning ? [warning] : [],
   });
+  const plan = decoratePlanWithOwnership(basePlan, ownedOperations);
 
   return {
     classified,
