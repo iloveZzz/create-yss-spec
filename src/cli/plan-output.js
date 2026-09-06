@@ -2,6 +2,10 @@
 
 const { normalizePlan } = require("../template/plan-schema");
 
+function ownershipSuffix(item) {
+  return item.ownership ? ` [${item.ownership}]` : "";
+}
+
 function renderPlanText(input) {
   const plan = normalizePlan(input);
   const lines = [
@@ -12,14 +16,18 @@ function renderPlanText(input) {
   ];
 
   for (const change of plan.changes) {
-    lines.push(`${change.action}: ${change.path}`);
+    lines.push(`${change.action}: ${change.path}${ownershipSuffix(change)}`);
   }
   for (const conflict of plan.conflicts) {
     const forceable = conflict.forceable ? " [forceable]" : "";
-    lines.push(`conflict${forceable}: ${conflict.path} (${conflict.reason})`);
+    lines.push(
+      `conflict${forceable}: ${conflict.path}${ownershipSuffix(conflict)} (${conflict.reason})`,
+    );
   }
   for (const unsafe of plan.unsafe) {
-    lines.push(`unsafe: ${unsafe.path} (${unsafe.reason})`);
+    lines.push(
+      `unsafe: ${unsafe.path}${ownershipSuffix(unsafe)} (${unsafe.reason})`,
+    );
   }
   for (const warning of plan.warnings) {
     lines.push(`warning: ${warning}`);
@@ -34,5 +42,6 @@ function renderPlanText(input) {
 }
 
 module.exports = {
+  ownershipSuffix,
   renderPlanText,
 };
