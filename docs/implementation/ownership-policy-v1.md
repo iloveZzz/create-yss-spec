@@ -151,6 +151,41 @@ JSON 示例：
 }
 ```
 
+## Metadata baseline
+
+CLI 通过 composition root 在 init/attach/sync 写 `.yss-template.json` 时统一注入 ownership baseline：
+
+```json
+{
+  "ownershipPolicyVersion": 1,
+  "ownershipPolicyHash": "<sha256>",
+  "managedFiles": {
+    "AGENTS.md": {
+      "type": "render",
+      "contentHash": "<sha256>",
+      "ownership": "managed-customizable"
+    }
+  }
+}
+```
+
+兼容策略：
+
+- 不提升现有 metadataSchemaVersion；
+- 旧实例缺少 ownership 字段仍可读取；
+- 下一次 attach/sync 会自动补齐 baseline；
+- metadata validator 会校验 ownershipPolicyVersion、ownershipPolicyHash 和 managed file ownership 值。
+
+## Doctor policy drift
+
+Doctor 的 `ownership-policy` check 有三种状态：
+
+- `matched`：metadata version/hash 与当前 CLI policy 一致，status=`ok`。
+- `missing`：旧实例没有 baseline，status=`warning`。
+- `drift`：version 或 hash 与当前 policy 不一致，status=`warning`。
+
+Doctor 只诊断，不修改 baseline。
+
 ## 与现有安全层关系
 
 Ownership 与 Git/Path Security 是叠加关系，而不是替代关系：
@@ -183,8 +218,8 @@ Gitlink / submodule / detached HEAD guard
 
 推荐顺序：
 
-1. 将 ownership 纳入 metadata baseline 的显式记录。
-2. doctor 输出 ownership 分布和 policy drift。
-3. managed-customizable 引入 merge strategy。
-4. generated 引入 generator/version contract。
-5. MCP tools 直接消费 ownership-aware Plan，而不是重新判断写权限。
+1. managed-customizable 引入 merge strategy。
+2. generated 引入 generator/version contract。
+3. ownership migration / policy version upgrade。
+4. 稳定 programmatic API。
+5. MCP tools 直接消费 ownership-aware Plan / Doctor / Error contracts，而不是重新判断写权限。
