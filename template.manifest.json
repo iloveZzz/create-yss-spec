@@ -96,5 +96,22 @@
       { "pattern": "README.md", "ownership": "managed-customizable" },
       { "pattern": ".mcp.json", "ownership": "managed-customizable" }
     ]
+  },
+  "customizationPolicy": {
+    "version": 1,
+    "defaultStrategy": "replace-with-force",
+    "rules": [
+      { "pattern": "CONTEXT.md", "strategy": "manual" },
+      { "pattern": "DESIGN.md", "strategy": "manual" }
+    ]
+  },
+  "generatorPolicy": {
+    "version": 1,
+    "rules": [
+      { "pattern": "yss-project.yaml", "generatorId": "repository-identity", "generatorVersion": 1 },
+      { "pattern": "skills-lock.json", "generatorId": "skills-lock", "generatorVersion": 1 },
+      { "pattern": "yss-public-skills.json", "generatorId": "public-skills", "generatorVersion": 1 },
+      { "pattern": ".agents/skills/.yss-skills-manifest.json", "generatorId": "skills-manifest", "generatorVersion": 1 }
+    ]
   }
 }
