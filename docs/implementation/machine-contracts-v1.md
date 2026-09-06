@@ -93,25 +93,70 @@ Contract：`src/contracts/error-envelope-v1.json`
 
 ## Doctor Report v1
 
+Contract：`src/contracts/doctor-report-v1.json`
+
 适用命令：
 
 ```bash
 create-yss-spec doctor --json
 ```
 
-Doctor 目前使用独立 `schemaVersion: 1` 报告，属于诊断 contract，但尚未发布独立 JSON Schema。检查包括：
+核心结构：
+
+```json
+{
+  "schemaVersion": 1,
+  "operation": "doctor",
+  "targetDir": "/project",
+  "cliVersion": "3.1.0",
+  "ok": true,
+  "checks": [
+    {
+      "name": "ownership-policy",
+      "status": "ok",
+      "detail": "ownership policy baseline 一致：v1",
+      "data": {}
+    }
+  ]
+}
+```
+
+`checks[].status` 只允许：`ok`、`warning`、`error`。其中只有 `error` 会把 report 的 `ok` 置为 `false`。
+
+Doctor 当前检查包括：
 
 - CLI 内置模板 snapshot 完整性
 - 目标目录
 - gitlink / detached HEAD 安全状态
 - template metadata
 - template commit drift
+- ownership policy baseline / drift
 - managed baseline drift
 - project identity
 - Git worktree 状态
 - `scripts/sync-skills --check`
 - `scripts/update-skill-lock --check`
 - `scripts/verify-template`（仅真实 Git worktree 执行；doctor 不会为检查临时 `git init`）
+
+## Ownership metadata baseline
+
+`.yss-template.json` 兼容扩展以下字段：
+
+```json
+{
+  "ownershipPolicyVersion": 1,
+  "ownershipPolicyHash": "<sha256>",
+  "managedFiles": {
+    "AGENTS.md": {
+      "type": "render",
+      "contentHash": "<sha256>",
+      "ownership": "managed-customizable"
+    }
+  }
+}
+```
+
+旧实例没有 ownership baseline 时仍可读取；下一次 attach/sync 会自动补齐。Doctor 对缺失 baseline 报 warning，对 hash/version 不一致报 policy drift warning。
 
 ## Schema 验证
 
@@ -120,6 +165,13 @@ Doctor 目前使用独立 `schemaVersion: 1` 报告，属于诊断 contract，�
 ```bash
 npm run test:contracts
 ```
+
+当前 contract：
+
+- `src/contracts/plan-schema-v1.json`
+- `src/contracts/error-envelope-v1.json`
+- `src/contracts/doctor-report-v1.json`
+- `src/contracts/ownership-policy-v1.json`
 
 Contract schema 自身应始终保持 Draft 2020-12 可编译。
 
