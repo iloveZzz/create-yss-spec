@@ -17,6 +17,10 @@ function runCli(args) {
   });
 }
 
+function findCheck(report, name) {
+  return report.checks.find((check) => check.name === name);
+}
+
 test("doctor and diff are read-only machine-friendly commands", () => {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-doctor-diff-"));
   const targetDir = path.join(sandbox, "project");
@@ -41,12 +45,12 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(doctorReport.schemaVersion, 1);
     assert.equal(doctorReport.operation, "doctor");
     assert.equal(doctorReport.ok, true);
-    assert.equal(
-      doctorReport.checks.some(
-        (check) => check.name === "template-metadata" && check.status === "ok",
-      ),
-      true,
-    );
+    assert.equal(findCheck(doctorReport, "template-metadata")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "template-drift")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "managed-baseline")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "verifier-sync-skills")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "verifier-skill-lock")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "verifier-template")?.status, "warning");
     assert.equal(fs.readFileSync(metadataPath, "utf8"), before);
 
     const diff = runCli(["diff", "--target-dir", targetDir, "--json"]);
