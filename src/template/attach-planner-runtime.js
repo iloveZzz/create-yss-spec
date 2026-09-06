@@ -4,6 +4,11 @@ const {
   classifyAttachOperations,
   createAttachPlan,
 } = require("./attach-planner");
+const {
+  applyOwnershipToOperations,
+  ownershipAwareUnmanagedReason,
+  decoratePlanWithOwnership,
+} = require("./ownership-runtime");
 
 function buildAttachPlanFromRuntime({
   targetDir,
@@ -14,19 +19,22 @@ function buildAttachPlanFromRuntime({
   getPathKind,
   getFileHash,
 }) {
+  const ownedOperations = applyOwnershipToOperations(desiredOperations);
   const classified = classifyAttachOperations({
-    desiredOperations,
-    getUnmanagedReason,
+    desiredOperations: ownedOperations,
+    getUnmanagedReason: (operation) =>
+      ownershipAwareUnmanagedReason(operation, getUnmanagedReason),
     getPathKind,
     getFileHash,
   });
 
-  const plan = createAttachPlan({
+  const basePlan = createAttachPlan({
     targetDir,
     classified,
     migration,
     warnings: warning ? [warning] : [],
   });
+  const plan = decoratePlanWithOwnership(basePlan, ownedOperations);
 
   return {
     classified,
