@@ -37,7 +37,7 @@ test("snapshot validation rejects floating or unsafe metadata", () => {
   assert.throws(() => validateTemplateSnapshot({ ...base, encodedPaths: { "../bad": "bad" } }), /越界路径/);
 });
 
-test("metadata validation keeps schema and immutable commit contracts", () => {
+test("metadata validation keeps schema, ownership and immutable commit contracts", () => {
   const metadata = {
     metadataSchemaVersion: 2,
     templateName: "create-yss-spec",
@@ -45,8 +45,16 @@ test("metadata validation keeps schema and immutable commit contracts", () => {
     templateSource: "github:iloveZzz/yss-spec-project-template",
     templateCommit: "a".repeat(40),
     managedFilesManifestVersion: "b".repeat(64),
+    ownershipPolicyVersion: 1,
+    ownershipPolicyHash: "c".repeat(64),
     variables: {},
-    managedFiles: {},
+    managedFiles: {
+      "AGENTS.md": {
+        type: "render",
+        contentHash: "d".repeat(64),
+        ownership: "managed-customizable",
+      },
+    },
   };
   assert.equal(validateTemplateMetadata(metadata, {
     currentSchemaVersion: 2,
@@ -54,6 +62,22 @@ test("metadata validation keeps schema and immutable commit contracts", () => {
     templateSource: "github:iloveZzz/yss-spec-project-template",
   }), metadata);
   assert.throws(() => validateTemplateMetadata({ ...metadata, metadataSchemaVersion: 3 }, { currentSchemaVersion: 2 }), /不支持的模板元数据版本/);
+  assert.throws(
+    () => validateTemplateMetadata({ ...metadata, ownershipPolicyHash: "bad" }),
+    /ownershipPolicyHash/,
+  );
+  assert.throws(
+    () => validateTemplateMetadata({
+      ...metadata,
+      managedFiles: {
+        "AGENTS.md": {
+          ...metadata.managedFiles["AGENTS.md"],
+          ownership: "unknown",
+        },
+      },
+    }),
+    /ownership 非法/,
+  );
 });
 
 test("identity validation is strict and conversion is explicit", () => {
