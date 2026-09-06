@@ -4,12 +4,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { parseArgs } = require("../cli/args");
+const { renderPlanText } = require("../cli/plan-output");
 const { targetPath, pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
 const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
+const { serializePlan } = require("../template/plan-schema");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
 const {
   PACKAGE_ROOT,
@@ -143,7 +145,7 @@ function runSync(argv = []) {
   });
   const warning = gitDirtyWarning(targetDir);
 
-  const { classified: syncPlan } = buildSyncPlanFromRuntime({
+  const { classified: syncPlan, plan } = buildSyncPlanFromRuntime({
     targetDir,
     metadata,
     desiredOperations,
@@ -157,6 +159,16 @@ function runSync(argv = []) {
     getPathKind: (operation) => pathKind(operation.targetPath),
     getFileHash: (operation) => fileHash(operation.targetPath),
   });
+
+  if (options.json) {
+    process.stdout.write(serializePlan(plan));
+    return plan;
+  }
+
+  if (options.plan) {
+    process.stdout.write(renderPlanText(plan));
+    return plan;
+  }
 
   if (warning) console.log(warning);
 
