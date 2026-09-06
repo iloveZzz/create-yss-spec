@@ -1,4 +1,6 @@
 const crypto = require("node:crypto");
+const { createFamilyGuard } = require("./family-identity");
+let checkTargetFamily;
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -135,6 +137,7 @@ function readTemplateSnapshot() {
     throw new Error("模板快照内容 hash 不匹配，请重新构建 CLI 包");
   }
 
+  checkTargetFamily(BUNDLED_TEMPLATE_ROOT, { snapshot });
   return snapshot;
 }
 
@@ -1471,6 +1474,7 @@ function runTemplateVerificationWithGit(targetDir, scriptPath, args = []) {
 }
 
 function verifyGeneratedTemplate(targetDir, mode = "managed") {
+  checkTargetFamily(targetDir);
   if (mode === "init" || mode === "sync") {
     verifyGeneratedInstance(targetDir, { checkForbiddenPaths: mode === "init" });
     return;
@@ -1889,11 +1893,13 @@ function runInit(argv = []) {
     printVersion();
     return;
   }
-  return promptForMissingOptions(options).then((promptedOptions) => {
+  return promptForMissingOptions(options).then(async (promptedOptions) => {
+    checkTargetFamily = await createFamilyGuard(PACKAGE_ROOT, PACKAGE_MANIFEST.name);
     assertRequiredOptions(promptedOptions, "init");
     readTemplateSnapshot();
     const targetDir = normalizeTargetDir(promptedOptions.targetDir);
     const targetState = inspectTargetDir(targetDir, promptedOptions.force);
+    checkTargetFamily(targetDir);
     const operations = buildCopyPlan(
       BUNDLED_TEMPLATE_ROOT,
       targetDir,
@@ -1957,6 +1963,7 @@ function runAttach(argv = []) {
   readTemplateSnapshot();
   const targetDir = normalizeTargetDir(options.targetDir);
   inspectExistingTargetDir(targetDir, { force: Boolean(options.force) });
+  checkTargetFamily(targetDir);
   if (pathKind(targetPath(targetDir, TEMPLATE_METADATA_FILENAME)) !== "missing") {
     throw new Error("当前项目已有模板元数据，请使用 sync，不要重复 attach");
   }
@@ -2053,6 +2060,7 @@ function runSync(argv = []) {
   readTemplateSnapshot();
   const targetDir = normalizeTargetDir(options.targetDir || ".");
   inspectExistingTargetDir(targetDir, { force: Boolean(options.force) });
+  checkTargetFamily(targetDir);
   const { metadata } = loadTemplateMetadata(targetDir);
   const identity = readTargetIdentity(targetDir);
   const syncPlan = classifySyncPlan(targetDir, metadata, identity);
@@ -2165,6 +2173,11 @@ COMMANDS
   update     检查 npm 最新版本，如有更新则安装
   upgrade    update 的别名
 
+IDENTITY
+  仅操作本 CLI 对应的模板家族；异族、混合或矛盾身份不可用 --force 绕过。
+  update / upgrade 只升级 CLI 程序；模板资产同步与程序升级分开执行。
+  前后端专职新项目使用各自模板的 scripts/instantiate-harness，仅支持新目录。
+
 OPTIONS
   --project-name <name>              项目名称；init 不传则进入交互输入
   --business-domain <domain>         业务领域；init 不传则进入交互输入
@@ -2230,6 +2243,9 @@ async function runCli(argv = []) {
   if (argvIncludesFlag(argv, VERSION_FLAGS)) {
     printVersion();
     return;
+  }
+  if (["attach", "sync"].includes(argv[0])) {
+    checkTargetFamily = await createFamilyGuard(PACKAGE_ROOT, PACKAGE_MANIFEST.name);
   }
   if (argv[0] === "sync") {
     runSync(argv.slice(1));

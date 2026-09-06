@@ -48,11 +48,11 @@ npx create-yss-spec@latest --version
 - init / sync 不把模板源治理笔记、wiki、审查证据、源仓 CI / Cloud 环境和公开发布清单写入项目实例；attach 会带上 `yss-public-skills.json` 供 `verify-template` 使用
 - 空 gitlink / detached HEAD / git-submodule 挂载点 fail closed，`--force` 也不能覆盖
 
-本轮模板快照绑定 `yss-spec-project-template@248c1723cc0e4e88adabcf00931f78b9aa632d48`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的独立入口不进入快照。
+本轮模板快照绑定 `yss-spec-project-template@ccc53f577babbeff5d8a9e674ef883c69bfac47d`。`templateCommit` 会写入实例 metadata；“最新模板”指用户执行的 `npx create-yss-spec@latest` 所携带的最新已发布快照，CLI 运行时不会拉取模板仓库。实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、YSS 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、唯一 `code-review` 入口及其 YSS / Alibaba 专项检查与 finding 分流合同、`.cursorrules` 与 `.agents/rules/yss-ai-skills.md`；审查临时目录 `docs/.scratch/` 与已退役的独立入口不进入快照。
 
 ## 当前版本说明
 
-当前 CLI 版本为 `3.1.0`，模板固定到 `248c1723cc0e4e88adabcf00931f78b9aa632d48`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
+当前 CLI 版本为 `3.1.1`，模板固定到 `ccc53f577babbeff5d8a9e674ef883c69bfac47d`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
 
 ## 接管已有项目
 
@@ -149,3 +149,11 @@ YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 - [`yss-project.yaml` 跨仓库实现记录](docs/implementation/yss-project-repository-mode-contract.md)
 - [实施路由与 Build Architecture Checklist](docs/implementation/)
 - [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)
+
+## 本次身份保护升级
+
+本版本同步前后端 Harness 拆分后的共享交接资产，保持当前模板家族。init、attach 和 sync 的适用入口在生成计划前检查五种模板身份及已有 profile；异族、多重身份、损坏或矛盾声明均拒绝，`--force` 不能绕过，`--dry-run` 同样返回非零。历史 metadata 继续兼容，`legacy-attach` 仅在旧 schema 路径接受。
+
+`update` / `upgrade` 只更新 CLI 程序，不同步实例资产。专职后端和前端新项目分别检出 `yss-harness-backend-agent`、`yss-harness-frontend-agent` 的固定提交，在各自模板目录运行 `node scripts/instantiate-harness --target <新目录>`；这两个入口不提供原地 sync 或跨 profile 迁移。
+
+旧实例升级前先保存 Git 基线，再用新版本执行 `sync --dry-run`，审阅后执行普通 `sync`；不默认添加 --force。失败按现有事务机制回滚，成功后的撤销使用升级前基线或保留备份，不用旧 CLI 强制反向同步。
