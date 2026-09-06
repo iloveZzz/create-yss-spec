@@ -17,6 +17,17 @@
     "stats",
     "migration"
   ],
+  "$defs": {
+    "ownership": {
+      "enum": [
+        "managed",
+        "managed-customizable",
+        "generated",
+        "user-owned",
+        "protected"
+      ]
+    }
+  },
   "properties": {
     "schemaVersion": { "const": 1 },
     "operation": { "type": "string", "minLength": 1 },
@@ -32,7 +43,8 @@
         "required": ["action", "path"],
         "properties": {
           "action": { "type": "string", "minLength": 1 },
-          "path": { "type": "string", "minLength": 1 }
+          "path": { "type": "string", "minLength": 1 },
+          "ownership": { "$ref": "#/$defs/ownership" }
         },
         "additionalProperties": true
       }
@@ -46,7 +58,8 @@
           "path": { "type": "string", "minLength": 1 },
           "reason": { "type": "string" },
           "forceable": { "type": "boolean" },
-          "source": { "type": "string" }
+          "source": { "type": "string" },
+          "ownership": { "$ref": "#/$defs/ownership" }
         },
         "additionalProperties": true
       }
@@ -59,7 +72,8 @@
         "properties": {
           "path": { "type": "string", "minLength": 1 },
           "reason": { "type": "string" },
-          "source": { "type": "string" }
+          "source": { "type": "string" },
+          "ownership": { "$ref": "#/$defs/ownership" }
         },
         "additionalProperties": true
       }
