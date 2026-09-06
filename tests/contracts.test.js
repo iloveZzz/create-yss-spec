@@ -8,6 +8,7 @@ const Ajv2020 = require("ajv/dist/2020");
 
 const { normalizePlan } = require("../src/template/plan-schema");
 const { normalizeError } = require("../src/cli/error-output");
+const { OWNERSHIP_POLICY } = require("../src/template/ownership-runtime");
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -30,13 +31,20 @@ test("Plan Schema v1 compiles and validates normalized plan output", () => {
     operation: "sync",
     targetDir: "/project",
     template: { from: "3.1.0", to: "4.0.0" },
-    changes: [{ action: "update", path: "AGENTS.md" }],
+    changes: [
+      {
+        action: "update",
+        path: "AGENTS.md",
+        ownership: "managed-customizable",
+      },
+    ],
     conflicts: [
       {
         path: "README.md",
         reason: "local modification",
         forceable: true,
         source: "managed-file",
+        ownership: "managed-customizable",
       },
     ],
     unsafe: [],
@@ -88,5 +96,17 @@ test("Error Envelope v1 rejects unstable error codes", () => {
       error: { code: "metadata_invalid", message: "broken" },
     }),
     false,
+  );
+});
+
+test("Ownership Policy v1 compiles and validates repository policy", () => {
+  const { schema, validate } = compileSchema(
+    "src/contracts/ownership-policy-v1.json",
+  );
+  assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+  assert.equal(
+    validate(OWNERSHIP_POLICY),
+    true,
+    JSON.stringify(validate.errors, null, 2),
   );
 });
