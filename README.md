@@ -31,6 +31,10 @@ npx create-yss-spec@latest --version
 - 交互式收集 `projectName`、`businessDomain`、`targetDir`
 - `--team-size`
 - `--dry-run`
+- `sync --plan`：结构化文本计划，不写入文件
+- `sync --json`：Plan Schema v1 JSON，不写入文件
+- `diff` / `diff --json`：复用 Sync Planner 计算差异，不写入文件
+- `doctor` / `doctor --json`：检查模板实例、身份、Git 与安全状态
 - 非空目录默认拒绝，初始化命令的 `--force` 允许重新生成
 - `--git-init`
 - `--issue-tracker github|gitlab`
@@ -54,11 +58,17 @@ npx create-yss-spec@latest --version
 
 当前 CLI 版本为 `3.1.0`，模板固定到 `248c1723cc0e4e88adabcf00931f78b9aa632d48`。本版本同步可离线核验的战略交接快照包、受控导入与逐条战术追溯，并强化关键决定的真实用户回复校验。
 
-## CLI v4 模块化重构（进行中）
+## CLI v4 模块化架构
 
-当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`sync` 也已完成生产 wiring，直接调用新的 Planner、Migration Runtime、Transaction、Git/Security 与 Validation 层。`init` / `attach` 暂时继续复用 legacy execution core。
+P0 模块化重构已完成。历史 `src/cli.js` 单体已退役为兼容桥接，生产 `init / attach / sync / update` 全部通过 `src/cli/*`、`src/commands/*`、`src/template/*`、`src/filesystem/*`、`src/git/*` 和 `src/validation/*` 执行。
 
-P0-C 的领域 Planner、P0-D 的事务/回滚层、P0-E 的 Git/安全/校验边界都已完成独立模块抽取并配套测试。P0-F 已首先完成生产 `sync` 切换，并补充 CLI 级回归测试，覆盖 dry-run 不写 metadata、本地修改默认跳过以及 `--force` 通过新 Transaction 覆盖。下一步将迁移 `attach`，随后收缩 legacy `src/cli.js` 并增加 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口。
+统一执行模型为：
+
+```text
+Inspect -> Desired State -> Plan -> Validate -> Preview/Apply -> Verify -> Metadata
+```
+
+当前已具备 Plan Schema v1、Sync/Attach/Migration Planner、`FileTransaction`、统一 rollback、gitlink/submodule/detached HEAD 安全边界、snapshot/metadata/identity validation，并已开始 P1 的机器接口：`sync --plan`、`sync --json`、`diff` 和 `doctor`。
 
 完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
 
@@ -103,6 +113,22 @@ npx create-yss-spec@latest sync
 npx create-yss-spec@latest sync --dry-run
 ```
 
+输出统一计划或机器可读 JSON：
+
+```bash
+npx create-yss-spec@latest sync --plan
+npx create-yss-spec@latest sync --json
+npx create-yss-spec@latest diff
+npx create-yss-spec@latest diff --json
+```
+
+检查项目健康状态：
+
+```bash
+npx create-yss-spec@latest doctor
+npx create-yss-spec@latest doctor --json
+```
+
 当前同步能力的边界：
 
 - 只支持带模板元数据的模板实例仓库
@@ -143,6 +169,8 @@ CLI 源码和研发记录由本仓库独立维护。首次测试会从
 同步受管模板快照；正式发布应显式绑定确定 commit：
 
 ```bash
+npm run test:unit
+npm run test:integration
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
 YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
 ```
