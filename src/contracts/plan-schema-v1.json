@@ -26,6 +26,17 @@
         "user-owned",
         "protected"
       ]
+    },
+    "mergeStrategy": {
+      "enum": ["replace-with-force", "manual"]
+    },
+    "generatorId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "generatorVersion": {
+      "type": "integer",
+      "minimum": 1
     }
   },
   "properties": {
@@ -44,7 +55,10 @@
         "properties": {
           "action": { "type": "string", "minLength": 1 },
           "path": { "type": "string", "minLength": 1 },
-          "ownership": { "$ref": "#/$defs/ownership" }
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
         },
         "additionalProperties": true
       }
@@ -59,7 +73,10 @@
           "reason": { "type": "string" },
           "forceable": { "type": "boolean" },
           "source": { "type": "string" },
-          "ownership": { "$ref": "#/$defs/ownership" }
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
         },
         "additionalProperties": true
       }
@@ -73,7 +90,10 @@
           "path": { "type": "string", "minLength": 1 },
           "reason": { "type": "string" },
           "source": { "type": "string" },
-          "ownership": { "$ref": "#/$defs/ownership" }
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
         },
         "additionalProperties": true
       }
