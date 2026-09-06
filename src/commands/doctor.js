@@ -19,6 +19,9 @@ const {
 const {
   ownershipPolicyDrift,
 } = require("../template/ownership-metadata");
+const {
+  lifecyclePolicyDrift,
+} = require("../template/lifecycle-metadata");
 
 const DOCTOR_SCHEMA_VERSION = 1;
 const VERIFIERS = [
@@ -166,6 +169,52 @@ function checkOwnershipPolicy(report, metadata) {
   );
 }
 
+function addLifecycleDriftCheck(report, name, label, drift) {
+  if (drift.state === "missing") {
+    addCheck(
+      report,
+      name,
+      "warning",
+      `实例 metadata 尚未记录 ${label} baseline；下一次 attach/sync 会自动补齐`,
+      drift,
+    );
+    return;
+  }
+  if (drift.state === "drift") {
+    addCheck(
+      report,
+      name,
+      "warning",
+      `${label} baseline 与当前 CLI 不一致：v${drift.actual.version} -> v${drift.expected.version}`,
+      drift,
+    );
+    return;
+  }
+  addCheck(
+    report,
+    name,
+    "ok",
+    `${label} baseline 一致：v${drift.expected.version}`,
+    drift,
+  );
+}
+
+function checkLifecyclePolicies(report, metadata) {
+  const drift = lifecyclePolicyDrift(metadata);
+  addLifecycleDriftCheck(
+    report,
+    "customization-policy",
+    "customization policy",
+    drift.customization,
+  );
+  addLifecycleDriftCheck(
+    report,
+    "generator-policy",
+    "generator policy",
+    drift.generator,
+  );
+}
+
 function runVerifierCheck(report, targetDir, verifier, gitWorktree) {
   const commandPath = targetPath(targetDir, verifier.path);
   if (pathKind(commandPath) !== "file") {
@@ -288,6 +337,7 @@ function buildDoctorReport(targetDir) {
     }
 
     checkOwnershipPolicy(report, metadata);
+    checkLifecyclePolicies(report, metadata);
     checkManagedBaseline(report, targetDir, metadata);
   } catch (error) {
     addCheck(report, "template-metadata", "error", error.message);
@@ -359,6 +409,7 @@ module.exports = {
   VERIFIERS,
   checkManagedBaseline,
   checkOwnershipPolicy,
+  checkLifecyclePolicies,
   runVerifierCheck,
   buildDoctorReport,
   renderDoctorText,
