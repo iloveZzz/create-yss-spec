@@ -2,20 +2,40 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const { parseArgs } = require("../cli/args");
-const { pathKind } = require("../filesystem/path-utils");
+const { pathKind, targetPath } = require("../filesystem/path-utils");
 const { gitDirtyWarning } = require("../git/worktree");
 const { gitlinkWriteViolation } = require("../validation/security");
 const {
   PACKAGE_ROOT,
   PACKAGE_MANIFEST,
+  fileHash,
   readTemplateSnapshot,
   readTargetIdentity,
   loadTemplateMetadata,
 } = require("../template/instance-runtime");
 
 const DOCTOR_SCHEMA_VERSION = 1;
+const VERIFIERS = [
+  {
+    name: "verifier-sync-skills",
+    path: "scripts/sync-skills",
+    args: ["--check"],
+  },
+  {
+    name: "verifier-skill-lock",
+    path: "scripts/update-skill-lock",
+    args: ["--check"],
+  },
+  {
+    name: "verifier-template",
+    path: "scripts/verify-template",
+    args: [],
+    requiresGit: true,
+  },
+];
 
 function normalizeTargetDir(value) {
   return path.resolve(process.cwd(), value || ".");
@@ -29,6 +49,141 @@ function addCheck(report, name, status, detail, data = undefined) {
   return check;
 }
 
+function isGitWorktree(targetDir) {
+  const result = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: targetDir,
+    encoding: "utf8",
+    timeout: 5000,
+  });
+  return result.status === 0 && (result.stdout || "").trim() === "true";
+}
+
+function checkManagedBaseline(report, targetDir, metadata) {
+  const managedFiles = metadata.managedFiles || {};
+  const stats = {
+    total: 0,
+    matched: 0,
+    modified: 0,
+    missing: 0,
+    invalid: 0,
+  };
+
+  for (const [relativePath, record] of Object.entries(managedFiles)) {
+    stats.total += 1;
+    if (
+      !record ||
+      typeof record !== "object" ||
+      Array.isArray(record) ||
+      !/^[0-9a-f]{64}$/.test(record.contentHash || "")
+    ) {
+      stats.invalid += 1;
+      continue;
+    }
+
+    let absolutePath;
+    try {
+      absolutePath = targetPath(targetDir, relativePath);
+    } catch {
+      stats.invalid += 1;
+      continue;
+    }
+
+    const kind = pathKind(absolutePath);
+    if (kind === "missing") {
+      stats.missing += 1;
+      continue;
+    }
+    if (kind !== "file") {
+      stats.invalid += 1;
+      continue;
+    }
+
+    if (fileHash(absolutePath) === record.contentHash) {
+      stats.matched += 1;
+    } else {
+      stats.modified += 1;
+    }
+  }
+
+  if (stats.invalid > 0) {
+    addCheck(
+      report,
+      "managed-baseline",
+      "error",
+      `managed baseline 含 ${stats.invalid} 个非法记录或不安全路径`,
+      stats,
+    );
+  } else if (stats.missing > 0 || stats.modified > 0) {
+    addCheck(
+      report,
+      "managed-baseline",
+      "warning",
+      `受管基线存在漂移：本地修改 ${stats.modified}，缺失 ${stats.missing}`,
+      stats,
+    );
+  } else {
+    addCheck(
+      report,
+      "managed-baseline",
+      "ok",
+      `受管基线一致：${stats.matched}/${stats.total}`,
+      stats,
+    );
+  }
+}
+
+function runVerifierCheck(report, targetDir, verifier, gitWorktree) {
+  const commandPath = targetPath(targetDir, verifier.path);
+  if (pathKind(commandPath) !== "file") {
+    addCheck(
+      report,
+      verifier.name,
+      "error",
+      `缺少 verifier：${verifier.path}`,
+    );
+    return;
+  }
+
+  if (verifier.requiresGit && !gitWorktree) {
+    addCheck(
+      report,
+      verifier.name,
+      "warning",
+      `未执行 ${verifier.path}：目标目录不是 Git worktree；doctor 不会临时 git init`,
+    );
+    return;
+  }
+
+  const result = spawnSync(commandPath, verifier.args || [], {
+    cwd: targetDir,
+    encoding: "utf8",
+    timeout: 30000,
+  });
+  const output = [result.stdout, result.stderr]
+    .filter(Boolean)
+    .join("")
+    .trim();
+
+  if (result.error || result.status !== 0) {
+    addCheck(
+      report,
+      verifier.name,
+      "error",
+      `${verifier.path} 校验失败${output ? `：${output}` : ""}`,
+      { exitCode: result.status },
+    );
+    return;
+  }
+
+  addCheck(
+    report,
+    verifier.name,
+    "ok",
+    `${verifier.path} 校验通过`,
+    { exitCode: result.status },
+  );
+}
+
 function buildDoctorReport(targetDir) {
   const report = {
     schemaVersion: DOCTOR_SCHEMA_VERSION,
@@ -39,8 +194,9 @@ function buildDoctorReport(targetDir) {
     checks: [],
   };
 
+  let snapshot = null;
   try {
-    const snapshot = readTemplateSnapshot();
+    snapshot = readTemplateSnapshot();
     addCheck(
       report,
       "template-snapshot",
@@ -67,8 +223,9 @@ function buildDoctorReport(targetDir) {
     addCheck(report, "git-safety", "ok", "未检测到 gitlink / detached HEAD 写入风险");
   }
 
+  let metadata = null;
   try {
-    const { metadata } = loadTemplateMetadata(targetDir);
+    ({ metadata } = loadTemplateMetadata(targetDir));
     addCheck(
       report,
       "template-metadata",
@@ -80,6 +237,23 @@ function buildDoctorReport(targetDir) {
         templateCommit: metadata.templateCommit || null,
       },
     );
+
+    if (snapshot && metadata.templateCommit !== snapshot.templateCommit) {
+      addCheck(
+        report,
+        "template-drift",
+        "warning",
+        `实例模板 commit 与当前 CLI 快照不同：${metadata.templateCommit} -> ${snapshot.templateCommit}`,
+        {
+          from: metadata.templateCommit,
+          to: snapshot.templateCommit,
+        },
+      );
+    } else if (snapshot) {
+      addCheck(report, "template-drift", "ok", "实例模板 commit 与当前 CLI 快照一致");
+    }
+
+    checkManagedBaseline(report, targetDir, metadata);
   } catch (error) {
     addCheck(report, "template-metadata", "error", error.message);
   }
@@ -102,11 +276,18 @@ function buildDoctorReport(targetDir) {
     addCheck(report, "project-identity", "error", error.message);
   }
 
+  const gitWorktree = isGitWorktree(targetDir);
   const dirtyWarning = gitDirtyWarning(targetDir);
   if (dirtyWarning) {
     addCheck(report, "git-worktree", "warning", dirtyWarning);
-  } else {
+  } else if (gitWorktree) {
     addCheck(report, "git-worktree", "ok", "Git worktree 无需警告");
+  } else {
+    addCheck(report, "git-worktree", "warning", "目标目录不是 Git worktree");
+  }
+
+  for (const verifier of VERIFIERS) {
+    runVerifierCheck(report, targetDir, verifier, gitWorktree);
   }
 
   return report;
@@ -140,6 +321,9 @@ function runDoctor(argv = []) {
 
 module.exports = {
   DOCTOR_SCHEMA_VERSION,
+  VERIFIERS,
+  checkManagedBaseline,
+  runVerifierCheck,
   buildDoctorReport,
   renderDoctorText,
   runDoctor,
