@@ -5,6 +5,7 @@ const ERROR_SCHEMA_VERSION = 1;
 const ERROR_RULES = [
   [/模板路径越界|中间符号链接|目标父路径不是目录|符号链接或特殊文件/, "YSS_PATH_SAFETY"],
   [/gitlink|git-submodule|detached HEAD|submodule/, "YSS_GIT_PROTECTED"],
+  [/ownership policy|user-owned|被 ownership policy 标记为 protected/, "YSS_OWNERSHIP_PROTECTED"],
   [/模板快照|snapshotHash|templateCommit/, "YSS_SNAPSHOT_INVALID"],
   [/模板元数据|metadataSchemaVersion|managedFilesManifestVersion/, "YSS_METADATA_INVALID"],
   [/yss-project\.yaml|repository_mode|schema_version/, "YSS_IDENTITY_INVALID"],
