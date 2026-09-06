@@ -6,6 +6,17 @@ function ownershipSuffix(item) {
   return item.ownership ? ` [${item.ownership}]` : "";
 }
 
+function lifecycleSuffix(item) {
+  const parts = [];
+  if (item.mergeStrategy) parts.push(`merge=${item.mergeStrategy}`);
+  if (item.generatorId) {
+    parts.push(
+      `generator=${item.generatorId}@${item.generatorVersion || "?"}`,
+    );
+  }
+  return parts.length > 0 ? ` [${parts.join(",")}]` : "";
+}
+
 function renderPlanText(input) {
   const plan = normalizePlan(input);
   const lines = [
@@ -16,17 +27,19 @@ function renderPlanText(input) {
   ];
 
   for (const change of plan.changes) {
-    lines.push(`${change.action}: ${change.path}${ownershipSuffix(change)}`);
+    lines.push(
+      `${change.action}: ${change.path}${ownershipSuffix(change)}${lifecycleSuffix(change)}`,
+    );
   }
   for (const conflict of plan.conflicts) {
     const forceable = conflict.forceable ? " [forceable]" : "";
     lines.push(
-      `conflict${forceable}: ${conflict.path}${ownershipSuffix(conflict)} (${conflict.reason})`,
+      `conflict${forceable}: ${conflict.path}${ownershipSuffix(conflict)}${lifecycleSuffix(conflict)} (${conflict.reason})`,
     );
   }
   for (const unsafe of plan.unsafe) {
     lines.push(
-      `unsafe: ${unsafe.path}${ownershipSuffix(unsafe)} (${unsafe.reason})`,
+      `unsafe: ${unsafe.path}${ownershipSuffix(unsafe)}${lifecycleSuffix(unsafe)} (${unsafe.reason})`,
     );
   }
   for (const warning of plan.warnings) {
@@ -43,5 +56,6 @@ function renderPlanText(input) {
 
 module.exports = {
   ownershipSuffix,
+  lifecycleSuffix,
   renderPlanText,
 };
