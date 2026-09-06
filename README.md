@@ -56,9 +56,9 @@ npx create-yss-spec@latest --version
 
 ## CLI v4 模块化重构（进行中）
 
-当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`init` / `attach` / `sync` 仍暂时复用 legacy execution core。
+当前正在采用 compatibility-first 的 strangler 方式拆分历史 `src/cli.js` 单体：CLI 外层协议已迁移到 `src/cli/*`，命令入口已通过 `src/commands/*` 适配；`help` / `version` / `update` 已走新模块，`sync` 也已完成生产 wiring，直接调用新的 Planner、Migration Runtime、Transaction、Git/Security 与 Validation 层。`init` / `attach` 暂时继续复用 legacy execution core。
 
-P0-C 的领域 Planner、P0-D 的事务/回滚层、P0-E 的 Git/安全/校验边界都已完成独立模块抽取并配套测试：包括 Sync/Attach/Migration Planner、Plan Schema v1、`FileTransaction`、`runInTransaction`、gitlink/submodule/detached HEAD 检查，以及 snapshot/metadata/identity validation。下一步是生产 wiring：让 legacy `src/cli.js` 逐步改为调用这些模块，并收缩为薄编排层，为 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口做准备。
+P0-C 的领域 Planner、P0-D 的事务/回滚层、P0-E 的 Git/安全/校验边界都已完成独立模块抽取并配套测试。P0-F 已首先完成生产 `sync` 切换，并补充 CLI 级回归测试，覆盖 dry-run 不写 metadata、本地修改默认跳过以及 `--force` 通过新 Transaction 覆盖。下一步将迁移 `attach`，随后收缩 legacy `src/cli.js` 并增加 `doctor`、`diff`、`sync --plan`、`--json` 与 MCP 接口。
 
 完整迁移设计见 [`docs/implementation/cli-v4-modularization.md`](docs/implementation/cli-v4-modularization.md)。
 
