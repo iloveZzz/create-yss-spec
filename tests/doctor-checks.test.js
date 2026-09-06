@@ -9,8 +9,13 @@ const path = require("node:path");
 
 const {
   checkManagedBaseline,
+  checkOwnershipPolicy,
   runVerifierCheck,
 } = require("../src/commands/doctor");
+const {
+  decorateMetadataOwnership,
+  ownershipPolicyHash,
+} = require("../src/template/ownership-metadata");
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -67,6 +72,44 @@ test("managed baseline fails closed on malformed records", () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("ownership metadata decorator persists policy baseline and per-file ownership", () => {
+  const metadata = decorateMetadataOwnership({
+    managedFiles: {
+      "AGENTS.md": { type: "render", contentHash: "a".repeat(64) },
+      "scripts/verify-template": { type: "copy", contentHash: "b".repeat(64) },
+    },
+  });
+
+  assert.equal(metadata.ownershipPolicyVersion, 1);
+  assert.equal(metadata.ownershipPolicyHash, ownershipPolicyHash());
+  assert.equal(metadata.managedFiles["AGENTS.md"].ownership, "managed-customizable");
+  assert.equal(metadata.managedFiles["scripts/verify-template"].ownership, "managed");
+});
+
+test("doctor ownership check distinguishes missing, drift and matched baseline", () => {
+  const missing = report();
+  checkOwnershipPolicy(missing, { managedFiles: {} });
+  assert.equal(missing.checks[0].status, "warning");
+  assert.equal(missing.checks[0].data.state, "missing");
+
+  const drift = report();
+  checkOwnershipPolicy(drift, {
+    ownershipPolicyVersion: 1,
+    ownershipPolicyHash: "0".repeat(64),
+    managedFiles: {},
+  });
+  assert.equal(drift.checks[0].status, "warning");
+  assert.equal(drift.checks[0].data.state, "drift");
+
+  const matched = report();
+  checkOwnershipPolicy(
+    matched,
+    decorateMetadataOwnership({ managedFiles: {} }),
+  );
+  assert.equal(matched.checks[0].status, "ok");
+  assert.equal(matched.checks[0].data.state, "matched");
 });
 
 test("verifier check records success and failure as structured doctor checks", () => {
