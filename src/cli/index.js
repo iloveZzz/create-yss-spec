@@ -6,21 +6,22 @@ const instanceRuntime = require("../template/instance-runtime");
 const {
   decorateMetadataOwnership,
 } = require("../template/ownership-metadata");
+const {
+  decorateMetadataLifecycle,
+} = require("../template/lifecycle-metadata");
 
-// Composition-root decorator: all CLI metadata writes persist the current
-// ownership-policy baseline without duplicating this cross-cutting concern in
+// Composition-root decorator: all CLI metadata writes persist ownership and
+// lifecycle-policy baselines without duplicating cross-cutting concerns in
 // init/attach/sync command implementations.
 const writeTemplateMetadataBase = instanceRuntime.writeTemplateMetadata;
-instanceRuntime.writeTemplateMetadata = function writeOwnershipAwareTemplateMetadata(
+instanceRuntime.writeTemplateMetadata = function writePolicyAwareTemplateMetadata(
   targetDir,
   metadata,
   transaction = null,
 ) {
-  return writeTemplateMetadataBase(
-    targetDir,
-    decorateMetadataOwnership(metadata),
-    transaction,
-  );
+  const ownershipAware = decorateMetadataOwnership(metadata);
+  const lifecycleAware = decorateMetadataLifecycle(ownershipAware);
+  return writeTemplateMetadataBase(targetDir, lifecycleAware, transaction);
 };
 
 const { runAttach } = require("../commands/attach");
