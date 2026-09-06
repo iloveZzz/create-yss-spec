@@ -71,5 +71,30 @@
   "initExcludeRootFiles": [
     "yss-public-skills.json"
   ],
-  "initExcludePaths": []
+  "initExcludePaths": [],
+  "ownershipPolicy": {
+    "version": 1,
+    "default": "managed",
+    "rules": [
+      { "pattern": ".git/**", "ownership": "protected" },
+      { "pattern": ".template-source/**", "ownership": "protected" },
+      { "pattern": ".cursor/environment.json", "ownership": "protected" },
+      { "pattern": ".gitmodules", "ownership": "user-owned" },
+      { "pattern": "apps/**", "ownership": "user-owned" },
+      { "pattern": "packages/**", "ownership": "user-owned" },
+      { "pattern": "wiki/**", "ownership": "user-owned" },
+      { "pattern": "docs/reviews/**", "ownership": "user-owned" },
+      { "pattern": "docs/.scratch/**", "ownership": "user-owned" },
+      { "pattern": "yss-project.yaml", "ownership": "generated" },
+      { "pattern": "skills-lock.json", "ownership": "generated" },
+      { "pattern": "yss-public-skills.json", "ownership": "generated" },
+      { "pattern": ".agents/skills/.yss-skills-manifest.json", "ownership": "generated" },
+      { "pattern": "AGENTS.md", "ownership": "managed-customizable" },
+      { "pattern": "CLAUDE.md", "ownership": "managed-customizable" },
+      { "pattern": "CONTEXT.md", "ownership": "managed-customizable" },
+      { "pattern": "DESIGN.md", "ownership": "managed-customizable" },
+      { "pattern": "README.md", "ownership": "managed-customizable" },
+      { "pattern": ".mcp.json", "ownership": "managed-customizable" }
+    ]
+  }
 }
