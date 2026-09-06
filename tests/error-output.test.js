@@ -24,6 +24,12 @@ test("error classifier exposes stable machine codes", () => {
     "YSS_GIT_PROTECTED",
   );
   assert.equal(
+    classifyErrorCode(
+      new Error("apps/web 被 ownership policy 标记为 user-owned，不属于受管模板文件"),
+    ),
+    "YSS_OWNERSHIP_PROTECTED",
+  );
+  assert.equal(
     classifyErrorCode(new Error("不支持的参数：--wat")),
     "YSS_ARGUMENT_INVALID",
   );
