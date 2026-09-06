@@ -295,6 +295,31 @@ function buildSyncDesiredOperations(targetDir, metadata, identity) {
   });
 }
 
+function buildAttachDesiredOperations(targetDir, variables, identity) {
+  return buildDesiredManagedOperations(targetDir, variables, "managed").map((operation) => {
+    if (operation.relativePath !== "yss-project.yaml" || identity.state === "missing") {
+      return operation;
+    }
+
+    if (identity.fields.repository_mode === "project-instance") {
+      return {
+        ...operation,
+        desiredContent: identity.content,
+        desiredHash: sha256(identity.content),
+        identityPreserved: true,
+      };
+    }
+
+    const desiredContent = convertTemplateSourceToInstance(identity.content);
+    return {
+      ...operation,
+      desiredContent,
+      desiredHash: sha256(desiredContent),
+      identityConversion: true,
+    };
+  });
+}
+
 function loadTemplateMetadata(targetDir) {
   const metadataPath = targetPath(targetDir, TEMPLATE_METADATA_FILENAME);
   const metadataKind = pathKind(metadataPath);
@@ -321,6 +346,40 @@ function loadTemplateMetadata(targetDir) {
   });
 
   return { metadataPath, metadata };
+}
+
+function collectManagedFiles(desiredOperations) {
+  const managedFiles = {};
+  for (const operation of desiredOperations) {
+    if (pathKind(operation.targetPath) !== "file") continue;
+    managedFiles[operation.relativePath] = {
+      type: operation.type,
+      contentHash: fileHash(operation.targetPath),
+    };
+  }
+  return managedFiles;
+}
+
+function buildMetadata(variables, desiredOperations, timestamp = nowIsoString()) {
+  return {
+    metadataSchemaVersion: METADATA_SCHEMA_VERSION,
+    templateName: PACKAGE_MANIFEST.name,
+    cliVersion: PACKAGE_MANIFEST.version,
+    templateVersion: PACKAGE_MANIFEST.version,
+    templateSource: TEMPLATE_SOURCE,
+    templateCommit: readTemplateSnapshot().templateCommit,
+    initializedAt: timestamp,
+    lastSyncedAt: timestamp,
+    managedFilesManifestVersion: TEMPLATE_MANIFEST_VERSION,
+    variables: {
+      projectName: variables.projectName,
+      businessDomain: variables.businessDomain,
+      teamSize: variables.teamSize,
+      issueTracker: variables.issueTracker,
+      includeExampleDocs: variables.includeExampleDocs,
+    },
+    managedFiles: collectManagedFiles(desiredOperations),
+  };
 }
 
 function writeTemplateMetadata(targetDir, metadata, transaction = null) {
@@ -393,8 +452,11 @@ module.exports = {
   readTemplateSnapshot,
   readTargetIdentity,
   buildSyncVariables,
+  buildDesiredManagedOperations,
   buildSyncDesiredOperations,
+  buildAttachDesiredOperations,
   loadTemplateMetadata,
+  buildMetadata,
   writeTemplateMetadata,
   buildNextSyncMetadata,
   verifyGeneratedSyncInstance,
