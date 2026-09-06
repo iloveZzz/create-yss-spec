@@ -3,6 +3,8 @@
 const path = require("node:path");
 const packageManifest = require("../../package.json");
 const { runAttach } = require("../commands/attach");
+const { runDiff } = require("../commands/diff");
+const { runDoctor } = require("../commands/doctor");
 const { runInit } = require("../commands/init");
 const { runSync } = require("../commands/sync");
 const { runUpdateCommand } = require("../commands/update");
@@ -33,6 +35,12 @@ async function runCli(argv = []) {
   }
   if (route.command === "sync") {
     return runSync(route.args);
+  }
+  if (route.command === "doctor") {
+    return runDoctor(route.args);
+  }
+  if (route.command === "diff") {
+    return runDiff(route.args);
   }
 
   return runInit(route.args);
