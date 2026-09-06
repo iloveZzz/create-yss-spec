@@ -2,6 +2,27 @@
 
 const path = require("node:path");
 const packageManifest = require("../../package.json");
+const instanceRuntime = require("../template/instance-runtime");
+const {
+  decorateMetadataOwnership,
+} = require("../template/ownership-metadata");
+
+// Composition-root decorator: all CLI metadata writes persist the current
+// ownership-policy baseline without duplicating this cross-cutting concern in
+// init/attach/sync command implementations.
+const writeTemplateMetadataBase = instanceRuntime.writeTemplateMetadata;
+instanceRuntime.writeTemplateMetadata = function writeOwnershipAwareTemplateMetadata(
+  targetDir,
+  metadata,
+  transaction = null,
+) {
+  return writeTemplateMetadataBase(
+    targetDir,
+    decorateMetadataOwnership(metadata),
+    transaction,
+  );
+};
+
 const { runAttach } = require("../commands/attach");
 const { runDiff } = require("../commands/diff");
 const { runDoctor } = require("../commands/doctor");
