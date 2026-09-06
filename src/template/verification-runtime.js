@@ -5,7 +5,19 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const { targetPath } = require("../filesystem/path-utils");
+const { targetPath, pathKind } = require("../filesystem/path-utils");
+const {
+  TEMPLATE_MANIFEST,
+  readTargetIdentity,
+} = require("./instance-runtime");
+
+const INSTANCE_FORBIDDEN_PATHS = [
+  ".template-source",
+  ".github",
+  ".cursor/environment.json",
+  "wiki",
+  "docs/reviews",
+];
 
 function initializeGitRepository(targetDir) {
   const result = spawnSync("git", ["init"], {
@@ -69,6 +81,40 @@ function runTemplateVerificationWithGit(targetDir, scriptPath, args = []) {
   }
 }
 
+function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = false } = {}) {
+  if (checkForbiddenPaths) {
+    const forbiddenPaths = [
+      ...INSTANCE_FORBIDDEN_PATHS,
+      ...(TEMPLATE_MANIFEST.initExcludeRootEntries || []),
+      ...(TEMPLATE_MANIFEST.initExcludeRootFiles || []),
+      ...(TEMPLATE_MANIFEST.initExcludePaths || []),
+    ];
+    for (const relativePath of [...new Set(forbiddenPaths)]) {
+      if (pathKind(targetPath(targetDir, relativePath)) !== "missing") {
+        throw new Error(`初始化结果包含禁止分发的模板源资产：${relativePath}`);
+      }
+    }
+  }
+
+  const identity = readTargetIdentity(targetDir);
+  if (
+    identity.state !== "valid" ||
+    identity.fields.repository_mode !== "project-instance"
+  ) {
+    throw new Error("初始化结果的 yss-project.yaml 必须是 project-instance");
+  }
+
+  const agentsContent = fs.readFileSync(targetPath(targetDir, "AGENTS.md"), "utf8");
+  const readmeContent = fs.readFileSync(targetPath(targetDir, "README.md"), "utf8");
+  if (agentsContent.includes("[填写]") || readmeContent.includes("[填写]")) {
+    throw new Error("初始化结果仍包含模板占位信息");
+  }
+}
+
+function verifyGeneratedInit(targetDir) {
+  verifyGeneratedInstance(targetDir, { checkForbiddenPaths: true });
+}
+
 function verifyGeneratedAttach(targetDir) {
   runTemplateVerification(targetDir, "scripts/sync-skills");
   runTemplateVerification(targetDir, "scripts/update-skill-lock");
@@ -79,5 +125,7 @@ module.exports = {
   initializeGitRepository,
   runTemplateVerification,
   runTemplateVerificationWithGit,
+  verifyGeneratedInstance,
+  verifyGeneratedInit,
   verifyGeneratedAttach,
 };
