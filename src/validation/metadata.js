@@ -7,6 +7,19 @@ const OWNERSHIP_TYPES = new Set([
   "user-owned",
   "protected",
 ]);
+const MERGE_STRATEGIES = new Set(["replace-with-force", "manual"]);
+
+function assertPositiveInteger(value, name) {
+  if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
+    throw new Error(`模板元数据 ${name} 必须是正整数`);
+  }
+}
+
+function assertSha256(value, name) {
+  if (value !== undefined && !/^[0-9a-f]{64}$/.test(value)) {
+    throw new Error(`模板元数据 ${name} 必须是 64 位 sha256`);
+  }
+}
 
 function validateTemplateMetadata(metadata, {
   currentSchemaVersion = 2,
@@ -26,12 +39,12 @@ function validateTemplateMetadata(metadata, {
     throw new Error("模板元数据 managedFiles 必须是 JSON 对象");
   }
 
-  if (metadata.ownershipPolicyVersion !== undefined && (!Number.isInteger(metadata.ownershipPolicyVersion) || metadata.ownershipPolicyVersion < 1)) {
-    throw new Error("模板元数据 ownershipPolicyVersion 必须是正整数");
-  }
-  if (metadata.ownershipPolicyHash !== undefined && !/^[0-9a-f]{64}$/.test(metadata.ownershipPolicyHash)) {
-    throw new Error("模板元数据 ownershipPolicyHash 必须是 64 位 sha256");
-  }
+  assertPositiveInteger(metadata.ownershipPolicyVersion, "ownershipPolicyVersion");
+  assertSha256(metadata.ownershipPolicyHash, "ownershipPolicyHash");
+  assertPositiveInteger(metadata.customizationPolicyVersion, "customizationPolicyVersion");
+  assertSha256(metadata.customizationPolicyHash, "customizationPolicyHash");
+  assertPositiveInteger(metadata.generatorPolicyVersion, "generatorPolicyVersion");
+  assertSha256(metadata.generatorPolicyHash, "generatorPolicyHash");
 
   for (const [relativePath, record] of Object.entries(metadata.managedFiles || {})) {
     if (!record || typeof record !== "object" || Array.isArray(record)) {
@@ -39,6 +52,30 @@ function validateTemplateMetadata(metadata, {
     }
     if (record.ownership !== undefined && !OWNERSHIP_TYPES.has(record.ownership)) {
       throw new Error(`模板元数据 managedFiles.${relativePath}.ownership 非法：${record.ownership}`);
+    }
+    if (
+      record.mergeStrategy !== undefined &&
+      !MERGE_STRATEGIES.has(record.mergeStrategy)
+    ) {
+      throw new Error(
+        `模板元数据 managedFiles.${relativePath}.mergeStrategy 非法：${record.mergeStrategy}`,
+      );
+    }
+    if (
+      record.generatorId !== undefined &&
+      !/^[a-z][a-z0-9-]*$/.test(record.generatorId)
+    ) {
+      throw new Error(
+        `模板元数据 managedFiles.${relativePath}.generatorId 非法：${record.generatorId}`,
+      );
+    }
+    if (
+      record.generatorVersion !== undefined &&
+      (!Number.isInteger(record.generatorVersion) || record.generatorVersion < 1)
+    ) {
+      throw new Error(
+        `模板元数据 managedFiles.${relativePath}.generatorVersion 必须是正整数`,
+      );
     }
   }
 
