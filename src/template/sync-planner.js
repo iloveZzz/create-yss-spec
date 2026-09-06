@@ -76,10 +76,15 @@ function classifySyncOperations({
     if (currentHash !== existingRecord.contentHash) {
       const conflict = {
         ...operation,
-        reason: "检测到本地已修改的受管文件",
+        reason:
+          operation.mergeStrategy === "manual"
+            ? "检测到本地已修改的可定制文件；mergeStrategy=manual，必须人工处理"
+            : "检测到本地已修改的受管文件",
       };
       conflicts.push(conflict);
-      forceableConflicts.push(conflict);
+      if (operation.mergeStrategy !== "manual") {
+        forceableConflicts.push(conflict);
+      }
       skipped.push(conflict);
       continue;
     }
