@@ -110,3 +110,49 @@ test("Ownership Policy v1 compiles and validates repository policy", () => {
     JSON.stringify(validate.errors, null, 2),
   );
 });
+
+test("Doctor Report v1 compiles and validates representative output", () => {
+  const { schema, validate } = compileSchema(
+    "src/contracts/doctor-report-v1.json",
+  );
+  assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+
+  const report = {
+    schemaVersion: 1,
+    operation: "doctor",
+    targetDir: "/project",
+    cliVersion: "3.1.0",
+    ok: true,
+    checks: [
+      {
+        name: "ownership-policy",
+        status: "ok",
+        detail: "ownership policy baseline 一致：v1",
+        data: {
+          state: "matched",
+          expectedVersion: 1,
+          actualVersion: 1,
+        },
+      },
+    ],
+  };
+
+  assert.equal(validate(report), true, JSON.stringify(validate.errors, null, 2));
+});
+
+test("Doctor Report v1 rejects unknown check status", () => {
+  const { validate } = compileSchema("src/contracts/doctor-report-v1.json");
+  assert.equal(
+    validate({
+      schemaVersion: 1,
+      operation: "doctor",
+      targetDir: "/project",
+      cliVersion: "3.1.0",
+      ok: true,
+      checks: [
+        { name: "x", status: "skipped", detail: "not allowed" },
+      ],
+    }),
+    false,
+  );
+});
