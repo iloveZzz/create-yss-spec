@@ -22,6 +22,12 @@ function resolveCommand(argv = []) {
   if (head === "attach") {
     return { command: "attach", args: rest };
   }
+  if (head === "doctor") {
+    return { command: "doctor", args: rest };
+  }
+  if (head === "diff") {
+    return { command: "diff", args: rest };
+  }
   if (UPDATE_COMMANDS.has(head)) {
     return { command: "update", alias: head, args: rest };
   }
