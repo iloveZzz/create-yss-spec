@@ -138,7 +138,7 @@ function printAttachDryRun(plan, targetDir) {
     `统计：新增 ${plan.missing.length}，一致 ${plan.matched.length}，身份转换 ${plan.identity.length}，冲突 ${plan.conflicts.length}，unsafe ${plan.unsafe.length}`,
   );
   if (plan.conflicts.length > 0) {
-    console.log("提示：apply 需要显式传入 --force 才能覆盖冲突受管文件");
+    console.log("提示：--force 只覆盖 forceable 冲突；mergeStrategy=manual 的冲突必须人工处理");
   }
 }
 
@@ -230,7 +230,7 @@ function runAttach(argv = []) {
   const managedToApply = [
     ...plan.missing,
     ...plan.identity,
-    ...(options.force ? plan.conflicts : []),
+    ...(options.force ? plan.forceableConflicts : []),
   ];
 
   const { backupPath } = runInTransaction({
@@ -258,8 +258,12 @@ function runAttach(argv = []) {
   console.log("接管完成");
   console.log(`目标目录：${targetDir}`);
   console.log(`新增研发管理资产：${plan.missing.length + plan.identity.length}`);
-  if (plan.conflicts.length > 0) {
-    console.log(`force 覆盖冲突：${plan.conflicts.length}`);
+  if (options.force && plan.forceableConflicts.length > 0) {
+    console.log(`force 覆盖冲突：${plan.forceableConflicts.length}`);
+  }
+  const manualConflicts = plan.conflicts.length - plan.forceableConflicts.length;
+  if (manualConflicts > 0) {
+    console.log(`需人工处理冲突：${manualConflicts}`);
   }
   if (backupPath) {
     console.log(`备份目录：${backupPath}`);
