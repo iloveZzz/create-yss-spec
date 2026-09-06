@@ -10,12 +10,16 @@ const path = require("node:path");
 const {
   checkManagedBaseline,
   checkOwnershipPolicy,
+  checkLifecyclePolicies,
   runVerifierCheck,
 } = require("../src/commands/doctor");
 const {
   decorateMetadataOwnership,
   ownershipPolicyHash,
 } = require("../src/template/ownership-metadata");
+const {
+  decorateMetadataLifecycle,
+} = require("../src/template/lifecycle-metadata");
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -110,6 +114,43 @@ test("doctor ownership check distinguishes missing, drift and matched baseline",
   );
   assert.equal(matched.checks[0].status, "ok");
   assert.equal(matched.checks[0].data.state, "matched");
+});
+
+test("doctor lifecycle checks distinguish missing, drift and matched baselines", () => {
+  const missing = report();
+  checkLifecyclePolicies(missing, {});
+  assert.deepEqual(
+    missing.checks.map((item) => [item.name, item.status]),
+    [
+      ["customization-policy", "warning"],
+      ["generator-policy", "warning"],
+    ],
+  );
+
+  const matchedMetadata = decorateMetadataLifecycle({ managedFiles: {} });
+  const matched = report();
+  checkLifecyclePolicies(matched, matchedMetadata);
+  assert.deepEqual(
+    matched.checks.map((item) => [item.name, item.status]),
+    [
+      ["customization-policy", "ok"],
+      ["generator-policy", "ok"],
+    ],
+  );
+
+  const drift = report();
+  checkLifecyclePolicies(drift, {
+    ...matchedMetadata,
+    customizationPolicyHash: "0".repeat(64),
+    generatorPolicyHash: "1".repeat(64),
+  });
+  assert.deepEqual(
+    drift.checks.map((item) => [item.name, item.status]),
+    [
+      ["customization-policy", "warning"],
+      ["generator-policy", "warning"],
+    ],
+  );
 });
 
 test("verifier check records success and failure as structured doctor checks", () => {
