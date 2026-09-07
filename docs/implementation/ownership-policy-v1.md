@@ -2,9 +2,9 @@
 
 ## 目标
 
-Ownership Policy 用来回答一个比 include/exclude 更重要的问题：**某个路径由谁负责，CLI 到底有没有权修改它**。
+Ownership Policy 回答：某个路径由谁负责，CLI / Programmatic API 到底有没有权修改它。
 
-`template.manifest.json` 的 allow/exclude 仍负责模板分发边界；Ownership Policy 负责实例运行时的所有权语义与安全约束。
+`template.manifest.json` 的 allow/exclude 负责模板分发边界；Ownership Policy 负责实例运行时所有权和安全约束。
 
 Contract：`src/contracts/ownership-policy-v1.json`
 
@@ -12,68 +12,23 @@ Contract：`src/contracts/ownership-policy-v1.json`
 
 ### managed
 
-模板完全管理的文件。
-
-当前行为：
-
-- 内容与 managed baseline 一致时可自动更新。
-- 本地被修改时进入 conflict / skipped。
-- `--force` 可覆盖 forceable conflict。
+模板完全管理。未修改时可自动同步；本地修改按普通 conflict 处理。
 
 ### managed-customizable
 
-模板提供标准基线，但预期项目会进行定制。
-
-v1 为兼容现有行为，暂时仍沿用 managed 的 conflict / `--force` 规则；区别先作为显式语义进入 Plan，为未来三方合并、局部字段合并等能力预留稳定边界。
-
-当前代表路径：
-
-- `AGENTS.md`
-- `CLAUDE.md`
-- `CONTEXT.md`
-- `DESIGN.md`
-- `README.md`
-- `.mcp.json`
+模板提供基线，但允许项目定制。具体冲突策略由 Customization Policy 决定。
 
 ### generated
 
-由 CLI / 模板变量 / 生成器产生的资产。
-
-v1 不自动扩大覆盖权限；本地修改仍遵守现有 baseline 冲突规则。
-
-当前代表路径：
-
-- `yss-project.yaml`
-- `skills-lock.json`
-- `yss-public-skills.json`
-- `.agents/skills/.yss-skills-manifest.json`
+由生成器产生。Generator Policy 提供 `generatorId + generatorVersion`。
 
 ### user-owned
 
-用户或业务工程拥有，CLI 永不将其作为普通模板资产写入或覆盖。
-
-当前代表路径：
-
-- `.gitmodules`
-- `apps/**`
-- `packages/**`
-- `wiki/**`
-- `docs/reviews/**`
-- `docs/.scratch/**`
-
-若 user-owned 路径意外进入 desired operations，Planner 必须把它放入 `unsafe` 并设置 `blocked=true`。
+用户/业务工程拥有。CLI 和 Programmatic API 永不作为普通模板资产写入或覆盖。
 
 ### protected
 
-安全边界。即使 `--force` 也不得覆盖。
-
-当前代表路径：
-
-- `.git/**`
-- `.template-source/**`
-- `.cursor/environment.json`
-
-动态 gitlink/submodule/detached HEAD 保护仍由 Git Security 层负责；Ownership Policy 不替代动态安全检测。
+安全边界。即使 `--force` 或 API `force:true` 也不得覆盖。
 
 ## Policy 格式
 
@@ -82,43 +37,18 @@ v1 不自动扩大覆盖权限；本地修改仍遵守现有 baseline 冲突规�
   "version": 1,
   "default": "managed",
   "rules": [
-    {
-      "pattern": "README.md",
-      "ownership": "managed-customizable"
-    },
-    {
-      "pattern": "apps/**",
-      "ownership": "user-owned"
-    },
-    {
-      "pattern": ".git/**",
-      "ownership": "protected"
-    }
+    { "pattern": "README.md", "ownership": "managed-customizable" },
+    { "pattern": "apps/**", "ownership": "user-owned" },
+    { "pattern": ".git/**", "ownership": "protected" }
   ]
 }
 ```
 
-规则按声明顺序匹配，第一个命中的规则生效；无规则命中时使用 `default`。
+规则按声明顺序匹配，第一个命中生效。
 
-## Pattern v1
-
-v1 只支持三种模式，以保持实现简单且可审计：
-
-- exact：`README.md`
-- 单层：`apps/*`
-- 递归前缀：`apps/**`
-
-禁止路径越界和任意位置通配符，例如：
-
-- `../outside`
-- `foo/**/bar`
-- `foo*bar`
-
-这些配置在加载时 fail closed。
+v1 pattern 支持 exact、`/*`、`/**`，路径越界或非法通配符 fail closed。
 
 ## Runtime 传播
-
-Ownership v1 已传播到：
 
 ```text
 template.manifest.json
@@ -130,68 +60,28 @@ desired operations
 Sync / Attach Planner
         ↓
 Plan Schema v1
+        ↓
+CLI / Programmatic API
 ```
 
-Init 没有差异 Planner，因此在实际写入前直接执行 ownership write guard。
-
-人类计划示例：
-
-```text
-update: README.md [managed-customizable]
-add: scripts/check.sh [managed]
-```
-
-JSON 示例：
-
-```json
-{
-  "action": "update",
-  "path": "README.md",
-  "ownership": "managed-customizable"
-}
-```
+Init 在实际写入前直接执行 ownership guard。
 
 ## Metadata baseline
 
-CLI 通过 composition root 在 init/attach/sync 写 `.yss-template.json` 时统一注入 ownership baseline：
+实例 metadata 持久化：
 
-```json
-{
-  "ownershipPolicyVersion": 1,
-  "ownershipPolicyHash": "<sha256>",
-  "managedFiles": {
-    "AGENTS.md": {
-      "type": "render",
-      "contentHash": "<sha256>",
-      "ownership": "managed-customizable"
-    }
-  }
-}
-```
+- ownershipPolicyVersion
+- ownershipPolicyHash
+- managedFiles[path].ownership
 
-兼容策略：
+旧实例缺失 baseline 仍可读取，下一次同步自动补齐；doctor 报告 missing/drift/matched。
 
-- 不提升现有 metadataSchemaVersion；
-- 旧实例缺少 ownership 字段仍可读取；
-- 下一次 attach/sync 会自动补齐 baseline；
-- metadata validator 会校验 ownershipPolicyVersion、ownershipPolicyHash 和 managed file ownership 值。
-
-## Doctor policy drift
-
-Doctor 的 `ownership-policy` check 有三种状态：
-
-- `matched`：metadata version/hash 与当前 CLI policy 一致，status=`ok`。
-- `missing`：旧实例没有 baseline，status=`warning`。
-- `drift`：version 或 hash 与当前 policy 不一致，status=`warning`。
-
-Doctor 只诊断，不修改 baseline。
-
-## 与现有安全层关系
-
-Ownership 与 Git/Path Security 是叠加关系，而不是替代关系：
+## 与安全层关系
 
 ```text
 Ownership Policy
+      +
+Customization / Generator Policy
       +
 Path containment / symlink guard
       +
@@ -202,24 +92,10 @@ Gitlink / submodule / detached HEAD guard
 
 任何一层拒绝都必须 fail closed。
 
-## v1 明确不做的事情
+## Programmatic API
 
-为避免同时改变同步语义，v1 不做：
+`templatePlan()` 返回 ownership-aware Plan；`templateApply()` 与 CLI 使用相同 ownership guard。
 
-- managed-customizable 自动三方合并
-- generated 无条件覆盖
-- user-owned 自动迁移
-- protected 的 `--force` 例外
-- ownership 自动推断
+`force:true` 不得绕过 user-owned/protected。
 
-这些能力必须在独立版本中设计和测试。
-
-## 后续演进
-
-推荐顺序：
-
-1. managed-customizable 引入 merge strategy。
-2. generated 引入 generator/version contract。
-3. ownership migration / policy version upgrade。
-4. 稳定 programmatic API。
-5. MCP tools 直接消费 ownership-aware Plan / Doctor / Error contracts，而不是重新判断写权限。
+未来 MCP 只能薄映射 Programmatic API，不得重新判断 ownership。
