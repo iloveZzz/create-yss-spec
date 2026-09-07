@@ -1,73 +1,177 @@
 # create-yss-spec
 
-源码候选版本：`3.1.2`。模板固定到 `017925706a981aec9eadefd470232bb531acd4d6`；最终快照身份与摘要见 `template.snapshot.json`。本次更新用户手册、五家族导航和设备借用教学案例，命令行为沿用既有身份保护。
+用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-## 已发布安装与候选版本
+源码候选版本：`3.1.2`。当前固定模板为 `yss-spec-project-template@017925706a981aec9eadefd470232bb531acd4d6`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
 
-截至本轮核验，npm latest 为 `3.1.0`；源码候选尚未发布 npm。后续请自行查询实际发布状态：
+## 快速开始
 
 ```bash
-npm view create-yss-spec version
 npm create yss-spec@latest
+npx create-yss-spec@latest --help
+npx create-yss-spec@latest --version
 ```
 
-`@latest` 获取已发布包，不保证包含 GitHub 最新手册。每次初始化使用包内固定模板，不会在运行时拉取模板仓。
-
-## 首次初始化
+候选源码示例：
 
 ```bash
-npx create-yss-spec@latest --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-project
+npx create-yss-spec@latest \
+  --project-name "设备借用" \
+  --business-domain "内部设备管理" \
+  --target-dir ./equipment-project
 ```
 
-生成后进入实例，核对 yss-project.yaml 为 project-instance、家族 metadata 的 templateCommit，然后阅读 docs/user-guide/用户手册索引.md。先让 Agent 只读检查身份、根 CONTEXT.md、profile 和当前上游，再按本仓流程推进。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
+## 五家族身份保护
 
-## 家族与覆盖边界
+CLI 在规划和写入前检查模板家族身份，当前识别：
 
-五家族分别使用 .yss-template.json、.yss-harness-design.json、.yss-harness-dev.json、.yss-harness-backend.json、.yss-harness-frontend.json。已有 profile 同样参与判定。
+- `create-yss-spec` / `.yss-template.json`
+- `create-yss-harness-design` / `.yss-harness-design.json`
+- `create-yss-harness-dev` / `.yss-harness-dev.json`
+- repository-local backend / `.yss-harness-backend.json`
+- repository-local frontend / `.yss-harness-frontend.json`
 
-异族、多重身份、损坏 metadata、未知/矛盾 profile 在写入前拒绝。`--force` 不能绕过，`--dry-run` 使用同一检查。不要删除 metadata 或用另一家族 CLI 覆盖。后端/前端专职只提供仓内 `node scripts/instantiate-harness --target <新目录>`，没有专用 npm 包、attach/sync 或原地迁移。
+`docs/process/harness-profile.yaml` 也参与身份判断。异族、多重 identity、损坏 metadata、未知或矛盾 profile、identity symlink 均在写入前 fail closed，`--force` 不能绕过；Programmatic API 使用相同 guard。帮助和版本查询不受目标家族限制。
 
-## 已有项目与同族升级
+后端/前端专职模板使用各自仓库的 `scripts/instantiate-harness --target <新目录>`，不由本 CLI 做跨家族原地迁移。
 
-attach 用于尚未由本 CLI 管理的项目，必须选择预览或 apply；存在本族 metadata 时改用 sync。先保存 Git 基线，按场景选择命令，不连续盲目执行：
+## CLI 能力
+
+- `attach`：接管已有未管理项目。
+- `sync`：同步受管资产。
+- `sync --dry-run`：传统文本预演。
+- `sync --plan`：结构化文本计划。
+- `sync --json`：Plan Schema v1。
+- `diff / diff --json`：只读差异。
+- `doctor / doctor --json`：只读健康诊断。
+- `update / upgrade`：只更新 CLI 程序，不同步实例资产。
 
 ```bash
-npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --dry-run
-npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --apply
+npx create-yss-spec@latest attach \
+  --target-dir . \
+  --project-name "项目名称" \
+  --business-domain "业务领域" \
+  --dry-run
+
+npx create-yss-spec@latest attach \
+  --target-dir . \
+  --project-name "项目名称" \
+  --business-domain "业务领域" \
+  --apply
+
 npx create-yss-spec@latest sync --target-dir . --dry-run
 npx create-yss-spec@latest sync --target-dir .
 ```
 
-普通 sync 更新未被用户修改的 baseline，保留用户冲突并报告删除项；force 仅在身份和路径安全检查通过后处理受管冲突。校验失败事务回滚并保留旧 metadata。成功后的撤销用升级前 Git 基线或备份，不用旧 CLI 强制反向同步。运行时代码、Git 与挂载点按现有保护语义处理。
+同步安全规则：
 
-## 更新 CLI 程序
+- 默认只更新未被本地修改的受管文件。
+- `replace-with-force` 冲突只有显式 `--force` 才覆盖。
+- `manual` 冲突即使 `--force` 也不会覆盖。
+- `user-owned` / `protected`、gitlink/submodule/detached HEAD、路径越界和中间 symlink 均不可被 force 绕过。
+- 模板删除项只报告，不自动删除。
+- 校验失败通过 FileTransaction 回滚，并保留必要备份。
 
-```bash
-npx create-yss-spec update --dry-run
-npx create-yss-spec upgrade
+## Programmatic API v1
+
+npm package 根入口已经开放稳定 Node.js API：
+
+```js
+const {
+  API_VERSION,
+  projectDoctor,
+  projectDiff,
+  templatePlan,
+  templateApply,
+  toErrorEnvelope,
+} = require("create-yss-spec");
 ```
 
-update/upgrade 只处理 CLI 程序，不同步实例资产；源码目录和 npx 环境按工具给出的安全提示操作，全局/项目安装按安装位置升级。
+当前 `API_VERSION = 1`。
 
-## 使用尚未发布的候选手册
+```js
+const plan = templatePlan({ targetDir: "/path/to/project" });
+const report = projectDoctor({ targetDir: "/path/to/project" });
+const result = templateApply({ targetDir: "/path/to/project", force: true });
+```
 
-从本 CLI 仓库检出需要的固定提交。先读取 scripts/sync-template.js 的 DEFAULT_TEMPLATE_REF，将下列 `<模板完整SHA>` 替换为该值；在 CLI 仓库根运行。模板源地址须保持本家族。
+返回合同：
+
+- `projectDoctor()` → Doctor Report v1
+- `projectDiff()` / `templatePlan()` → Plan Schema v1
+- `templateApply()` → Apply Result v1
+- `toErrorEnvelope(error)` → Error Envelope v1
+
+API 不解析 argv，也不负责 CLI 文本输出；CLI 与未来 MCP 复用同一 Planner / Policy / Security / Transaction 逻辑。
+
+## Policy 与 metadata baseline
+
+当前五类 ownership：
+
+- `managed`
+- `managed-customizable`
+- `generated`
+- `user-owned`
+- `protected`
+
+Customization Policy v1：
+
+- `replace-with-force`
+- `manual`
+
+Generator Policy v1 为 generated 资产记录稳定 `generatorId + generatorVersion`。
+
+`.yss-template.json` 会持久化 ownership/customization/generator policy version/hash，以及每个 managed file 的 ownership、mergeStrategy、generatorId/generatorVersion。Doctor 会报告 policy missing/drift/matched。
+
+## 模块化架构
+
+历史约 72KB 的 `src/cli.js` 已退役为兼容桥接。当前执行模型：
+
+```text
+CLI / Programmatic API
+          ↓
+Inspect → Desired State → Policy → Plan → Validate → Transaction → Verify → Metadata
+```
+
+核心机器合同：
+
+- Plan Schema v1
+- Error Envelope v1
+- Doctor Report v1
+- Apply Result v1
+- Ownership Policy v1
+- Customization Policy v1
+- Generator Policy v1
+
+## 使用未发布候选包
+
+从本仓固定提交构建候选包时，先使用 `scripts/sync-template.js` 中的 `DEFAULT_TEMPLATE_REF` 重建模板快照，再打包：
 
 ```bash
-YSS_SPEC_TEMPLATE_REPO=https://github.com/iloveZzz/yss-spec-project-template.git YSS_SPEC_TEMPLATE_REF=<模板完整SHA> pnpm run sync-template
+YSS_SPEC_TEMPLATE_REPO=https://github.com/iloveZzz/yss-spec-project-template.git \
+YSS_SPEC_TEMPLATE_REF=017925706a981aec9eadefd470232bb531acd4d6 \
+node scripts/sync-template.js
+
 npm pack --ignore-scripts
 ```
 
-`--ignore-scripts` 仅在上一步已成功产生并核对固定快照后使用，以免 prepack 改写输入。检查 tgz 中 template.snapshot.json 的模板 SHA 和 package.json 版本，然后使用实际包路径初始化：
+`--ignore-scripts` 仅用于已经显式重建并核对固定快照后的候选打包，不代表 npm 发布。
+
+## 开发验证
 
 ```bash
-npx --yes --package /absolute/path/create-yss-spec-3.1.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
+npm run test:contracts
+npm run test:unit
+npm run test:integration
+YSS_SPEC_TEMPLATE_REF=017925706a981aec9eadefd470232bb531acd4d6 npm test
+npm pack --dry-run
 ```
 
-这是安装本地已构建包的示例，不是 npm 发布操作。候选验证需覆盖新建实例的本地文档链接、身份、Skill 检查与适用交接链路；不要把历史验证日志当当前发布证据。
+## 设计与手册
 
-## 详细手册与维护
-
-[模板使用指南](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/用户手册索引.md)介绍职责、提示词、确认和案例。问题涉及参数/同步/包分发时在本 CLI 跟踪；涉及模板内容或生命周期时在模板源跟踪。
-
-开发验证优先 `pnpm exec node --test tests/*.test.js`；需要重建快照时显式运行上面的固定输入 sync-template。模板先验证并提交，再绑定其 SHA、测试实际 tgz，最后交付 CLI 和父仓 gitlink。npm 发布须另外获得授权。
+- [CLI v4 模块化](docs/implementation/cli-v4-modularization.md)
+- [Machine Contracts v1](docs/implementation/machine-contracts-v1.md)
+- [Ownership Policy v1](docs/implementation/ownership-policy-v1.md)
+- [Lifecycle Policies v1](docs/implementation/lifecycle-policies-v1.md)
+- [Programmatic API v1](docs/implementation/programmatic-api-v1.md)
+- [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)

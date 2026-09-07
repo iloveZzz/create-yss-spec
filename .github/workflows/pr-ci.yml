@@ -1,0 +1,167 @@
+name: create-yss-spec CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: create-yss-spec-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  YSS_SPEC_TEMPLATE_REF: "017925706a981aec9eadefd470232bb531acd4d6"
+
+jobs:
+  quality:
+    name: Contracts and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - name: Install development dependencies
+        run: npm install --ignore-scripts
+      - name: Validate machine contracts
+        run: npm run test:contracts
+      - name: Run unit tests
+        run: npm run test:unit
+
+  core-integration:
+    name: Core CLI - ${{ matrix.name }}
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: init
+            file: tests/init-cli.test.js
+          - name: sync
+            file: tests/sync-command-modular.test.js
+          - name: attach
+            file: tests/attach-command-modular.test.js
+          - name: doctor-diff
+            file: tests/doctor-diff-command.test.js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run ${{ matrix.name }} integration
+        timeout-minutes: 8
+        run: node --test ${{ matrix.file }}
+
+  family-identity:
+    name: Family identity matrix
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run family identity matrix
+        timeout-minutes: 8
+        run: node --test tests/family-identity.test.js
+
+  programmatic-api:
+    name: Programmatic API integration
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run Programmatic API integration
+        timeout-minutes: 8
+        run: node --test tests/programmatic-api.test.js
+
+  release-package:
+    name: Full suite and package smoke
+    needs:
+      - core-integration
+      - family-identity
+      - programmatic-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run full suite against prepared snapshot
+        timeout-minutes: 25
+        run: node --test --test-concurrency=1 tests/*.test.js
+      - name: Verify package contents from prepared snapshot
+        run: npm pack --dry-run --ignore-scripts
+      - name: Build candidate package from verified snapshot
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="$(npm pack --ignore-scripts --silent)"
+          echo "file=$package_file" >> "$GITHUB_OUTPUT"
+          test -f "$package_file"
+      - name: Smoke test installed package and Programmatic API
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="${{ steps.pack.outputs.file }}"
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "$smoke_dir"' EXIT
+          cd "$smoke_dir"
+          npm init -y >/dev/null 2>&1
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$package_file" >/dev/null
+          node - <<'NODE'
+          const api = require("create-yss-spec");
+          if (api.API_VERSION !== 1) throw new Error("unexpected API_VERSION");
+          for (const name of ["projectDoctor", "projectDiff", "templatePlan", "templateApply", "toErrorEnvelope"]) {
+            if (typeof api[name] !== "function") throw new Error(`missing API export: ${name}`);
+          }
+          NODE
+          ./node_modules/.bin/create-yss-spec --version
+      - name: Upload candidate package
+        uses: actions/upload-artifact@v4
+        with:
+          name: create-yss-spec-candidate
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+          retention-days: 7

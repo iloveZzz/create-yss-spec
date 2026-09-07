@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iloveZzz/create-yss-spec/schemas/plan-v1.json",
+  "title": "create-yss-spec Plan Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "operation",
+    "targetDir",
+    "template",
+    "changes",
+    "conflicts",
+    "unsafe",
+    "warnings",
+    "blocked",
+    "stats",
+    "migration"
+  ],
+  "$defs": {
+    "ownership": {
+      "enum": [
+        "managed",
+        "managed-customizable",
+        "generated",
+        "user-owned",
+        "protected"
+      ]
+    },
+    "mergeStrategy": {
+      "enum": ["replace-with-force", "manual"]
+    },
+    "generatorId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "generatorVersion": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operation": { "type": "string", "minLength": 1 },
+    "targetDir": { "type": ["string", "null"] },
+    "template": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "path"],
+        "properties": {
+          "action": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" },
+          "forceable": { "type": "boolean" },
+          "source": { "type": "string" },
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "unsafe": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" },
+          "source": { "type": "string" },
+          "ownership": { "$ref": "#/$defs/ownership" },
+          "mergeStrategy": { "$ref": "#/$defs/mergeStrategy" },
+          "generatorId": { "$ref": "#/$defs/generatorId" },
+          "generatorVersion": { "$ref": "#/$defs/generatorVersion" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blocked": { "type": "boolean" },
+    "stats": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "migration": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  }
+}
