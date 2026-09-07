@@ -61,14 +61,27 @@ jobs:
       - name: Install development dependencies
         run: npm install --ignore-scripts
 
-      - name: Run integration tests
-        run: npm run test:integration
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
 
-      - name: Run full suite against pinned template
-        run: npm test
+      - name: Run integration tests against prepared snapshot
+        timeout-minutes: 10
+        run: >-
+          node --test
+          tests/init-cli.test.js
+          tests/sync-command-modular.test.js
+          tests/attach-command-modular.test.js
+          tests/doctor-diff-command.test.js
+          tests/programmatic-api.test.js
+          tests/family-identity.test.js
 
-      - name: Verify package contents
-        run: npm pack --dry-run
+      - name: Run full suite against prepared snapshot
+        timeout-minutes: 10
+        run: node --test tests/*.test.js
+
+      - name: Verify package contents from prepared snapshot
+        run: npm pack --dry-run --ignore-scripts
 
       - name: Build candidate package from verified snapshot
         id: pack
