@@ -1,0 +1,107 @@
+name: create-yss-spec CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: create-yss-spec-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  YSS_SPEC_TEMPLATE_REF: "017925706a981aec9eadefd470232bb531acd4d6"
+
+jobs:
+  quality:
+    name: Contracts and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install development dependencies
+        run: npm install --ignore-scripts
+
+      - name: Validate machine contracts
+        run: npm run test:contracts
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  release-gate:
+    name: Integration, pinned snapshot, and package smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install development dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Run full suite against pinned template
+        run: npm test
+
+      - name: Verify package contents
+        run: npm pack --dry-run
+
+      - name: Build candidate package from verified snapshot
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="$(npm pack --ignore-scripts --silent)"
+          echo "file=$package_file" >> "$GITHUB_OUTPUT"
+          test -f "$package_file"
+
+      - name: Smoke test installed package and Programmatic API
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="${{ steps.pack.outputs.file }}"
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "$smoke_dir"' EXIT
+          cd "$smoke_dir"
+          npm init -y >/dev/null 2>&1
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$package_file" >/dev/null
+          node - <<'NODE'
+          const api = require("create-yss-spec");
+          if (api.API_VERSION !== 1) throw new Error("unexpected API_VERSION");
+          for (const name of ["projectDoctor", "projectDiff", "templatePlan", "templateApply", "toErrorEnvelope"]) {
+            if (typeof api[name] !== "function") throw new Error(`missing API export: ${name}`);
+          }
+          NODE
+          ./node_modules/.bin/create-yss-spec --version
+
+      - name: Upload candidate package
+        uses: actions/upload-artifact@v4
+        with:
+          name: create-yss-spec-candidate
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+          retention-days: 7
