@@ -4,8 +4,9 @@
   "title": "create-yss-spec Apply Result v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["operation", "targetDir", "backupPath", "template", "stats", "skipped", "removed"],
+  "required": ["schemaVersion", "operation", "targetDir", "backupPath", "template", "stats", "skipped", "removed"],
   "properties": {
+    "schemaVersion": { "const": 1 },
     "operation": { "const": "sync" },
     "targetDir": { "type": "string", "minLength": 1 },
     "backupPath": { "type": ["string", "null"] },
