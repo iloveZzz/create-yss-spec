@@ -23,66 +23,108 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package.json
-
       - name: Install development dependencies
         run: npm install --ignore-scripts
-
       - name: Validate machine contracts
         run: npm run test:contracts
-
       - name: Run unit tests
         run: npm run test:unit
 
-  release-gate:
-    name: Integration, pinned snapshot, and package smoke
+  core-integration:
+    name: Core CLI integration
     needs: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package.json
-
-      - name: Install development dependencies
-        run: npm install --ignore-scripts
-
+      - run: npm install --ignore-scripts
       - name: Prepare pinned template snapshot
         timeout-minutes: 10
         run: npm run sync-template
-
-      - name: Run integration tests against prepared snapshot
-        timeout-minutes: 10
+      - name: Run core integration tests
+        timeout-minutes: 8
         run: >-
           node --test
           tests/init-cli.test.js
           tests/sync-command-modular.test.js
           tests/attach-command-modular.test.js
           tests/doctor-diff-command.test.js
-          tests/programmatic-api.test.js
-          tests/family-identity.test.js
 
+  family-identity:
+    name: Family identity matrix
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run family identity matrix
+        timeout-minutes: 8
+        run: node --test tests/family-identity.test.js
+
+  programmatic-api:
+    name: Programmatic API integration
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
+      - name: Run Programmatic API integration
+        timeout-minutes: 8
+        run: node --test tests/programmatic-api.test.js
+
+  release-package:
+    name: Full suite and package smoke
+    needs:
+      - core-integration
+      - family-identity
+      - programmatic-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package.json
+      - run: npm install --ignore-scripts
+      - name: Prepare pinned template snapshot
+        timeout-minutes: 10
+        run: npm run sync-template
       - name: Run full suite against prepared snapshot
         timeout-minutes: 10
         run: node --test tests/*.test.js
-
       - name: Verify package contents from prepared snapshot
         run: npm pack --dry-run --ignore-scripts
-
       - name: Build candidate package from verified snapshot
         id: pack
         shell: bash
@@ -91,7 +133,6 @@ jobs:
           package_file="$(npm pack --ignore-scripts --silent)"
           echo "file=$package_file" >> "$GITHUB_OUTPUT"
           test -f "$package_file"
-
       - name: Smoke test installed package and Programmatic API
         shell: bash
         run: |
@@ -110,7 +151,6 @@ jobs:
           }
           NODE
           ./node_modules/.bin/create-yss-spec --version
-
       - name: Upload candidate package
         uses: actions/upload-artifact@v4
         with:
