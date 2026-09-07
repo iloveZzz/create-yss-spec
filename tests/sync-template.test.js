@@ -148,10 +148,9 @@ function createCliRunner() {
   const runnerRoot = createSyncRunner();
   fs.mkdirSync(path.join(runnerRoot, "src"), { recursive: true });
   fs.mkdirSync(path.join(runnerRoot, "bin"), { recursive: true });
+  fs.cpSync(path.join(repoRoot, "src"), path.join(runnerRoot, "src"), { recursive: true });
   for (const relativePath of [
     "package.json",
-    "src/cli.js",
-    "src/self-update.js",
     "bin/create-yss-spec.js",
   ]) {
     fs.mkdirSync(path.dirname(path.join(runnerRoot, relativePath)), {
@@ -252,6 +251,8 @@ test("sync omits tracked files deleted from a local working tree", () => {
 
 test("sync snapshot remains valid when packaging and running use different locales", () => {
   const fixtureRoot = createTemplateFixture();
+  // This fixture executes the real CLI, including its bundled YAML identity parser.
+  fs.copyFileSync(path.join(repoRoot, "template/scripts/vendor/yaml.mjs"), path.join(fixtureRoot, "scripts/vendor/yaml.mjs"));
   const localizedDocsRoot = path.join(fixtureRoot, "docs/user-guide");
   fs.mkdirSync(localizedDocsRoot, { recursive: true });
   for (const fileName of [

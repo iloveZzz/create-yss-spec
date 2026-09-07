@@ -1,379 +1,86 @@
-# create-yss-spec 使用手册
+# create-yss-spec 使用指南
 
-本文档面向需要初始化、接管已有项目或持续同步 `yss-spec-project-template` 研发管理资产的内部开发者、Tech Lead、项目初始化负责人。
+源码候选版本：`3.1.2`。模板固定到 `017925706a981aec9eadefd470232bb531acd4d6`；最终快照身份与摘要见 `template.snapshot.json`。本次更新用户手册、五家族导航和设备借用教学案例，命令行为沿用既有身份保护。
 
-## 适用场景
+## 已发布安装与候选版本
 
-当你需要基于 [YSS Spec Project Template](https://github.com/iloveZzz/yss-spec-project-template) 快速生成一个新的研发管理仓库时，使用 `create-yss-spec`。
-
-它适合做的事：
-
-- 初始化新的 Spec / 架构 / OpenAPI / Ticket 管理仓库
-- 统一生成项目级文档骨架、Agent 协作约定和模板目录结构
-- 通过参数渲染项目名称、业务领域、团队规模等元信息
-- 在已有项目中只补齐 manifest 声明的研发管理资产
-- 基于 CLI 包内置的固定模板 commit 持续同步受管资产
-
-它不负责做的事：
-
-- 生成前端 / 后端运行时代码工程
-- 自动安装依赖
-- 自动创建远端 Git 仓库、CI 或 Issue Board
-- 自动修改前后端运行时代码、业务目录、用户文件或 `.git`
-- 自动解决本地已修改受管文件的冲突
-
-## 快速开始
-
-推荐入口：
+截至本轮核验，npm latest 为 `3.1.0`；源码候选尚未发布 npm。后续请自行查询实际发布状态：
 
 ```bash
+npm view create-yss-spec version
 npm create yss-spec@latest
 ```
 
-兼容入口：
+`@latest` 获取已发布包，不保证包含 GitHub 最新手册。每次初始化使用包内固定模板，不会在运行时拉取模板仓。
+
+## 首次初始化
 
 ```bash
-npx create-yss-spec@latest
+npx create-yss-spec@latest --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-project
 ```
 
-查看用法、命令、参数和样例：
+生成后进入实例，核对 yss-project.yaml 为 project-instance、家族 metadata 的 templateCommit，然后阅读 docs/user-guide/用户手册索引.md。先让 Agent 只读检查身份、根 CONTEXT.md、profile 和当前上游，再按本仓流程推进。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
+
+## 家族与覆盖边界
+
+五家族分别使用 .yss-template.json、.yss-harness-design.json、.yss-harness-dev.json、.yss-harness-backend.json、.yss-harness-frontend.json。已有 profile 同样参与判定。
+
+异族、多重身份、损坏 metadata、未知/矛盾 profile 在写入前拒绝。`--force` 不能绕过，`--dry-run` 使用同一检查。不要删除 metadata 或用另一家族 CLI 覆盖。后端/前端专职只提供仓内 `node scripts/instantiate-harness --target <新目录>`，没有专用 npm 包、attach/sync 或原地迁移。
+
+## 已有项目与同族升级
+
+attach 用于尚未由本 CLI 管理的项目，必须选择预览或 apply；存在本族 metadata 时改用 sync。先保存 Git 基线，按场景选择命令，不连续盲目执行：
 
 ```bash
-npx create-yss-spec@latest --help
-```
-
-查看 CLI 版本：
-
-```bash
-npx create-yss-spec@latest --version
-```
-
-运行后会按顺序询问：
-
-1. `项目名称`
-2. `业务领域`
-3. `团队规模（可留空）`
-4. `目标目录`
-
-初始化完成后，CLI 会输出结果目录和下一步建议。
-
-## 最常见用法
-
-### 交互式初始化
-
-```bash
-npm create yss-spec@latest
-```
-
-适合第一次使用或希望手动确认输入内容的场景。
-
-### 指定参数直接生成
-
-```bash
-npx create-yss-spec@latest \
-  --project-name "Acme Spec Repo" \
-  --business-domain "Investment Research" \
-  --team-size "12" \
-  --target-dir "./acme-spec-repo" \
-  --issue-tracker github \
-  --git-init
-```
-
-适合脚本化、重复初始化或在 CI / shell 脚本中调用的场景。
-
-### 只预览，不真正写入
-
-```bash
-npx create-yss-spec@latest \
-  --project-name "Preview Repo" \
-  --business-domain "Data Platform" \
-  --target-dir "./preview-repo" \
-  --dry-run
-```
-
-`--dry-run` 只展示计划，不会创建目录，也不会删除已有文件。
-
-### 接管已有项目
-
-在已有项目根目录执行 `attach`。它不会触碰运行时代码和 `.git`，但会检查并补齐根规则、`docs/`、skills、投影、校验脚本和模板 metadata：
-
-```bash
-npx create-yss-spec@latest attach \
-  --target-dir . \
-  --project-name "Acme Application" \
-  --business-domain "Data Platform" \
-  --dry-run
-```
-
-确认 dry-run 计划后才写入：
-
-```bash
-npx create-yss-spec@latest attach \
-  --target-dir . \
-  --project-name "Acme Application" \
-  --business-domain "Data Platform" \
-  --apply [--force]
-```
-
-`attach` 必须显式选择 `--dry-run` 或 `--apply`，两者互斥。已有 `.yss-template.json` 的项目不能重复 attach，应改用 `sync`。`--force` 只用于覆盖受管冲突文件；unsafe 路径和迁移冲突始终阻断。发生覆盖时，CLI 会在目标目录外保留备份，并输出恢复目录和清理命令。
-
-### 同步已有模板实例仓库
-
-```bash
-npx create-yss-spec@latest sync
-```
-
-适合已经由 `create-yss-spec` 初始化过、并且根目录带有 `.yss-template.json` 的模板实例仓库。
-
-### 只预演同步，不真正写入
-
-```bash
-npx create-yss-spec@latest sync --dry-run
-```
-
-适合在升级前先查看版本变化、Spec / Ticket 旧路径迁移、将要更新的文件、将被跳过的本地改动文件，以及模板已删除但不会自动删除的文件。
-
-同步使用当前 CLI 包内置的模板快照；“最新”由 `npx create-yss-spec@latest` 的发布版本决定，运行时不会直接拉取模板仓库。普通同步只更新 baseline 未被本地修改的文件，`--force` 才覆盖受管冲突文件：
-
-```bash
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --dry-run
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --apply
 npx create-yss-spec@latest sync --target-dir . --dry-run
-npx create-yss-spec@latest sync --target-dir . [--force]
+npx create-yss-spec@latest sync --target-dir .
 ```
 
-### 升级 CLI 自身
+普通 sync 更新未被用户修改的 baseline，保留用户冲突并报告删除项；force 仅在身份和路径安全检查通过后处理受管冲突。校验失败事务回滚并保留旧 metadata。成功后的撤销用升级前 Git 基线或备份，不用旧 CLI 强制反向同步。运行时代码、Git 与挂载点按现有保护语义处理。
 
-`update`（别名 `upgrade`）检查当前 npm registry 上的最新 `create-yss-spec` 版本，如有更新则自动安装。它升级的是 CLI 包本身，不是项目模板；模板资产请继续使用 `sync`。
+## 更新 CLI 程序
 
 ```bash
-npx create-yss-spec update
 npx create-yss-spec update --dry-run
 npx create-yss-spec upgrade
 ```
 
-- 全局安装：`npm install -g create-yss-spec@latest`
-- 项目本地依赖：在对应项目根执行 `npm install create-yss-spec@latest`
-- npx 或源码目录：只报告当前/最新版本，并提示用 `npx create-yss-spec@latest` 或全局安装，不覆盖当前文件
-- `--dry-run` 只查询和预览安装命令；`--force` 在版本相同时仍重新安装，但不会对 npx / 源码目录执行覆盖，也不会把高于 latest 的开发版降级
+update/upgrade 只处理 CLI 程序，不同步实例资产；源码目录和 npx 环境按工具给出的安全提示操作，全局/项目安装按安装位置升级。
 
-## 参数说明
+## 使用尚未发布的候选手册
 
-| 参数 | 含义 | 默认行为 |
-|---|---|---|
-| `--project-name` | 项目名称 | 不传则进入交互输入 |
-| `--business-domain` | 业务领域 | 不传则进入交互输入 |
-| `--team-size` | 团队规模 | 不传则进入交互输入，可留空 |
-| `--target-dir` | 输出目录 | 不传则进入交互输入 |
-| `--issue-tracker github\|gitlab` | 默认 issue tracker 偏好 | 默认 `github` |
-| `--dry-run` | 只预览复制、接管、同步或升级计划，不写入文件 / 不安装 | 默认关闭 |
-| `--apply` | `attach` 确认执行写入；不能与 `--dry-run` 同时使用 | 默认关闭 |
-| `--force` | 初始化时允许清空非空目录；`attach` / `sync` 时允许覆盖受管冲突文件；`update` 时即使已是最新也重新安装 | 默认关闭 |
-| `--git-init` | 初始化完成后执行 `git init` | 默认关闭 |
-| `--include-example-docs` | 显式保留示例文档 | 默认开启 |
-| `--no-example-docs` | 不生成示例文档 | 默认关闭 |
-| `-h`, `--help`, `-help` | 显示用法、命令、参数、样例和文档入口 | 立即退出，不执行写入 |
-| `-v`, `--version`, `-version` | 显示 CLI 版本 | 立即退出，不执行写入 |
-
-`sync` 子命令当前只支持：
-
-- 在模板实例仓库根目录执行
-- 仓库内已存在 `.yss-template.json`
-- 以当前 npm 已发布包内置、绑定 40 位 `templateCommit` 的模板快照作为同步源
-
-`update` / `upgrade` 只升级 CLI 包，不改项目文件。已是最新时直接退出；有更新时按全局 / 本地安装位置自动执行 `npm install`。npx 与源码目录只报告版本并给出安装建议。
-
-## 输出内容说明
-
-CLI 会根据模板清单把源仓库内容分成三类处理：
-
-- `render`：需要写入实例身份或项目变量的文件，例如 `yss-project.yaml`、`AGENTS.md`、`README.md`
-- `copy`：原样复制的模板资产
-- `exclude`：不会进入实例仓库的维护性文件、本地配置和本需求自身的实现资产
-
-生成结果通常包含：
-
-- `AGENTS.md`
-- `CONTEXT.md`
-- `yss-project.yaml`，固定写入 `schema_version: 1` 与 `repository_mode: project-instance`
-- `docs/requirements/`
-- `docs/architecture/`
-- `docs/api/`
-- `docs/design/`
-- `docs/testing/`
-- 项目级 Agent skills 与流程文档
-- YSS 前端技能叠加层（如 `ytable-usage`、`formily-foundation`、`yss-page-module-development`）
-- `.cursorrules` 与 `.agents/rules/yss-ai-skills.md`
-
-初始化会明确排除模板源专属资产：`.gitignore`、`.nvmrc`、`scripts/`、`wiki/`、`.github/`、`.template-source/`、`.cursor/environment.json`、`docs/.scratch/` 和 `yss-public-skills.json`。已退役的 `high-fidelity-html-prototype` 等独立入口不会生成。只同步必要文档目录、Spec / Ticket 规范和 Agent skills；模板仓库自己的治理笔记、审查临时文件与源仓工具链不会进入项目实例。`attach` 仍可为已有项目补齐受管校验脚本和 `yss-public-skills.json`（`verify-template` 门禁需要），但同样不会带上源仓 CI 与 Cloud 环境。
-
-如果启用了 `--git-init`，目标目录下还会生成 `.git/`。
-
-初始化完成后，CLI 还会额外生成：
-
-- `.yss-template.json`
-
-这个文件用于记录 metadata schema、模板名称、CLI 版本、模板来源、不可变 `templateCommit`、manifest hash、最近同步时间、受管模板文件 baseline 和关键渲染变量。后续 `sync` 能否安全工作，依赖这份模板元数据。
-
-## 默认安全策略
-
-为了避免误覆盖，CLI 采用默认安全策略：
-
-- 目标目录非空时，默认直接失败
-- 只有显式传入 `--force` 时，才允许清空目标目录后重新生成
-- 目标目录不能位于模板源仓库内部
-- `--dry-run` 没有副作用
-- `attach` 和 `sync` apply 前会把将被覆盖的文件备份到目标目录外；成功后默认保留备份，失败会用操作日志回滚
-- Git worktree 有脏改动时只提醒，不自动 stash 或提交
-- `.gitmodules`、gitlink 挂载点和 `apps/` 下已检出的实现仓工作树是用户资产；空 gitlink、uninitialized、detached HEAD 一律阻断，`--force` 不能覆盖挂载点
-- CLI 不创建 git submodule，也不把 CLI 仓库自己的 git root 当成输出目录的 git root
-
-对于 `sync`，默认安全策略还包括：
-
-- 当前目录缺少 `.yss-template.json` 时，直接拒绝同步
-- `yss-project.yaml` schema、字段或模式非法时，在写入前拒绝同步
-- 将 `prd-template.md`、`vertical-slice-issue-template.md`、`docs/requirements/issues/` 和 `*-prd.md` 迁移到对应 Spec / Ticket 路径
-- 删除各 Agent root 下的 `to-prd`、`to-issues` 旧 skill，不创建兼容别名
-- 旧、新迁移目标同时存在且内容不一致时，输出冲突清单并停止，不执行部分写入
-- 只自动更新未被本地修改的受管模板文件
-- 本地已修改的受管文件会被跳过并报告
-- 模板新版本已删除的受管文件只报告，不自动删除
-
-## 示例结果
-
-一次典型执行完成后，你会看到类似输出：
-
-```text
-初始化完成
-输出目录：/path/to/your-project
-下一步建议：
-1. cd /path/to/your-project
-2. 如需版本管理，可执行 git init
-3. 检查 AGENTS.md、README 和 docs 目录是否符合预期
-```
-
-如果已经传了 `--git-init`，第二步会提示执行 `git status` 检查初始化结果。
-
-一次典型 CLI 自升级完成后，你会看到类似输出：
-
-```text
-当前版本：2.2.3
-最新版本：2.3.0
-正在安装：npm install -g create-yss-spec@latest
-升级完成：2.2.3 -> 2.3.0
-```
-
-一次典型同步完成后，你会看到类似输出：
-
-```text
-同步完成
-模板版本：0.9.0 -> 1.0.0
-自动更新：2
-新增文件：1
-跳过文件：1
-删除差异：1
-本地已修改，已跳过：
-- README.md: 检测到本地已修改的受管文件
-模板已移除但未自动删除：
-- docs/legacy-note.md
-下一步建议：
-1. 运行 git diff 或 git status 检查同步结果
-2. 人工处理被跳过文件和删除差异（如有）
-3. 确认无误后提交本次模板同步结果
-```
-
-## 常见问题
-
-### 1. 提示“目标目录非空，当前主路径不支持覆盖已有内容”
-
-说明目标目录里已经有文件。
-
-处理方式：
-
-- 改用新的空目录
-- 或确认可以清空后，显式传入 `--force`
-
-### 2. 提示“目标目录不能位于模板源仓库内部”
-
-说明你把输出目录设到了当前模板仓库内部。这样会污染模板源仓库，CLI 会直接拒绝。
-
-处理方式：
-
-- 把 `--target-dir` 改成模板仓库外部目录
-
-### 3. 我想在 shell 管道或脚本里调用
-
-可以，CLI 已支持非 TTY 输入。建议优先显式传参；如果要走标准输入，请按交互顺序提供：
+从本 CLI 仓库检出需要的固定提交。先读取 scripts/sync-template.js 的 DEFAULT_TEMPLATE_REF，将下列 `<模板完整SHA>` 替换为该值；在 CLI 仓库根运行。模板源地址须保持本家族。
 
 ```bash
-printf 'Acme Spec Repo\nInvestment Research\n12\n/tmp/acme-spec-repo\n' \
-  | node bin/create-yss-spec.js
+YSS_SPEC_TEMPLATE_REPO=https://github.com/iloveZzz/yss-spec-project-template.git YSS_SPEC_TEMPLATE_REF=<模板完整SHA> pnpm run sync-template
+npm pack --ignore-scripts
 ```
 
-### 4. 为什么没有自动安装依赖或创建远端仓库
-
-这是设计上的非目标范围。当前 CLI 只负责初始化研发管理模板实例仓库，组织级权限操作和后续 bootstrap 仍由人工控制。
-
-### 5. 为什么 `attach` 提示已有模板元数据
-
-说明当前项目已经被接管或初始化过。`attach` 不会重复建立 baseline；请使用：
+`--ignore-scripts` 仅在上一步已成功产生并核对固定快照后使用，以免 prepack 改写输入。检查 tgz 中 template.snapshot.json 的模板 SHA 和 package.json 版本，然后使用实际包路径初始化：
 
 ```bash
-npx create-yss-spec@latest sync --target-dir . --dry-run
+npx --yes --package /absolute/path/create-yss-spec-3.1.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
 ```
 
-### 6. 为什么 `sync` 提示缺少模板元数据
+这是安装本地已构建包的示例，不是 npm 发布操作。候选验证需覆盖新建实例的本地文档链接、身份、Skill 检查与适用交接链路；不要把历史验证日志当当前发布证据。
 
-说明当前目录不是受支持的模板实例仓库，或者它是一个早期初始化的历史项目，还没有 `.yss-template.json` 基线。
+## 详细手册与维护
 
-处理方式：
+[模板使用指南](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/用户手册索引.md)介绍职责、提示词、确认和案例。问题涉及参数/同步/包分发时在本 CLI 跟踪；涉及模板内容或生命周期时在模板源跟踪。
 
-- 先确认当前目录是否真的是由 `create-yss-spec` 初始化出来的项目
-- 当前版本的 `sync` 只支持带模板元数据的项目
-- 没有 metadata 的历史项目先使用 `attach --dry-run`，确认无 unsafe / conflict 后再 `attach --apply`
+开发验证优先 `pnpm exec node --test tests/*.test.js`；需要重建快照时显式运行上面的固定输入 sync-template。模板先验证并提交，再绑定其 SHA、测试实际 tgz，最后交付 CLI 和父仓 gitlink。npm 发布须另外获得授权。
 
-### 7. 为什么 `sync` 没有覆盖我改过的文件
+## 命令速查与失败处理
 
-这是刻意的默认安全策略。CLI 会把这类文件识别为“本地已修改的受管文件”，只报告、跳过，不自动覆盖。
+运行 `npx create-yss-spec@latest --help` 查询当前安装版本实际支持的参数；帮助/版本查询不受目标家族限制。`--git-init` 仅按初始化选项创建本地 Git，不等于提交或推送。
 
-处理方式：
-
-- 查看输出中的跳过文件列表
-- 用 `git diff` 比较当前项目版本和模板版本的差异
-- 人工决定是否合并模板变更
-- 确认模板内容应覆盖本地版本时，使用 `sync --force`；CLI 会先保存外部备份
-
-### 8. 为什么 `sync` 报告旧、新资产冲突
-
-说明旧版 PRD / Issue 路径与新版 Spec / Ticket 路径同时存在，且文件内容不一致。CLI 会 fail closed，避免覆盖任一版本。
-
-处理方式：
-
-- 根据错误中的旧、新路径比较内容
-- 人工合并并只保留目标 Spec / Ticket 路径
-- 重新执行 `sync --dry-run`，确认迁移计划后再正式同步
-
-### 9. `update` 和 `sync` 有什么区别
-
-`update` / `upgrade` 升级的是本机上的 `create-yss-spec` CLI 包。`sync` 使用当前 CLI 包内置的模板快照，去更新项目里的受管研发管理资产。
-
-处理方式：
-
-- 先 `create-yss-spec update`（或继续使用 `npx create-yss-spec@latest`）拿到最新 CLI
-- 再在项目目录执行 `npx create-yss-spec@latest sync --dry-run`
-
-## 维护与验证
-
-如果你在维护这个 CLI，本地验证命令是：
-
-```bash
-YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test
-YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm pack --dry-run
-```
-
-## 继续阅读
-
-- [模板仓库使用说明](https://github.com/iloveZzz/yss-spec-project-template#readme)
-- [产品全生命周期使用手册](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/product-lifecycle-workflow.md)
-- [产品研发全生命周期最佳实践](https://github.com/iloveZzz/yss-spec-project-template/blob/main/docs/user-guide/product-rd-lifecycle-best-practices.md)
-- [实现路由记录](../implementation/yss-spec-cli-init-routing.md)
-- [`yss-project.yaml` 跨仓库实现记录](../implementation/yss-project-repository-mode-contract.md)
-- [产品需求文档：yss-spec 模板初始化 CLI](../requirements/yss-spec-cli-init-prd.md)
+| 现象 | 处理 |
+|---|---|
+| 目标非空 | 新建用新目录；已有项目按 attach 或 sync 场景处理 |
+| 异族或矛盾身份 | 核对包名、目标 profile 和 metadata，保留原文件，不能 force 绕过 |
+| conflict | 比较 baseline 与用户改动，决定保留、合并或有备份后覆盖 |
+| unsafe/gitlink 阻断 | 修复路径/挂载状态，不复制源码冒充普通目录 |
+| 校验失败 | 检查回滚输出及旧 metadata，修复原因后重试 |
+| 最新手册缺失 | 比对 npm 版本和模板 SHA，等待发布或核验本地候选 tgz |
