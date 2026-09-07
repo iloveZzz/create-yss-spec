@@ -6,6 +6,7 @@ const path = require("node:path");
 const { pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
+const { assertBundledFamily, assertTargetFamily } = require("../family-runtime");
 const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
@@ -65,8 +66,10 @@ function affectedPathsForMigration(migrationPlan) {
 }
 
 function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() } = {}) {
-  readTemplateSnapshot();
+  const snapshot = readTemplateSnapshot();
+  assertBundledFamily(snapshot);
   const resolvedTargetDir = normalizeTargetDir(targetDir, cwd);
+  assertTargetFamily(resolvedTargetDir);
   inspectExistingTargetDir(resolvedTargetDir, { force: Boolean(force) });
 
   const { metadata } = loadTemplateMetadata(resolvedTargetDir);
