@@ -9,6 +9,7 @@ const { printHelp, printVersion } = require("../cli/help");
 const { pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
+const { assertBundledFamily, assertTargetFamily } = require("../family-runtime");
 const { assertTargetWorkingTreeWritable } = require("../validation/security");
 const {
   PACKAGE_ROOT,
@@ -127,9 +128,11 @@ async function runInit(argv = []) {
 
   const promptedOptions = await promptForMissingOptions(options);
   assertRequiredOptions(promptedOptions);
-  readTemplateSnapshot();
+  const snapshot = readTemplateSnapshot();
+  assertBundledFamily(snapshot);
 
   const targetDir = normalizeTargetDir(promptedOptions.targetDir);
+  assertTargetFamily(targetDir);
   const targetState = inspectTargetDir(targetDir, promptedOptions.force);
   const desiredOperations = applyOwnershipToOperations(
     buildDesiredManagedOperations(targetDir, promptedOptions, "init"),
