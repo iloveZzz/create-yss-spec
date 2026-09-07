@@ -82,13 +82,20 @@ function createAttachPlan({
     throw new TypeError("createAttachPlan requires classified attach operations");
   }
 
+  const missing = classified.missing || [];
+  const matched = classified.matched || [];
+  const identity = classified.identity || [];
+  const classifiedConflicts = classified.conflicts || [];
+  const forceableConflicts = classified.forceableConflicts || classifiedConflicts;
+  const classifiedUnsafe = classified.unsafe || [];
   const migrationConflicts = migration?.conflicts || [];
   const migrationUnsafe = migration?.unsafe || [];
+
   const conflicts = [
-    ...classified.conflicts.map((operation) => ({
+    ...classifiedConflicts.map((operation) => ({
       path: operation.relativePath,
       reason: operation.reason,
-      forceable: classified.forceableConflicts.includes(operation),
+      forceable: forceableConflicts.includes(operation),
       source: "managed-file",
     })),
     ...migrationConflicts.map((item) => ({
@@ -101,7 +108,7 @@ function createAttachPlan({
     })),
   ];
   const unsafe = [
-    ...classified.unsafe.map((operation) => ({
+    ...classifiedUnsafe.map((operation) => ({
       path: operation.relativePath,
       reason: operation.reason,
       source: "managed-file",
@@ -118,11 +125,11 @@ function createAttachPlan({
     targetDir,
     template: null,
     changes: [
-      ...classified.missing.map((operation) => ({
+      ...missing.map((operation) => ({
         action: "add",
         path: operation.relativePath,
       })),
-      ...classified.identity.map((operation) => ({
+      ...identity.map((operation) => ({
         action: "identity-convert",
         path: operation.relativePath,
       })),
@@ -138,9 +145,9 @@ function createAttachPlan({
     warnings,
     blocked: unsafe.length > 0 || migrationConflicts.length > 0,
     stats: {
-      missing: classified.missing.length,
-      matched: classified.matched.length,
-      identity: classified.identity.length,
+      missing: missing.length,
+      matched: matched.length,
+      identity: identity.length,
       conflicts: conflicts.length,
       unsafe: unsafe.length,
     },
