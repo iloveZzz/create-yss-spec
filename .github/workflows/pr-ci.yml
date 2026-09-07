@@ -115,7 +115,7 @@ jobs:
       - family-identity
       - programmatic-api
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -128,8 +128,8 @@ jobs:
         timeout-minutes: 10
         run: npm run sync-template
       - name: Run full suite against prepared snapshot
-        timeout-minutes: 10
-        run: node --test tests/*.test.js
+        timeout-minutes: 25
+        run: node --test --test-concurrency=1 tests/*.test.js
       - name: Verify package contents from prepared snapshot
         run: npm pack --dry-run --ignore-scripts
       - name: Build candidate package from verified snapshot
