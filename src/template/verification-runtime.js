@@ -129,7 +129,18 @@ function verifyGeneratedInit(targetDir) {
 function verifyGeneratedAttach(targetDir) {
   runTemplateVerification(targetDir, "scripts/sync-skills");
   runTemplateVerification(targetDir, "scripts/update-skill-lock");
-  runTemplateVerificationWithGit(targetDir, "scripts/verify-template");
+  // Attach validates the generated project instance, not the template source
+  // release candidate. The release profile intentionally runs source-governance
+  // checks (including external tooling such as ripgrep) that are inappropriate
+  // as a runtime dependency for end-user projects. Use the fast profile with a
+  // known routed instance path so required files, repository identity and
+  // read-only Git invariants are still checked without escalating to release.
+  runTemplateVerificationWithGit(targetDir, "scripts/run-template-verification", [
+    "--profile",
+    "fast",
+    "--changed-file",
+    "README.md",
+  ]);
 }
 
 module.exports = {
