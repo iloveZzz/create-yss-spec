@@ -27,6 +27,8 @@ const {
   verifyGeneratedSyncInstance,
 } = require("../template/instance-runtime");
 
+const APPLY_RESULT_SCHEMA_VERSION = 1;
+
 function normalizeTargetDir(targetDir = ".", cwd = process.cwd()) {
   return path.resolve(cwd, targetDir);
 }
@@ -154,6 +156,7 @@ function applySyncContext(context, { force = false } = {}) {
   });
 
   return {
+    schemaVersion: APPLY_RESULT_SCHEMA_VERSION,
     operation: "sync",
     targetDir,
     backupPath,
@@ -176,6 +179,7 @@ function applySyncContext(context, { force = false } = {}) {
 }
 
 module.exports = {
+  APPLY_RESULT_SCHEMA_VERSION,
   normalizeTargetDir,
   inspectExistingTargetDir,
   buildSyncContext,
