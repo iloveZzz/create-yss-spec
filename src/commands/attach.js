@@ -7,6 +7,7 @@ const { parseArgs } = require("../cli/args");
 const { pathKind, targetPath, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
+const { assertBundledFamily, assertTargetFamily } = require("../family-runtime");
 const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildAttachPlanFromRuntime } = require("../template/attach-planner-runtime");
@@ -163,8 +164,10 @@ function runAttach(argv = []) {
     throw new Error("attach 必须显式传入 --dry-run 或 --apply");
   }
 
-  readTemplateSnapshot();
+  const snapshot = readTemplateSnapshot();
+  assertBundledFamily(snapshot);
   const targetDir = normalizeTargetDir(options.targetDir);
+  assertTargetFamily(targetDir);
   inspectExistingTargetDir(targetDir, { force: Boolean(options.force) });
 
   if (pathKind(targetPath(targetDir, TEMPLATE_METADATA_FILENAME)) !== "missing") {
