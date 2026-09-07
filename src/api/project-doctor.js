@@ -1,9 +1,9 @@
 "use strict";
 
 const path = require("node:path");
-const { buildDoctorReport } = require("../commands/doctor");
 
 function projectDoctor({ targetDir = ".", cwd = process.cwd() } = {}) {
+  const { buildDoctorReport } = require("../commands/doctor");
   return buildDoctorReport(path.resolve(cwd, targetDir));
 }
 
