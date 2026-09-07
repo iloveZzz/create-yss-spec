@@ -23,13 +23,13 @@ const FAMILIES = [
     profile: "harness.dev-agent-slice",
   },
   {
-    name: "repository-local backend",
+    name: "create-yss-harness-backend",
     metadata: ".yss-harness-backend.json",
     template: "yss-harness-backend-agent",
     profile: "harness.backend-delivery",
   },
   {
-    name: "repository-local frontend",
+    name: "create-yss-harness-frontend",
     metadata: ".yss-harness-frontend.json",
     template: "yss-harness-frontend-agent",
     profile: "harness.frontend-delivery",
