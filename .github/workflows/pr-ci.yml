@@ -37,10 +37,22 @@ jobs:
         run: npm run test:unit
 
   core-integration:
-    name: Core CLI integration
+    name: Core CLI - ${{ matrix.name }}
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: init
+            file: tests/init-cli.test.js
+          - name: sync
+            file: tests/sync-command-modular.test.js
+          - name: attach
+            file: tests/attach-command-modular.test.js
+          - name: doctor-diff
+            file: tests/doctor-diff-command.test.js
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,14 +64,9 @@ jobs:
       - name: Prepare pinned template snapshot
         timeout-minutes: 10
         run: npm run sync-template
-      - name: Run core integration tests
+      - name: Run ${{ matrix.name }} integration
         timeout-minutes: 8
-        run: >-
-          node --test
-          tests/init-cli.test.js
-          tests/sync-command-modular.test.js
-          tests/attach-command-modular.test.js
-          tests/doctor-diff-command.test.js
+        run: node --test ${{ matrix.file }}
 
   family-identity:
     name: Family identity matrix
