@@ -10,6 +10,8 @@ const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
+const { decorateMetadataOwnership } = require("../template/ownership-metadata");
+const { decorateMetadataLifecycle } = require("../template/lifecycle-metadata");
 const {
   PACKAGE_ROOT,
   PACKAGE_MANIFEST,
@@ -144,11 +146,10 @@ function applySyncContext(context, { force = false } = {}) {
       }
       applyMigrationOperations(migrationPlan, transaction);
       verifyGeneratedSyncInstance(targetDir);
-      writeTemplateMetadata(
-        targetDir,
-        buildNextSyncMetadata(metadata, syncPlan),
-        transaction,
+      const nextMetadata = decorateMetadataLifecycle(
+        decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan)),
       );
+      writeTemplateMetadata(targetDir, nextMetadata, transaction);
     },
   });
 
