@@ -19,6 +19,16 @@ const INSTANCE_FORBIDDEN_PATHS = [
   "docs/reviews",
 ];
 
+function verificationEnvironment(environment = process.env) {
+  const sanitized = { ...environment };
+  for (const key of Object.keys(sanitized)) {
+    if (key === "NODE_TEST_CONTEXT" || key.startsWith("NODE_TEST_")) {
+      delete sanitized[key];
+    }
+  }
+  return sanitized;
+}
+
 function initializeGitRepository(targetDir) {
   const result = spawnSync("git", ["init"], {
     cwd: targetDir,
@@ -34,6 +44,7 @@ function runTemplateVerification(targetDir, scriptPath, args = ["--check"]) {
   const result = spawnSync(commandPath, args, {
     cwd: targetDir,
     encoding: "utf8",
+    env: verificationEnvironment(),
   });
   const output = [result.stdout, result.stderr].filter(Boolean).join("");
   if (output) {
@@ -122,6 +133,7 @@ function verifyGeneratedAttach(targetDir) {
 }
 
 module.exports = {
+  verificationEnvironment,
   initializeGitRepository,
   runTemplateVerification,
   runTemplateVerificationWithGit,
