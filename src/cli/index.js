@@ -24,12 +24,14 @@ instanceRuntime.writeTemplateMetadata = function writePolicyAwareTemplateMetadat
   return writeTemplateMetadataBase(targetDir, lifecycleAware, transaction);
 };
 
+const { projectDoctor } = require("../api/project-doctor");
 const { runAttach } = require("../commands/attach");
 const { runDiff } = require("../commands/diff");
-const { runDoctor } = require("../commands/doctor");
+const { renderDoctorText } = require("../commands/doctor");
 const { runInit } = require("../commands/init");
 const { runSync } = require("../commands/sync");
 const { runUpdateCommand } = require("../commands/update");
+const { parseArgs } = require("./args");
 const { printHelp, printVersion } = require("./help");
 const { resolveCommand } = require("./router");
 
@@ -59,7 +61,14 @@ async function runCli(argv = []) {
     return runSync(route.args);
   }
   if (route.command === "doctor") {
-    return runDoctor(route.args);
+    const options = parseArgs(route.args);
+    const report = projectDoctor({ targetDir: options.targetDir || "." });
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      process.stdout.write(renderDoctorText(report));
+    }
+    return report;
   }
   if (route.command === "diff") {
     return runDiff(route.args);
