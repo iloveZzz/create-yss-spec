@@ -71,6 +71,7 @@ test("programmatic API plans, diagnoses and applies without CLI argv", () => {
     assert.equal(agentsConflict.mergeStrategy, "replace-with-force");
 
     const applyResult = templateApply({ targetDir, force: true });
+    assert.equal(applyResult.schemaVersion, 1);
     assert.equal(applyResult.operation, "sync");
     assert.equal(applyResult.stats.forceApplied, 1);
     assert.doesNotMatch(fs.readFileSync(agentsPath, "utf8"), /API LOCAL EDIT/);
@@ -94,6 +95,7 @@ test("programmatic API plans, diagnoses and applies without CLI argv", () => {
     const contextBaseline = fs.readFileSync(contextPath, "utf8");
     fs.writeFileSync(contextPath, `${contextBaseline}\nMANUAL API EDIT\n`);
     const manualResult = templateApply({ targetDir, force: true });
+    assert.equal(manualResult.schemaVersion, 1);
     assert.equal(manualResult.stats.forceApplied, 0);
     assert.match(fs.readFileSync(contextPath, "utf8"), /MANUAL API EDIT/);
     assert.equal(
