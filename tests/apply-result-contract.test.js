@@ -22,6 +22,7 @@ function validator() {
 test("Apply Result v1 validates representative templateApply output", () => {
   const validate = validator();
   const value = {
+    schemaVersion: 1,
     operation: "sync",
     targetDir: "/project",
     backupPath: null,
@@ -50,6 +51,7 @@ test("Apply Result v1 rejects negative counters", () => {
   const validate = validator();
   assert.equal(
     validate({
+      schemaVersion: 1,
       operation: "sync",
       targetDir: "/project",
       backupPath: null,
