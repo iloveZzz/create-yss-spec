@@ -30,6 +30,12 @@ test("error classifier exposes stable machine codes", () => {
     "YSS_OWNERSHIP_PROTECTED",
   );
   assert.equal(
+    classifyErrorCode(
+      new Error("目标身份属于 repository-local frontend，不能使用 create-yss-spec；不支持跨家族迁移，--force 不能绕过"),
+    ),
+    "YSS_FAMILY_IDENTITY_INVALID",
+  );
+  assert.equal(
     classifyErrorCode(new Error("不支持的参数：--wat")),
     "YSS_ARGUMENT_INVALID",
   );
