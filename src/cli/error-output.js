@@ -5,6 +5,7 @@ const ERROR_SCHEMA_VERSION = 1;
 const ERROR_RULES = [
   [/模板路径越界|中间符号链接|目标父路径不是目录|符号链接或特殊文件/, "YSS_PATH_SAFETY"],
   [/gitlink|git-submodule|detached HEAD|submodule/, "YSS_GIT_PROTECTED"],
+  [/模板家族|家族身份|多个模板家族|目标身份属于|profile 身份|身份不一致|身份文件格式非法|身份 metadata schema|未知或非法 profile|不支持跨家族迁移/, "YSS_FAMILY_IDENTITY_INVALID"],
   [/ownership policy|user-owned|被 ownership policy 标记为 protected/, "YSS_OWNERSHIP_PROTECTED"],
   [/模板快照|snapshotHash|templateCommit/, "YSS_SNAPSHOT_INVALID"],
   [/模板元数据|metadataSchemaVersion|managedFilesManifestVersion/, "YSS_METADATA_INVALID"],
