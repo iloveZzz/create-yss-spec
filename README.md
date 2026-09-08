@@ -2,11 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.2.0`。当前固定模板为 `yss-spec-project-template@0347a5f6d100791cf012ef0f4ae3e148eece644a`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.3.0`。当前固定模板为 `yss-spec-project-template@e9410b9d451393c0d8f642e5f89b3776abb6b8c2`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
 
 ## 本版模板能力
 
-技术设计统一通过 `yss-technical-design` 进入，按已确认架构调用 DDD `yss-tactical-design` 或传统 MVC `yss-mvc-design`。新合同使用 v2，旧 DDD 合同显式兼容读取；初始化和同步会分发对应技能、Schema 与校验工具。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
+生命周期新增阶段 5 实现仓库准备聚合门禁，只有仓库身份、架构选择与 Project Scaffold Contract 闭合后才进入可实现切片；DDD、Layered MVC 与 Frontend 脚手架统一消费 v4 合同。`yss-product-lifecycle` 同时改为按注册表和编排合同查询所需上下文的薄路由，初始化和同步会分发对应 Skill、Schema 与校验工具。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 
