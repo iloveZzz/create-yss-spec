@@ -15,7 +15,7 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
-  YSS_SPEC_TEMPLATE_REF: "017925706a981aec9eadefd470232bb531acd4d6"
+  YSS_SPEC_TEMPLATE_REF: "0347a5f6d100791cf012ef0f4ae3e148eece644a"
 
 jobs:
   quality:

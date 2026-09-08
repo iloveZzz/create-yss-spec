@@ -2,7 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.1.2`。当前固定模板为 `yss-spec-project-template@017925706a981aec9eadefd470232bb531acd4d6`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.2.0`。当前固定模板为 `yss-spec-project-template@0347a5f6d100791cf012ef0f4ae3e148eece644a`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+
+## 本版模板能力
+
+技术设计统一通过 `yss-technical-design` 进入，按已确认架构调用 DDD `yss-tactical-design` 或传统 MVC `yss-mvc-design`。新合同使用 v2，旧 DDD 合同显式兼容读取；初始化和同步会分发对应技能、Schema 与校验工具。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 
