@@ -46,11 +46,14 @@ function compareSemver(left, right) {
 }
 
 function defaultSpawn(command, args, options = {}) {
-  return spawnSync(command, args, {
-    encoding: "utf8",
-    timeout: 120000,
-    ...options,
+  const result = spawnSync(process.execPath, [path.join(__dirname, "command-runner.mjs"), "--worker"], {
+    input: JSON.stringify({ command, args, options: { cwd: options.cwd, env: options.env || process.env, timeoutMs: options.timeout ?? 120000 } }),
+    encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
   });
+  if (result.error || result.status !== 0) return result;
+  const outcome = JSON.parse(result.stdout);
+  if (outcome.termination) outcome.stderr = outcome.termination + ": " + outcome.stderr;
+  return outcome;
 }
 
 function spawnFailed(result) {

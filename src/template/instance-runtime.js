@@ -168,7 +168,7 @@ function renderTemplateFile(relativePath, content, variables) {
 
     if (!variables.includeExampleDocs) {
       return renderedContent.replace(
-        /^\| \[docs\/discovery\/IDEATION\.md\]\(\.\/docs\/discovery\/IDEATION\.md\) \|.*\r?\n/m,
+        /^\| \[docs\/plan\/IDEATION\.md\]\(\.\/docs\/plan\/IDEATION\.md\) \|.*\r?\n/m,
         "",
       );
     }

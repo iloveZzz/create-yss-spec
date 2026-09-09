@@ -56,6 +56,7 @@
     ".pi/settings.json",
     ".cursor/environment.json",
     "docs/.scratch",
+    "docs/discovery",
     "docs/reviews",
     "docs/adr"
   ],
@@ -65,7 +66,7 @@
     "yss-project.yaml"
   ],
   "exampleDocPaths": [
-    "docs/discovery/IDEATION.md"
+    "docs/plan/IDEATION.md"
   ],
   "initExcludeRootEntries": [],
   "initExcludeRootFiles": [

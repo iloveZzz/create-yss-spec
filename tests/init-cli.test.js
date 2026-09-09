@@ -112,6 +112,20 @@ test("interactive init generates a template instance in an empty directory", () 
     );
   }
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
+  assert.ok(fs.existsSync(path.join(targetDir, "docs/plan/templates/plan-template.md")));
+  assert.equal(fs.existsSync(path.join(targetDir, "docs/discovery")), false);
+  const planQuery = spawnSync(process.execPath, ["scripts/query-lifecycle-context", "--work-unit", "work-unit.plan-requirements"], { cwd: targetDir, encoding: "utf8" });
+  assert.equal(planQuery.status, 0, planQuery.stderr);
+  const planContext = JSON.parse(planQuery.stdout);
+  assert.ok(planContext.execution.selected.planning);
+  assert.ok(planContext.execution.plan_checks.length > 0);
+  assert.ok(planContext.execution.plan_checks.every(check => check.status === "pending"));
+  const bypass = spawnSync(process.execPath, ["--input-type=module", "-e", "import {validateNextRoute} from './scripts/lib/lifecycle-transition.mjs'; process.stdout.write(validateNextRoute('work-unit.plan-opportunity','work-unit.spec-synthesis').result)"], { cwd: targetDir, encoding: "utf8" });
+  assert.equal(bypass.status, 0, bypass.stderr);
+  assert.equal(bypass.stdout, "blocked");
+  const lifecycle = fs.readFileSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml"), "utf8");
+  assert.match(lifecycle, /- id: stage\.plan\n/);
+  assert.doesNotMatch(lifecycle, /- id: stage\.discovery\n|\n  migrations:/);
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".cursorrules")));
@@ -543,9 +557,9 @@ test("manifest-driven optional flags affect rendered output and example docs", (
   const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
 
   assert.match(readmeContent, /默认 Issue Tracker：gitlab/);
-  assert.doesNotMatch(readmeContent, /docs\/discovery\/IDEATION\.md/);
+  assert.doesNotMatch(readmeContent, /docs\/plan\/IDEATION\.md/);
   assert.equal(
-    fs.existsSync(path.join(targetDir, "docs/discovery/IDEATION.md")),
+    fs.existsSync(path.join(targetDir, "docs/plan/IDEATION.md")),
     false,
   );
 });
