@@ -2,11 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.3.3`。当前固定模板为 `yss-spec-project-template@70ed7b6b1824067a932371dbeb45c9541d08e375`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.3.4`。当前固定模板为 `yss-spec-project-template@46b29114de53cf4d8d92123006b211d7b3a5a142`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
 
 ## 本版模板能力
 
-本版退役 Claude、Qoder、Trae 运行时投影，保留 `.agents`、Codex、Cursor 与 Pi 的共享 Skill 分发；同时纳入新的模板 CI、兼容矩阵和发布前验证合同。CLI 继续保留项目实例边界、事务回滚与安全清理语义。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
+本版修复生成型 Skill 锁在 `init`、`attach`、`sync` 最终校验前未自动重建的问题。CLI 会在同一事务内刷新 `skills-lock.json`，再运行项目实例校验；刷新或校验失败仍恢复同步前状态。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 

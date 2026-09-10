@@ -23,7 +23,10 @@ const {
   buildMetadata,
   writeTemplateMetadata,
 } = require("../template/instance-runtime");
-const { verifyGeneratedAttach } = require("../template/verification-runtime");
+const {
+  refreshGeneratedProjectInstance,
+  verifyGeneratedAttach,
+} = require("../template/verification-runtime");
 
 function assertRequiredOptions(options) {
   if (!options.projectName) {
@@ -243,6 +246,7 @@ function runAttach(argv = []) {
     affectedPaths: [
       ...affectedPathsForManagedOperations(managedToApply),
       ...affectedPathsForMigration(migrationPlan),
+      "skills-lock.json",
       TEMPLATE_METADATA_FILENAME,
     ],
     execute: (transaction) => {
@@ -250,6 +254,7 @@ function runAttach(argv = []) {
         applyManagedOperation(operation, transaction);
       }
       applyMigrationOperations(migrationPlan, transaction);
+      refreshGeneratedProjectInstance(targetDir);
       verifyGeneratedAttach(targetDir);
       writeTemplateMetadata(
         targetDir,

@@ -118,3 +118,47 @@ test("production sync uses modular planner, lifecycle policies and transaction s
     fs.rmSync(sandbox, { recursive: true, force: true });
   }
 });
+
+test("sync refreshes generated skill lock before project verification", () => {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-sync-lock-"));
+  const targetDir = path.join(sandbox, "project");
+
+  try {
+    const init = runCli([
+      "--project-name",
+      "Sync Generated Lock",
+      "--business-domain",
+      "Data Platform",
+      "--target-dir",
+      targetDir,
+    ]);
+    assert.equal(init.status, 0, init.stderr);
+
+    const relativeSkillFile = "diagnosing-bugs/SKILL.md";
+    const skillRoots = [
+      ".agents/skills",
+      ".codex/skills",
+      ".cursor/skills",
+      ".pi/skills",
+    ];
+    for (const root of skillRoots) {
+      fs.appendFileSync(
+        path.join(targetDir, root, relativeSkillFile),
+        "\nLocal compatible extension.\n",
+      );
+    }
+
+    const sync = runCli(["sync", "--target-dir", targetDir]);
+    assert.equal(sync.status, 0, sync.stderr);
+    assert.match(sync.stdout, /updated skills-lock\.json/);
+
+    const lockCheck = spawnSync(
+      path.join(targetDir, "scripts/update-skill-lock"),
+      ["--check"],
+      { cwd: targetDir, encoding: "utf8" },
+    );
+    assert.equal(lockCheck.status, 0, lockCheck.stderr);
+  } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
+  }
+});

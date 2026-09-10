@@ -27,6 +27,7 @@ const {
 } = require("../template/ownership-runtime");
 const {
   initializeGitRepository,
+  refreshGeneratedProjectInstance,
   verifyGeneratedInit,
 } = require("../template/verification-runtime");
 
@@ -162,12 +163,14 @@ async function runInit(argv = []) {
     operation: "init",
     affectedPaths: [
       ...desiredOperations.map((operation) => operation.relativePath),
+      "skills-lock.json",
       TEMPLATE_METADATA_FILENAME,
     ],
     execute: (transaction) => {
       for (const operation of desiredOperations) {
         applyManagedOperation(operation, transaction);
       }
+      refreshGeneratedProjectInstance(targetDir);
       verifyGeneratedInit(targetDir);
       writeTemplateMetadata(
         targetDir,

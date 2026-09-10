@@ -14,7 +14,10 @@ const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
 const { classifyRemovedFiles } = require("../template/prune-planner");
 const { decorateMetadataOwnership } = require("../template/ownership-metadata");
 const { decorateMetadataLifecycle } = require("../template/lifecycle-metadata");
-const { verifyGeneratedProjectInstance } = require("../template/verification-runtime");
+const {
+  refreshGeneratedProjectInstance,
+  verifyGeneratedProjectInstance,
+} = require("../template/verification-runtime");
 const {
   PACKAGE_ROOT,
   PACKAGE_MANIFEST,
@@ -172,6 +175,7 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
       ...affectedPathsForManagedOperations(managedToApply),
       ...affectedPathsForMigration(migrationPlan),
       ...syncPlan.pruned,
+      "skills-lock.json",
       TEMPLATE_METADATA_FILENAME,
     ],
     execute: (transaction) => {
@@ -183,6 +187,7 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
         transaction.remove(targetPath(targetDir, relativePath));
       }
       verifyGeneratedSyncInstance(targetDir);
+      refreshGeneratedProjectInstance(targetDir);
       verifyGeneratedProjectInstance(targetDir);
       const nextMetadata = decorateMetadataLifecycle(
         decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan)),

@@ -134,6 +134,10 @@ function verifyGeneratedAttach(targetDir) {
   runTemplateVerification(targetDir, "scripts/verify-project-instance", []);
 }
 
+function refreshGeneratedProjectInstance(targetDir) {
+  runTemplateVerification(targetDir, "scripts/update-skill-lock", []);
+}
+
 module.exports = {
   verificationEnvironment,
   initializeGitRepository,
@@ -142,5 +146,6 @@ module.exports = {
   verifyGeneratedInstance,
   verifyGeneratedInit,
   verifyGeneratedAttach,
+  refreshGeneratedProjectInstance,
   verifyGeneratedProjectInstance: verifyGeneratedAttach,
 };
