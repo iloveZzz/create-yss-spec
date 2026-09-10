@@ -1,6 +1,6 @@
 # create-yss-spec 使用指南
 
-源码候选版本：`3.3.2`。模板固定到 `34baac842082db141c81945cc43201b5f7d8e84d`；最终快照身份与摘要见 `template.snapshot.json`。本次更新生命周期门禁、请求分诊、OpenAPI Draft 校验、项目实例分发边界和模板验证调度。
+源码候选版本：`3.3.3`。模板固定到 `70ed7b6b1824067a932371dbeb45c9541d08e375`；最终快照身份与摘要见 `template.snapshot.json`。本次退役 Claude、Qoder、Trae 运行时投影，并同步模板 CI、兼容矩阵和发布前验证合同。
 
 ## 已发布安装与候选版本
 
@@ -63,7 +63,7 @@ npm pack --ignore-scripts
 `--ignore-scripts` 仅在上一步已成功产生并核对固定快照后使用，以免 prepack 改写输入。检查 tgz 中 template.snapshot.json 的模板 SHA 和 package.json 版本，然后使用实际包路径初始化：
 
 ```bash
-npx --yes --package /absolute/path/create-yss-spec-3.3.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
+npx --yes --package /absolute/path/create-yss-spec-3.3.3.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
 ```
 
 这是安装本地已构建包的示例，不是 npm 发布操作。候选验证需覆盖新建实例的本地文档链接、身份、Skill 检查与适用交接链路；不要把历史验证日志当当前发布证据。

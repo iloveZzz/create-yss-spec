@@ -158,15 +158,13 @@ test("interactive init generates a template instance in an empty directory", () 
       `missing cursor projection for ${frontendSkill}`,
     );
   }
-  for (const mcpConfig of [
-    ".mcp.json",
-    ".vscode/mcp.json",
-  ]) {
+  for (const mcpConfig of [".vscode/mcp.json"]) {
     assert.ok(
       fs.existsSync(path.join(targetDir, mcpConfig)),
       `missing MCP configuration ${mcpConfig}`,
     );
   }
+  assert.equal(fs.existsSync(path.join(targetDir, ".mcp.json")), false);
   for (const retiredSkill of [
     "high-fidelity-html-prototype",
     "api-integration",
@@ -187,7 +185,7 @@ test("interactive init generates a template instance in an empty directory", () 
     "yss-backend-scaffold-adapter",
     "yss-backend-scaffold-parent",
   ];
-  for (const projectionRoot of [".claude", ".codex", ".pi", ".qoder", ".trae"]) {
+  for (const projectionRoot of [".codex", ".cursor", ".pi"]) {
     for (const skillName of scaffoldReferenceSkills) {
       assert.ok(
         fs.existsSync(
@@ -262,7 +260,9 @@ test("interactive init generates a template instance in an empty directory", () 
   );
   assert.equal(fs.existsSync(path.join(targetDir, ".pi/settings.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".codebuddy")), false);
-  assert.ok(fs.existsSync(path.join(targetDir, ".qoder")));
+  for (const retiredRoot of [".claude", ".qoder", ".trae"]) {
+    assert.equal(fs.existsSync(path.join(targetDir, retiredRoot)), false);
+  }
   assert.equal(fs.existsSync(path.join(targetDir, ".qwen")), false);
 
   const agentsContent = fs.readFileSync(path.join(targetDir, "AGENTS.md"), "utf8");
@@ -816,7 +816,7 @@ test("sync skips locally modified managed files and reports removed managed file
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
-  const customizablePath = path.join(targetDir, "CLAUDE.md");
+  const customizablePath = path.join(targetDir, "AGENTS.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
   const removedPath = path.join(targetDir, "docs/legacy-note.md");
   const removedTemplateSourcePath = path.join(
@@ -863,7 +863,7 @@ test("sync skips locally modified managed files and reports removed managed file
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /跳过文件：1/);
   assert.match(result.stdout, /删除差异：3/);
-  assert.match(result.stdout, /CLAUDE\.md/);
+  assert.match(result.stdout, /AGENTS\.md/);
   assert.match(result.stdout, /docs\/legacy-note\.md/);
   assert.match(result.stdout, /\.template-source\/legacy-review\.md/);
   assert.match(result.stdout, /docs\/reviews\/legacy-review\.md/);
@@ -944,7 +944,10 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.readFileSync(runtimeFile, "utf8"), "module.exports = 'runtime';\n");
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
   assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")), true);
-  assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".codex/skills/to-spec/SKILL.md")), true);
+  for (const retiredRoot of [".claude", ".qoder", ".trae"]) {
+    assert.equal(fs.existsSync(path.join(targetDir, retiredRoot)), false);
+  }
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);

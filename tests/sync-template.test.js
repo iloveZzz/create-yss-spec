@@ -106,10 +106,10 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     );
     const externalFile = path.join(externalRoot, "secret.txt");
     fs.writeFileSync(externalFile, "external secret\n", "utf8");
-    fs.mkdirSync(path.join(fixtureRoot, ".claude/skills"), { recursive: true });
+    fs.mkdirSync(path.join(fixtureRoot, ".codex/skills"), { recursive: true });
     fs.symlinkSync(
       externalFile,
-      path.join(fixtureRoot, ".claude/skills/external-link"),
+      path.join(fixtureRoot, ".codex/skills/external-link"),
       "file",
     );
   }

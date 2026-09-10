@@ -18,7 +18,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "34baac842082db141c81945cc43201b5f7d8e84d";
+const DEFAULT_TEMPLATE_REF = "70ed7b6b1824067a932371dbeb45c9541d08e375";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
@@ -324,12 +324,9 @@ function materializeSharedSkillProjections(templateRoot) {
   const projectionRoots = Array.isArray(lock.projectionRoots) && lock.projectionRoots.length
     ? lock.projectionRoots
     : [
-        ".claude/skills",
         ".codex/skills",
         ".cursor/skills",
         ".pi/skills",
-        ".qoder/skills",
-        ".trae/skills",
       ];
 
   for (const name of sharedNames) {

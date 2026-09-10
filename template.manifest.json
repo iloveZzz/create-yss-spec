@@ -1,12 +1,9 @@
 {
   "allowRootEntries": [
     ".agents",
-    ".claude",
     ".codex",
     ".cursor",
     ".pi",
-    ".qoder",
-    ".trae",
     ".vscode",
     "docs",
     "scripts"
@@ -14,10 +11,8 @@
   "allowRootFiles": [
     ".cursorrules",
     ".gitignore",
-    ".mcp.json",
     ".nvmrc",
     "AGENTS.md",
-    "CLAUDE.md",
     "CONTEXT.md",
     "DESIGN.md",
     "README.md",
@@ -49,7 +44,6 @@
     ".gitmodules"
   ],
   "excludePaths": [
-    ".claude/settings.local.json",
     ".codex/hooks.json",
     ".codex/settings.local.json",
     ".codex/skills/.DS_Store",
@@ -136,11 +130,9 @@
       { "pattern": "yss-public-skills.json", "ownership": "generated" },
       { "pattern": ".agents/skills/.yss-skills-manifest.json", "ownership": "generated" },
       { "pattern": "AGENTS.md", "ownership": "managed-customizable" },
-      { "pattern": "CLAUDE.md", "ownership": "managed-customizable" },
       { "pattern": "CONTEXT.md", "ownership": "managed-customizable" },
       { "pattern": "DESIGN.md", "ownership": "managed-customizable" },
-      { "pattern": "README.md", "ownership": "user-owned" },
-      { "pattern": ".mcp.json", "ownership": "managed-customizable" }
+      { "pattern": "README.md", "ownership": "user-owned" }
     ]
   },
   "customizationPolicy": {

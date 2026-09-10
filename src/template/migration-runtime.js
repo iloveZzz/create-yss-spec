@@ -17,12 +17,9 @@ const {
 
 const AGENT_SKILL_ROOTS = [
   ".agents/skills",
-  ".claude/skills",
   ".codex/skills",
   ".cursor/skills",
   ".pi/skills",
-  ".qoder/skills",
-  ".trae/skills",
 ];
 
 const LEGACY_SKILL_MAPPINGS = [
