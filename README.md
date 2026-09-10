@@ -2,7 +2,7 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.3.4`。当前固定模板为 `yss-spec-project-template@46b29114de53cf4d8d92123006b211d7b3a5a142`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.3.5`。当前固定模板为 `yss-spec-project-template@a36b9d991e211248ef78837535207dd5cbb91004`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
 
 ## 本版模板能力
 
