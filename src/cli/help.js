@@ -32,6 +32,7 @@ OPTIONS
   --force                            init：允许清空非空目录后重新生成
                                      attach / sync：覆盖受管冲突文件；unsafe 路径始终阻断
                                      update：即使已是最新时仍重新安装；npx / 源码目录仍不覆盖
+  --prune                            sync：备份并删除与旧受管基线一致的退出分发文件
   --git-init                         初始化完成后执行 git init
   --include-example-docs             显式保留示例文档（默认开启）
   --no-example-docs                  不生成示例文档
@@ -68,6 +69,8 @@ EXAMPLES
   $ npx create-yss-spec@latest doctor
   $ npx create-yss-spec@latest doctor --json
   $ npx create-yss-spec@latest sync --target-dir . --force
+  $ npx create-yss-spec@latest sync --plan --prune
+  $ npx create-yss-spec@latest sync --prune
   $ npx create-yss-spec update
   $ npx create-yss-spec update --dry-run
   $ npx create-yss-spec upgrade

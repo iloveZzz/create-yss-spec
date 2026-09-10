@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
+const { pathKind, targetPath, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
 const { assertBundledFamily, assertTargetFamily } = require("../family-runtime");
@@ -11,8 +11,10 @@ const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
+const { classifyRemovedFiles } = require("../template/prune-planner");
 const { decorateMetadataOwnership } = require("../template/ownership-metadata");
 const { decorateMetadataLifecycle } = require("../template/lifecycle-metadata");
+const { verifyGeneratedProjectInstance } = require("../template/verification-runtime");
 const {
   PACKAGE_ROOT,
   PACKAGE_MANIFEST,
@@ -94,12 +96,37 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     warning,
     toVersion: PACKAGE_MANIFEST.version,
     getUnmanagedReason: (operation) =>
-      unmanagedPathReason(resolvedTargetDir, operation.relativePath, {
+      operation.unsafeReason || unmanagedPathReason(resolvedTargetDir, operation.relativePath, {
         packageRoot: PACKAGE_ROOT,
       }),
     getPathKind: (operation) => pathKind(operation.targetPath),
     getFileHash: (operation) => fileHash(operation.targetPath),
   });
+  const removedPlan = classifyRemovedFiles({
+    removed: syncPlan.removed.filter((relativePath) => relativePath !== "README.md"),
+    managedFiles: metadata.managedFiles || {},
+    getPathKind: (relativePath) => pathKind(targetPath(resolvedTargetDir, relativePath)),
+    getFileHash: (relativePath) => fileHash(targetPath(resolvedTargetDir, relativePath)),
+    getUnmanagedReason: (relativePath) =>
+      unmanagedPathReason(resolvedTargetDir, relativePath, { packageRoot: PACKAGE_ROOT }),
+  });
+  const readmeOwnershipTransferred = syncPlan.removed.includes("README.md");
+  syncPlan.removed = syncPlan.removed.filter((relativePath) => relativePath !== "README.md");
+  syncPlan.readmeOwnershipTransferred = readmeOwnershipTransferred;
+  Object.assign(syncPlan, removedPlan);
+  plan.changes = plan.changes.map((change) =>
+    change.path === "README.md"
+      ? { ...change, action: "ownership-transfer" }
+      : change.action === "remove-report" && removedPlan.prunable.includes(change.path)
+      ? { ...change, action: "prunable" }
+      : change,
+  );
+  if (readmeOwnershipTransferred) plan.stats.removed -= 1;
+  plan.stats.prunable = removedPlan.prunable.length;
+  plan.stats.retainedRemoved = removedPlan.retainedRemoved.length;
+  plan.prunable = [...removedPlan.prunable];
+  plan.pruned = [];
+  plan.retainedRemoved = [...removedPlan.retainedRemoved];
 
   return {
     targetDir: resolvedTargetDir,
@@ -128,7 +155,7 @@ function assertSyncApplicable(context) {
   }
 }
 
-function applySyncContext(context, { force = false } = {}) {
+function applySyncContext(context, { force = false, prune = false } = {}) {
   assertSyncApplicable(context);
   const { targetDir, metadata, migrationPlan, syncPlan } = context;
   const managedToApply = [
@@ -136,6 +163,7 @@ function applySyncContext(context, { force = false } = {}) {
     ...syncPlan.added,
     ...(force ? syncPlan.forceableConflicts : []),
   ];
+  syncPlan.pruned = prune ? [...syncPlan.prunable] : [];
 
   const { backupPath } = runInTransaction({
     targetDir,
@@ -143,6 +171,7 @@ function applySyncContext(context, { force = false } = {}) {
     affectedPaths: [
       ...affectedPathsForManagedOperations(managedToApply),
       ...affectedPathsForMigration(migrationPlan),
+      ...syncPlan.pruned,
       TEMPLATE_METADATA_FILENAME,
     ],
     execute: (transaction) => {
@@ -150,7 +179,11 @@ function applySyncContext(context, { force = false } = {}) {
         applyManagedOperation(operation, transaction);
       }
       applyMigrationOperations(migrationPlan, transaction);
+      for (const relativePath of syncPlan.pruned) {
+        transaction.remove(targetPath(targetDir, relativePath));
+      }
       verifyGeneratedSyncInstance(targetDir);
+      verifyGeneratedProjectInstance(targetDir);
       const nextMetadata = decorateMetadataLifecycle(
         decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan)),
       );
@@ -170,6 +203,7 @@ function applySyncContext(context, { force = false } = {}) {
       skipped: syncPlan.skipped.length,
       removed: syncPlan.removed.length,
       forceApplied: force ? syncPlan.forceableConflicts.length : 0,
+      pruned: syncPlan.pruned.length,
     },
     skipped: syncPlan.skipped.map((operation) => ({
       path: operation.relativePath,
@@ -178,6 +212,10 @@ function applySyncContext(context, { force = false } = {}) {
       mergeStrategy: operation.mergeStrategy || null,
     })),
     removed: [...syncPlan.removed],
+    prunable: [...syncPlan.prunable],
+    pruned: [...syncPlan.pruned],
+    retainedRemoved: [...syncPlan.retainedRemoved],
+    ownershipTransferred: syncPlan.readmeOwnershipTransferred ? ["README.md"] : [],
   };
 }
 

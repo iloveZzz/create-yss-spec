@@ -20,7 +20,8 @@
         "added": { "type": "integer", "minimum": 0 },
         "skipped": { "type": "integer", "minimum": 0 },
         "removed": { "type": "integer", "minimum": 0 },
-        "forceApplied": { "type": "integer", "minimum": 0 }
+        "forceApplied": { "type": "integer", "minimum": 0 },
+        "pruned": { "type": "integer", "minimum": 0 }
       }
     },
     "skipped": {
@@ -38,6 +39,30 @@
       }
     },
     "removed": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "prunable": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pruned": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "retainedRemoved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "ownershipTransferred": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     }

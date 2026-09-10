@@ -235,14 +235,10 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "docs/adr/README.md")));
   assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
   assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template-fast")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template-candidate")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/run-template-verification")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/lib/template-verification.mjs")));
-  assert.ok(
-    fs.existsSync(path.join(targetDir, "docs/process/template-verification-profiles.yaml")),
-  );
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")));
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template-fast")), false);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template-candidate")), false);
   assert.ok(fs.existsSync(path.join(targetDir, "scripts/vendor/yaml.mjs")));
   assert.equal(
     fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
@@ -334,7 +330,8 @@ test("sync preserves the init distribution boundary", () => {
   }
   assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
   assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-template")));
+  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")));
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), false);
 });
 
 test("attach verifies the generated template under an ASCII locale", () => {
@@ -634,16 +631,18 @@ test("sync updates unchanged managed files and restores missing managed files", 
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
+  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
   const originalReadme = fs.readFileSync(readmePath, "utf8");
+  const originalManaged = fs.readFileSync(managedPath, "utf8");
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
 
-  const legacyReadme = originalReadme.replace("默认 Issue Tracker：github", "默认 Issue Tracker：jira");
-  fs.writeFileSync(readmePath, legacyReadme, "utf8");
+  const legacyManaged = `${originalManaged}\nlegacy\n`;
+  fs.writeFileSync(managedPath, legacyManaged, "utf8");
   fs.rmSync(restoredPath, { force: true });
 
   metadata.templateVersion = "0.9.0";
-  metadata.managedFiles["README.md"].contentHash = sha256(legacyReadme);
+  metadata.managedFiles["docs/templates/spec-template.md"].contentHash = sha256(legacyManaged);
   delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
   fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n", "utf8");
 
@@ -657,16 +656,14 @@ test("sync updates unchanged managed files and restores missing managed files", 
   assert.match(syncResult.stdout, /0\.9\.0/);
   assert.match(syncResult.stdout, new RegExp(packageVersion.replace(/\./g, "\\.")));
   assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
+  assert.equal(fs.readFileSync(managedPath, "utf8"), originalManaged);
   assert.ok(fs.existsSync(restoredPath));
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
 
   const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   assert.equal(syncedMetadata.templateVersion, packageVersion);
-  assert.equal(
-    syncedMetadata.managedFiles["README.md"].contentHash,
-    sha256(originalReadme),
-  );
+  assert.equal(syncedMetadata.managedFiles["README.md"], undefined);
   assert.ok(
     syncedMetadata.managedFiles["docs/templates/spec-delta-template.md"],
   );
@@ -697,16 +694,18 @@ test("sync dry-run previews changes without mutating files or metadata", () => {
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
+  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
   const originalReadme = fs.readFileSync(readmePath, "utf8");
+  const originalManaged = fs.readFileSync(managedPath, "utf8");
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-  const legacyReadme = originalReadme.replace("默认 Issue Tracker：github", "默认 Issue Tracker：youtrack");
+  const legacyManaged = `${originalManaged}\nlegacy\n`;
 
-  fs.writeFileSync(readmePath, legacyReadme, "utf8");
+  fs.writeFileSync(managedPath, legacyManaged, "utf8");
   fs.rmSync(restoredPath, { force: true });
 
   metadata.templateVersion = "0.8.0";
-  metadata.managedFiles["README.md"].contentHash = sha256(legacyReadme);
+  metadata.managedFiles["docs/templates/spec-template.md"].contentHash = sha256(legacyManaged);
   delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
   const beforeDryRunMetadata = `${JSON.stringify(metadata, null, 2)}\n`;
   fs.writeFileSync(metadataPath, beforeDryRunMetadata, "utf8");
@@ -720,9 +719,10 @@ test("sync dry-run previews changes without mutating files or metadata", () => {
   assert.match(result.stdout, /sync dry-run/i);
   assert.match(result.stdout, /0\.8\.0/);
   assert.match(result.stdout, new RegExp(packageVersion.replace(/\./g, "\\.")));
-  assert.match(result.stdout, /update: README\.md/);
+  assert.match(result.stdout, /update: docs\/templates\/spec-template\.md/);
   assert.match(result.stdout, /add: docs\/templates\/spec-delta-template\.md/);
-  assert.equal(fs.readFileSync(readmePath, "utf8"), legacyReadme);
+  assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
+  assert.equal(fs.readFileSync(managedPath, "utf8"), legacyManaged);
   assert.equal(fs.existsSync(restoredPath), false);
   assert.equal(fs.readFileSync(metadataPath, "utf8"), beforeDryRunMetadata);
 });
@@ -816,6 +816,7 @@ test("sync skips locally modified managed files and reports removed managed file
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
+  const customizablePath = path.join(targetDir, "CLAUDE.md");
   const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
   const removedPath = path.join(targetDir, "docs/legacy-note.md");
   const removedTemplateSourcePath = path.join(
@@ -828,6 +829,7 @@ test("sync skips locally modified managed files and reports removed managed file
   );
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   const localReadme = `${fs.readFileSync(readmePath, "utf8")}\n本地说明：不要覆盖\n`;
+  fs.writeFileSync(customizablePath, "local agent instructions\n", "utf8");
 
   fs.writeFileSync(readmePath, localReadme, "utf8");
   fs.rmSync(restoredPath, { force: true });
@@ -861,7 +863,7 @@ test("sync skips locally modified managed files and reports removed managed file
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /跳过文件：1/);
   assert.match(result.stdout, /删除差异：3/);
-  assert.match(result.stdout, /README\.md/);
+  assert.match(result.stdout, /CLAUDE\.md/);
   assert.match(result.stdout, /docs\/legacy-note\.md/);
   assert.match(result.stdout, /\.template-source\/legacy-review\.md/);
   assert.match(result.stdout, /docs\/reviews\/legacy-review\.md/);
@@ -873,15 +875,9 @@ test("sync skips locally modified managed files and reports removed managed file
   assert.ok(fs.existsSync(removedReviewsPath));
 
   const syncedMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-  assert.equal(syncedMetadata.managedFiles["docs/legacy-note.md"], undefined);
-  assert.equal(
-    syncedMetadata.managedFiles[".template-source/legacy-review.md"],
-    undefined,
-  );
-  assert.equal(
-    syncedMetadata.managedFiles["docs/reviews/legacy-review.md"],
-    undefined,
-  );
+  assert.ok(syncedMetadata.managedFiles["docs/legacy-note.md"]);
+  assert.ok(syncedMetadata.managedFiles[".template-source/legacy-review.md"]);
+  assert.ok(syncedMetadata.managedFiles["docs/reviews/legacy-review.md"]);
 });
 
 test("attach dry-run previews an arbitrary existing project without writing or deleting .git", () => {
@@ -947,14 +943,14 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.match(result.stdout, /接管完成/);
   assert.equal(fs.readFileSync(runtimeFile, "utf8"), "module.exports = 'runtime';\n");
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
-  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".qoder/skills/to-spec/SKILL.md")), true);
   assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
-  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-skill-governance")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-skill-governance")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), true);
   assert.equal(
     fs.existsSync(path.join(targetDir, ".agents/skills/ytable-usage/SKILL.md")),
@@ -981,7 +977,7 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.match(metadata.templateCommit, /^[0-9a-f]{40}$/);
 });
 
-test("attach requires --force for root conflicts and keeps an external backup", () => {
+test("attach preserves an existing project README without requiring force", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "conflicting-application");
   const readmePath = path.join(targetDir, "README.md");
@@ -1006,33 +1002,12 @@ test("attach requires --force for root conflicts and keeps an external backup", 
     { cwd: repoRoot, encoding: "utf8" },
   );
 
-  assert.notEqual(blockedResult.status, 0);
-  assert.match(`${blockedResult.stdout}${blockedResult.stderr}`, /conflict|--force/i);
+  assert.equal(blockedResult.status, 0, blockedResult.stderr);
   assert.equal(fs.readFileSync(readmePath, "utf8"), "local README\n");
-  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
+  assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), true);
 
-  const forcedResult = spawnSync(
-    process.execPath,
-    [
-      cliBin,
-      "attach",
-      "--target-dir",
-      targetDir,
-      "--project-name",
-      "Conflict Application",
-      "--business-domain",
-      "Operations",
-      "--apply",
-      "--force",
-    ],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-
-  assert.equal(forcedResult.status, 0, forcedResult.stderr);
-  assert.match(forcedResult.stdout, /备份目录/);
-  const backupPath = forcedResult.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
-  assert.ok(backupPath);
-  assert.equal(fs.readFileSync(path.join(backupPath, "README.md"), "utf8"), "local README\n");
+  const metadata = JSON.parse(fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"));
+  assert.equal(metadata.managedFiles["README.md"], undefined);
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
 });
 
@@ -1193,7 +1168,7 @@ test("attach blocks a conflicting legacy issues migration before writing", () =>
   assert.equal(fs.existsSync(path.join(targetDir, metadataFileName)), false);
 });
 
-test("sync force overwrites a managed conflict and retains an external backup", () => {
+test("sync force preserves project-owned README", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "force-sync-project");
   const initResult = spawnSync(
@@ -1212,7 +1187,6 @@ test("sync force overwrites a managed conflict and retains an external backup", 
   assert.equal(initResult.status, 0, initResult.stderr);
 
   const readmePath = path.join(targetDir, "README.md");
-  const originalReadme = fs.readFileSync(readmePath, "utf8");
   fs.writeFileSync(readmePath, "local README\n", "utf8");
 
   const result = spawnSync(
@@ -1222,10 +1196,9 @@ test("sync force overwrites a managed conflict and retains an external backup", 
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
-  const backupPath = result.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
-  assert.ok(backupPath);
-  assert.equal(fs.readFileSync(path.join(backupPath, "README.md"), "utf8"), "local README\n");
+  assert.equal(fs.readFileSync(readmePath, "utf8"), "local README\n");
+  const metadata = JSON.parse(fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"));
+  assert.equal(metadata.managedFiles["README.md"], undefined);
 });
 
 test("sync force preserves flat tickets without treating them as legacy migrations", () => {
@@ -1261,7 +1234,7 @@ test("sync force preserves flat tickets without treating them as legacy migratio
   assert.equal(fs.readFileSync(ticketPath, "utf8"), "# Data standard ticket\n");
 });
 
-test("sync force does not overwrite a file outside the managed baseline", () => {
+test("sync force does not overwrite a non-baseline managed file", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "unmanaged-sync-project");
   const initResult = spawnSync(
@@ -1279,11 +1252,11 @@ test("sync force does not overwrite a file outside the managed baseline", () => 
   );
   assert.equal(initResult.status, 0, initResult.stderr);
 
-  const readmePath = path.join(targetDir, "README.md");
+  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
   const metadataPath = path.join(targetDir, metadataFileName);
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-  fs.writeFileSync(readmePath, "local unmanaged README\n", "utf8");
-  delete metadata.managedFiles["README.md"];
+  fs.writeFileSync(managedPath, "local unmanaged template\n", "utf8");
+  delete metadata.managedFiles["docs/templates/spec-template.md"];
   fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
 
   const result = spawnSync(
@@ -1293,11 +1266,11 @@ test("sync force does not overwrite a file outside the managed baseline", () => 
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /README\.md/);
-  assert.equal(fs.readFileSync(readmePath, "utf8"), "local unmanaged README\n");
+  assert.match(result.stdout, /docs\/templates\/spec-template\.md/);
+  assert.equal(fs.readFileSync(managedPath, "utf8"), "local unmanaged template\n");
   const backupPath = result.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
   assert.ok(backupPath);
-  assert.equal(fs.existsSync(path.join(backupPath, "README.md")), false);
+  assert.equal(fs.existsSync(path.join(backupPath, "docs/templates/spec-template.md")), false);
 });
 
 test("sync converts a valid template-source identity to project-instance", () => {

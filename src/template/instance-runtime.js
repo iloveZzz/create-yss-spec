@@ -9,6 +9,11 @@ const { targetPath, pathKind, normalizeRelativePath } = require("../filesystem/p
 const { validateTemplateSnapshot } = require("../validation/snapshot");
 const { validateTemplateMetadata } = require("../validation/metadata");
 const {
+  extractManagedGitignoreBlock,
+  mergeManagedGitignoreBlock,
+  markerState,
+} = require("./gitignore-section");
+const {
   parseRepositoryIdentity,
   convertTemplateSourceToInstance,
 } = require("../validation/identity");
@@ -159,21 +164,10 @@ function renderTemplateFile(relativePath, content, variables) {
   }
 
   if (relativePath === "README.md") {
-    const renderedContent = content
-      .replace(/^# YSS Spec Project Template/m, `# ${variables.projectName}`)
-      .replace(
-        /^> Matt Pocock Engineering Skills/m,
-        `> 默认 Issue Tracker：${variables.issueTracker}\n>\n> Matt Pocock Engineering Skills`,
-      );
-
-    if (!variables.includeExampleDocs) {
-      return renderedContent.replace(
-        /^\| \[docs\/plan\/IDEATION\.md\]\(\.\/docs\/plan\/IDEATION\.md\) \|.*\r?\n/m,
-        "",
-      );
-    }
-    return renderedContent;
+    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n`;
   }
+
+  if (relativePath === ".gitignore") return extractManagedGitignoreBlock(content);
 
   return content;
 }
@@ -273,9 +267,46 @@ function buildDesiredManagedOperations(targetDir, variables, mode = "managed") {
     .map((operation) => buildDesiredManagedFile(operation, variables));
 }
 
+function adaptGitignoreOperation(
+  operation,
+  targetDir,
+  { attach = false, legacyBaselineHash = null } = {},
+) {
+  if (operation.relativePath !== ".gitignore") return operation;
+  const kind = pathKind(operation.targetPath);
+  if (kind === "missing") return operation;
+  if (kind !== "file") return { ...operation, unsafeReason: `.gitignore 路径类型为 ${kind}` };
+  const currentContent = fs.readFileSync(operation.targetPath, "utf8");
+  const state = markerState(currentContent);
+  if (state.kind === "invalid") {
+    return { ...operation, unsafeReason: ".gitignore managed rules 标记无效" };
+  }
+  const legacyBaselineMatch =
+    state.kind === "absent" &&
+    typeof legacyBaselineHash === "string" &&
+    sha256(currentContent) === legacyBaselineHash;
+  const desiredContent = legacyBaselineMatch
+    ? operation.desiredContent
+    : mergeManagedGitignoreBlock(currentContent, operation.desiredContent);
+  return {
+    ...operation,
+    desiredContent,
+    desiredHash: sha256(desiredContent),
+    safeSectionMerge: state.kind === "valid" || attach || legacyBaselineMatch,
+    legacyBaselineConversion: legacyBaselineMatch,
+  };
+}
+
 function buildSyncDesiredOperations(targetDir, metadata, identity) {
   const variables = buildSyncVariables(metadata);
-  return buildDesiredManagedOperations(targetDir, variables, "init").map((operation) => {
+  return buildDesiredManagedOperations(targetDir, variables, "init")
+    .filter((operation) => operation.relativePath !== "README.md")
+    .map((operation) =>
+      adaptGitignoreOperation(operation, targetDir, {
+        legacyBaselineHash: metadata.managedFiles?.[".gitignore"]?.contentHash || null,
+      }),
+    )
+    .map((operation) => {
     if (
       operation.relativePath !== "yss-project.yaml" ||
       identity.state !== "valid" ||
@@ -296,7 +327,10 @@ function buildSyncDesiredOperations(targetDir, metadata, identity) {
 }
 
 function buildAttachDesiredOperations(targetDir, variables, identity) {
-  return buildDesiredManagedOperations(targetDir, variables, "managed").map((operation) => {
+  return buildDesiredManagedOperations(targetDir, variables, "managed")
+    .filter((operation) => operation.relativePath !== "README.md")
+    .map((operation) => adaptGitignoreOperation(operation, targetDir, { attach: true }))
+    .map((operation) => {
     if (operation.relativePath !== "yss-project.yaml" || identity.state === "missing") {
       return operation;
     }
@@ -351,7 +385,7 @@ function loadTemplateMetadata(targetDir) {
 function collectManagedFiles(desiredOperations) {
   const managedFiles = {};
   for (const operation of desiredOperations) {
-    if (pathKind(operation.targetPath) !== "file") continue;
+    if (operation.relativePath === "README.md" || pathKind(operation.targetPath) !== "file") continue;
     managedFiles[operation.relativePath] = {
       type: operation.type,
       contentHash: fileHash(operation.targetPath),
@@ -394,9 +428,9 @@ function writeTemplateMetadata(targetDir, metadata, transaction = null) {
 
 function buildNextSyncMetadata(metadata, syncPlan) {
   const nextManagedFiles = { ...(metadata.managedFiles || {}) };
-  for (const relativePath of syncPlan.removed) {
-    delete nextManagedFiles[relativePath];
-  }
+  delete nextManagedFiles["README.md"];
+  for (const relativePath of syncPlan.alreadyMissing || []) delete nextManagedFiles[relativePath];
+  for (const relativePath of syncPlan.pruned || []) delete nextManagedFiles[relativePath];
   for (const operation of syncPlan.desiredOperations) {
     if (pathKind(operation.targetPath) !== "file") continue;
     const currentHash = fileHash(operation.targetPath);
@@ -432,8 +466,7 @@ function verifyGeneratedSyncInstance(targetDir) {
   }
 
   const agentsContent = fs.readFileSync(targetPath(targetDir, "AGENTS.md"), "utf8");
-  const readmeContent = fs.readFileSync(targetPath(targetDir, "README.md"), "utf8");
-  if (agentsContent.includes("[填写]") || readmeContent.includes("[填写]")) {
+  if (agentsContent.includes("[填写]")) {
     throw new Error("初始化结果仍包含模板占位信息");
   }
 }

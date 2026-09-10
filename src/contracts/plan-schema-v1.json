@@ -110,6 +110,26 @@
     "migration": {
       "type": ["object", "null"],
       "additionalProperties": true
+    },
+    "prunable": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pruned": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "retainedRemoved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
     }
   }
 }

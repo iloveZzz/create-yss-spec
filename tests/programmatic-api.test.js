@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -102,6 +103,22 @@ test("programmatic API plans, diagnoses and applies without CLI argv", () => {
       manualResult.skipped.find((item) => item.path === "CONTEXT.md")?.mergeStrategy,
       "manual",
     );
+
+    const retiredRelativePath = "scripts/retired-api-tool";
+    const retiredPath = path.join(targetDir, retiredRelativePath);
+    const retiredContent = "retired through API\n";
+    fs.writeFileSync(retiredPath, retiredContent);
+    const metadataPath = path.join(targetDir, ".yss-template.json");
+    const pruneMetadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    pruneMetadata.managedFiles[retiredRelativePath] = {
+      type: "copy",
+      contentHash: crypto.createHash("sha256").update(retiredContent).digest("hex"),
+      ownership: "managed",
+    };
+    fs.writeFileSync(metadataPath, `${JSON.stringify(pruneMetadata, null, 2)}\n`);
+    const pruneResult = templateApply({ targetDir, prune: true });
+    assert.deepEqual(pruneResult.pruned, [retiredRelativePath]);
+    assert.equal(fs.existsSync(retiredPath), false);
   } finally {
     fs.rmSync(sandbox, { recursive: true, force: true });
   }

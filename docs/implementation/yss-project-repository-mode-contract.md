@@ -28,7 +28,7 @@ owner: ai
 
 ### 初始化
 
-空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。init / sync 按显式分发清单只复制项目需要的根规则、文档、skills、共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore`；不复制模板源治理笔记、源仓库 ADR、`.github/`、`.cursor/environment.json`、`wiki/`、`docs/reviews/` 或根 `package.json`。metadata 至少包含：
+空目录初始化仍生成 `schema_version: 1`、`repository_mode: project-instance`，并写入 metadata schema v2。init / sync 按显式分发清单只复制项目需要的根规则、文档、skills、共享 `scripts/`、`scripts/vendor/`、`.nvmrc` 和 `.gitignore` 公共规则区；不复制模板维护工具、维护场景、fixture、源仓库说明或发布证据。README 仅在 init 时生成且不进入 `managedFiles`。metadata 至少包含：
 
 - `cliVersion`
 - `templateSource: github:iloveZzz/yss-spec-project-template`
@@ -51,7 +51,7 @@ npx create-yss-spec@latest attach \
   --apply [--force]
 ```
 
-`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。快照级排除 `.template-source/`、`.github/`、`.cursor/environment.json`、源仓库 ADR、`wiki/`、`docs/reviews/` 和根 `package.json`。`yss-public-skills.json` 仅 init / sync 排除，attach 会带上以便 `verify-template` 通过。
+`attach` 仅处理 manifest 声明的研发管理资产；前后端运行时代码、业务目录、用户文件、README、`.git`、`.gitmodules`、gitlink 和 `apps/` 下已挂载工作树原样保留。必须显式选择 `--dry-run` 或 `--apply`。已有 `.yss-template.json` 时拒绝并提示 `sync`。README 缺失时也不创建；`.gitignore` 缺失时创建公共规则区，已有文件则保留原内容并追加公共规则区。快照级排除 `.template-source/`、`.github/`、`.cursor/environment.json`、源仓库 ADR、`wiki/`、`docs/reviews/` 和根 `package.json`。
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
@@ -67,9 +67,11 @@ npx create-yss-spec@latest attach \
 - dry-run 展示新增、更新、冲突、迁移和模板删除报告。
 - 普通同步新增缺失文件，更新 baseline 未被本地修改的文件，跳过并报告冲突。
 - `sync --force` 先备份，再覆盖受管冲突文件；模板删除默认只报告。
+- `sync --prune` 只备份并删除内容仍等于可信旧 baseline、所有权仍属于模板的退出分发文件；修改文件、项目所有文件、异常路径和基线不足项继续保留并报告。
+- README 在旧 metadata 中仅做所有权交接，保留磁盘内容并移除 baseline；`.gitignore` 只替换有效标记区，旧基线未修改时备份并转换，其他无标记文件要求人工合并。
 - 旧 skill、旧 Spec / Ticket 路径和根 `.scratch/<feature>/` 只在安全迁移计划成功时移动或删除；unsafe / conflict 阻断。现存 `docs/requirements/tickets/` 不属于 sync 迁移范围，目录及其内容原样保留。
 - 空 gitlink、uninitialized、detached HEAD 和 git-submodule 挂载点在写入前 fail closed；`--force` 不能覆盖。
-- init 完成后做实例边界校验（禁止源仓笔记、维护工具和环境配置泄漏）。sync 对已误进实例的 `.template-source/`、`wiki/`、`docs/reviews/` 和源仓库 ADR 只 `remove-report`，不把遗留文件当成校验失败。attach 完成后重新执行 `scripts/sync-skills --check`、`scripts/update-skill-lock --check` 和 `scripts/verify-template`；任一失败则回滚文件并保留旧 metadata 版本。
+- init、attach 和 sync 完成后执行 `scripts/verify-project-instance`。该门禁只检查实例身份、上下文、生命周期注册表、Skill 投影、锁文件和必要脚本，不依赖模板维护策略或发布工具；任一失败则回滚文件并保留旧 metadata 版本。
 
 ## 固定迁移映射
 
@@ -94,9 +96,10 @@ npx create-yss-spec@latest attach \
 | attach 冲突 | 无 force fail closed；force 覆盖并输出外部备份路径 |
 | attach 旧路径迁移 | Spec / Ticket 映射生效；unsafe / conflict 不落盘 |
 | gitlink 挂载点 | 空 gitlink / detached HEAD / `--force` 覆盖均 fail closed，不改 `.gitmodules` |
-| sync baseline | 新增、更新、跳过、删除报告与 metadata 升级通过 |
+| sync baseline | 新增、更新、跳过、删除报告、README 所有权交接与 metadata 升级通过 |
+| sync prune | 默认报告、prune 预览、安全删除、本地修改保留、外部备份、回滚和幂等通过 |
 | sync 现存扁平 Ticket | 不进入迁移计划、不触发 `unsafe`，文件内容原样保留 |
-| post-attach gates | attach 三个模板门禁全部 fresh 通过，失败时文件和 metadata 回滚 |
+| post-attach gates | 项目实例门禁 fresh 通过，失败时文件、`.gitignore` 和 metadata 回滚 |
 | 固定快照 | `YSS_SPEC_TEMPLATE_REF=<pinned-commit> npm test` 与 `npm pack --dry-run` 通过 |
 
 ### 2026-08-26 跨仓库验证回写（`030d806` / CLI `2.2.3`）

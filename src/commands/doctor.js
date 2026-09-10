@@ -37,7 +37,7 @@ const VERIFIERS = [
   },
   {
     name: "verifier-template",
-    path: "scripts/verify-template",
+    path: "scripts/verify-project-instance",
     args: [],
     requiresGit: true,
   },
@@ -75,6 +75,7 @@ function checkManagedBaseline(report, targetDir, metadata) {
   };
 
   for (const [relativePath, record] of Object.entries(managedFiles)) {
+    if (relativePath === "README.md") continue;
     stats.total += 1;
     if (
       !record ||
@@ -392,6 +393,7 @@ function renderDoctorText(report) {
 
 function runDoctor(argv = []) {
   const options = parseArgs(argv);
+  if (options.prune) throw new Error("--prune 仅适用于 sync");
   const targetDir = normalizeTargetDir(options.targetDir);
   const report = buildDoctorReport(targetDir);
 

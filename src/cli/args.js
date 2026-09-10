@@ -36,6 +36,8 @@ function parseArgs(argv = []) {
       options.apply = true;
     } else if (current === "--force") {
       options.force = true;
+    } else if (current === "--prune") {
+      options.prune = true;
     } else if (current === "--git-init") {
       options.gitInit = true;
     } else if (current === "--include-example-docs") {

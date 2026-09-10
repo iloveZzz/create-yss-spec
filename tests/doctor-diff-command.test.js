@@ -87,3 +87,9 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     fs.rmSync(sandbox, { recursive: true, force: true });
   }
 });
+
+test("doctor rejects sync-only prune option", () => {
+  const result = runCli(["doctor", "--prune"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--prune 仅适用于 sync/);
+});

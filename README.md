@@ -2,11 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.3.0`。当前固定模板为 `yss-spec-project-template@e9410b9d451393c0d8f642e5f89b3776abb6b8c2`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.3.2`。当前固定模板为 `yss-spec-project-template@34baac842082db141c81945cc43201b5f7d8e84d`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
 
 ## 本版模板能力
 
-生命周期新增阶段 5 实现仓库准备聚合门禁，只有仓库身份、架构选择与 Project Scaffold Contract 闭合后才进入可实现切片；DDD、Layered MVC 与 Frontend 脚手架统一消费 v4 合同。`yss-product-lifecycle` 同时改为按注册表和编排合同查询所需上下文的薄路由，初始化和同步会分发对应 Skill、Schema 与校验工具。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
+本版分发收敛后的生命周期批准门禁、请求分诊、OpenAPI Draft 实质校验和更快的模板验证调度。CLI 同时强化项目实例边界：README 交给项目维护，`.gitignore` 只更新受管区，`sync --prune` 可安全清理仍等于旧基线的退出分发文件，所有写入继续受事务回滚和实例门禁保护。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 
@@ -46,6 +46,7 @@ CLI 在规划和写入前检查模板家族身份，当前识别：
 - `sync --dry-run`：传统文本预演。
 - `sync --plan`：结构化文本计划。
 - `sync --json`：Plan Schema v1。
+- `sync --prune`：备份并清理仍等于旧受管基线的退出分发文件。
 - `diff / diff --json`：只读差异。
 - `doctor / doctor --json`：只读健康诊断。
 - `update / upgrade`：只更新 CLI 程序，不同步实例资产。
@@ -65,6 +66,8 @@ npx create-yss-spec@latest attach \
 
 npx create-yss-spec@latest sync --target-dir . --dry-run
 npx create-yss-spec@latest sync --target-dir .
+npx create-yss-spec@latest sync --target-dir . --plan --prune
+npx create-yss-spec@latest sync --target-dir . --prune
 ```
 
 同步安全规则：
@@ -73,7 +76,9 @@ npx create-yss-spec@latest sync --target-dir .
 - `replace-with-force` 冲突只有显式 `--force` 才覆盖。
 - `manual` 冲突即使 `--force` 也不会覆盖。
 - `user-owned` / `protected`、gitlink/submodule/detached HEAD、路径越界和中间 symlink 均不可被 force 绕过。
-- 模板删除项只报告，不自动删除。
+- README 仅在初始化时生成，随后由项目维护；attach、sync 和 doctor 均不创建、覆盖或校验。
+- `.gitignore` 只更新 `create-yss-spec managed rules` 标记区，标记外内容原样保留；损坏标记不可被 `--force` 绕过。
+- 模板删除项默认只报告；`--prune` 只清理仍等于可信旧 baseline 的模板所有文件。
 - 校验失败通过 FileTransaction 回滚，并保留必要备份。
 
 ## Programmatic API v1
@@ -97,6 +102,7 @@ const {
 const plan = templatePlan({ targetDir: "/path/to/project" });
 const report = projectDoctor({ targetDir: "/path/to/project" });
 const result = templateApply({ targetDir: "/path/to/project", force: true });
+const pruned = templateApply({ targetDir: "/path/to/project", prune: true });
 ```
 
 返回合同：

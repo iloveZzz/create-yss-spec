@@ -22,6 +22,11 @@ function normalizePlan(plan) {
     blocked: Boolean(plan.blocked),
     stats: plan.stats && typeof plan.stats === "object" ? plan.stats : {},
     migration: plan.migration || null,
+    ...(Array.isArray(plan.prunable) ? { prunable: plan.prunable } : {}),
+    ...(Array.isArray(plan.pruned) ? { pruned: plan.pruned } : {}),
+    ...(Array.isArray(plan.retainedRemoved)
+      ? { retainedRemoved: plan.retainedRemoved }
+      : {}),
   };
 }
 

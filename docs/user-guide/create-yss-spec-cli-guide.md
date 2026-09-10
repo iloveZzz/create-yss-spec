@@ -1,10 +1,10 @@
 # create-yss-spec 使用指南
 
-源码候选版本：`3.1.2`。模板固定到 `017925706a981aec9eadefd470232bb531acd4d6`；最终快照身份与摘要见 `template.snapshot.json`。本次更新用户手册、五家族导航和设备借用教学案例，命令行为沿用既有身份保护。
+源码候选版本：`3.3.2`。模板固定到 `34baac842082db141c81945cc43201b5f7d8e84d`；最终快照身份与摘要见 `template.snapshot.json`。本次更新生命周期门禁、请求分诊、OpenAPI Draft 校验、项目实例分发边界和模板验证调度。
 
 ## 已发布安装与候选版本
 
-截至本轮核验，npm latest 为 `3.1.0`；源码候选尚未发布 npm。后续请自行查询实际发布状态：
+源码候选尚未发布 npm。请用下列命令查询实际发布状态：
 
 ```bash
 npm view create-yss-spec version
@@ -36,9 +36,11 @@ npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" -
 npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --apply
 npx create-yss-spec@latest sync --target-dir . --dry-run
 npx create-yss-spec@latest sync --target-dir .
+npx create-yss-spec@latest sync --target-dir . --plan --prune
+npx create-yss-spec@latest sync --target-dir . --prune
 ```
 
-普通 sync 更新未被用户修改的 baseline，保留用户冲突并报告删除项；force 仅在身份和路径安全检查通过后处理受管冲突。校验失败事务回滚并保留旧 metadata。成功后的撤销用升级前 Git 基线或备份，不用旧 CLI 强制反向同步。运行时代码、Git 与挂载点按现有保护语义处理。
+普通 sync 更新未被用户修改的 baseline，保留用户冲突并报告删除项；显式 `--prune` 只备份并删除仍等于旧 baseline 的模板文件。README 初始化后完全由项目维护，attach、sync、force 和 doctor 都不会创建、覆盖或校验它。`.gitignore` 只更新带标记的公共规则区，标记外内容逐字保留；标记损坏或本地修改过的旧无标记文件必须人工处理。force 仅在身份和路径安全检查通过后处理受管冲突。校验失败事务回滚并保留旧 metadata。成功后的撤销用升级前 Git 基线或备份，不用旧 CLI 强制反向同步。运行时代码、Git 与挂载点按现有保护语义处理。
 
 ## 更新 CLI 程序
 
@@ -61,7 +63,7 @@ npm pack --ignore-scripts
 `--ignore-scripts` 仅在上一步已成功产生并核对固定快照后使用，以免 prepack 改写输入。检查 tgz 中 template.snapshot.json 的模板 SHA 和 package.json 版本，然后使用实际包路径初始化：
 
 ```bash
-npx --yes --package /absolute/path/create-yss-spec-3.1.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
+npx --yes --package /absolute/path/create-yss-spec-3.3.2.tgz create-yss-spec --project-name "设备借用" --business-domain "内部设备管理" --target-dir ./equipment-candidate
 ```
 
 这是安装本地已构建包的示例，不是 npm 发布操作。候选验证需覆盖新建实例的本地文档链接、身份、Skill 检查与适用交接链路；不要把历史验证日志当当前发布证据。

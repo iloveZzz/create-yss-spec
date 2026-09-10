@@ -73,7 +73,8 @@ test("lifecycle runtime annotates customizable and generated operations", () => 
 
   assert.equal(context.ownership, "managed-customizable");
   assert.equal(context.mergeStrategy, "manual");
-  assert.equal(readme.mergeStrategy, "replace-with-force");
+  assert.equal(readme.ownership, "user-owned");
+  assert.equal(readme.mergeStrategy, undefined);
   assert.equal(identity.ownership, "generated");
   assert.equal(identity.generatorId, "repository-identity");
   assert.equal(identity.generatorVersion, 1);

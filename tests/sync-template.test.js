@@ -78,7 +78,19 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     "utf8",
   );
   fs.writeFileSync(path.join(fixtureRoot, ".nvmrc"), "22\n", "utf8");
-  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "node_modules/\n", "utf8");
+  fs.writeFileSync(
+    path.join(fixtureRoot, ".gitignore"),
+    [
+      "# >>> create-yss-spec managed rules",
+      "node_modules/",
+      "# <<< create-yss-spec managed rules",
+      "",
+      "# Template-source only",
+      ".template-source/cache/",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
   fs.mkdirSync(path.join(fixtureRoot, "scripts/vendor"), { recursive: true });
   fs.writeFileSync(path.join(fixtureRoot, "scripts/vendor/yaml.mjs"), "vendor yaml\n", "utf8");
   fs.writeFileSync(path.join(fixtureRoot, "unlisted-root.md"), "must not ship\n", "utf8");
@@ -114,11 +126,15 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
 function createSyncRunner() {
   const runnerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "yss-sync-runner-"));
   fs.mkdirSync(path.join(runnerRoot, "scripts"), { recursive: true });
-  fs.mkdirSync(path.join(runnerRoot, "src"), { recursive: true });
+  fs.mkdirSync(path.join(runnerRoot, "src/template"), { recursive: true });
   fs.copyFileSync(syncScript, path.join(runnerRoot, "scripts/sync-template.js"));
   fs.copyFileSync(
     path.join(repoRoot, "src/template-hash.js"),
     path.join(runnerRoot, "src/template-hash.js"),
+  );
+  fs.copyFileSync(
+    path.join(repoRoot, "src/template/gitignore-section.js"),
+    path.join(runnerRoot, "src/template/gitignore-section.js"),
   );
   fs.copyFileSync(
     path.join(repoRoot, "template.manifest.json"),
@@ -303,7 +319,13 @@ test("sync snapshot remains valid when packaging and running use different local
 
 test("sync encodes npm-ignored dotfiles and records their logical paths", () => {
   const fixtureRoot = createTemplateFixture();
-  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), "ignored\n", "utf8");
+  const managedGitignore = [
+    "# >>> create-yss-spec managed rules",
+    "ignored",
+    "# <<< create-yss-spec managed rules",
+    "",
+  ].join("\n");
+  fs.writeFileSync(path.join(fixtureRoot, ".gitignore"), managedGitignore, "utf8");
   fs.writeFileSync(
     path.join(fixtureRoot, ".agents/skills/shared-skill/.npmrc"),
     "audit=false\n",
@@ -329,7 +351,7 @@ test("sync encodes npm-ignored dotfiles and records their logical paths", () => 
       path.join(runnerRoot, "template/__yss_dotfile__.gitignore"),
       "utf8",
     ),
-    "ignored\n",
+    managedGitignore,
   );
   assert.equal(
     fs.readFileSync(

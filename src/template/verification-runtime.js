@@ -92,7 +92,7 @@ function runTemplateVerificationWithGit(targetDir, scriptPath, args = []) {
   }
 }
 
-function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = false } = {}) {
+function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = false, checkReadme = false } = {}) {
   if (checkForbiddenPaths) {
     const forbiddenPaths = [
       ...INSTANCE_FORBIDDEN_PATHS,
@@ -116,31 +116,22 @@ function verifyGeneratedInstance(targetDir, { checkForbiddenPaths = false } = {}
   }
 
   const agentsContent = fs.readFileSync(targetPath(targetDir, "AGENTS.md"), "utf8");
-  const readmeContent = fs.readFileSync(targetPath(targetDir, "README.md"), "utf8");
+  const readmeContent = checkReadme
+    ? fs.readFileSync(targetPath(targetDir, "README.md"), "utf8")
+    : "";
   if (agentsContent.includes("[填写]") || readmeContent.includes("[填写]")) {
     throw new Error("初始化结果仍包含模板占位信息");
   }
 }
 
 function verifyGeneratedInit(targetDir) {
-  verifyGeneratedInstance(targetDir, { checkForbiddenPaths: true });
+  verifyGeneratedInstance(targetDir, { checkForbiddenPaths: true, checkReadme: true });
+  runTemplateVerification(targetDir, "scripts/verify-project-instance", []);
 }
 
 function verifyGeneratedAttach(targetDir) {
-  runTemplateVerification(targetDir, "scripts/sync-skills");
-  runTemplateVerification(targetDir, "scripts/update-skill-lock");
-  // Attach validates the generated project instance, not the template source
-  // release candidate. The release profile intentionally runs source-governance
-  // checks (including external tooling such as ripgrep) that are inappropriate
-  // as a runtime dependency for end-user projects. Use the fast profile with a
-  // known routed instance path so required files, repository identity and
-  // read-only Git invariants are still checked without escalating to release.
-  runTemplateVerificationWithGit(targetDir, "scripts/run-template-verification", [
-    "--profile",
-    "fast",
-    "--changed-file",
-    "README.md",
-  ]);
+  verifyGeneratedInstance(targetDir);
+  runTemplateVerification(targetDir, "scripts/verify-project-instance", []);
 }
 
 module.exports = {
@@ -151,4 +142,5 @@ module.exports = {
   verifyGeneratedInstance,
   verifyGeneratedInit,
   verifyGeneratedAttach,
+  verifyGeneratedProjectInstance: verifyGeneratedAttach,
 };

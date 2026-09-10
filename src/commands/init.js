@@ -117,6 +117,7 @@ function parentDirectoryOperations(desiredOperations, targetDir) {
 
 async function runInit(argv = []) {
   const options = parseArgs(argv);
+  if (options.prune) throw new Error("--prune 仅适用于 sync");
   if (options.help) {
     printHelp(PACKAGE_MANIFEST.version);
     return;
@@ -135,7 +136,11 @@ async function runInit(argv = []) {
   assertTargetFamily(targetDir);
   const targetState = inspectTargetDir(targetDir, promptedOptions.force);
   const desiredOperations = applyOwnershipToOperations(
-    buildDesiredManagedOperations(targetDir, promptedOptions, "init"),
+    buildDesiredManagedOperations(targetDir, promptedOptions, "init").map((operation) =>
+      operation.relativePath === "README.md"
+        ? { ...operation, ownership: "generated" }
+        : operation,
+    ),
   );
   assertWritableTemplateOperations(desiredOperations);
   const directoryOperations = parentDirectoryOperations(desiredOperations, targetDir);

@@ -155,6 +155,7 @@ function affectedPathsForMigration(migrationPlan) {
 
 function runAttach(argv = []) {
   const options = parseArgs(argv);
+  if (options.prune) throw new Error("--prune 仅适用于 sync");
   assertRequiredOptions(options);
 
   if (options.dryRun && options.apply) {
@@ -192,7 +193,7 @@ function runAttach(argv = []) {
     migration: migrationPlan,
     warning,
     getUnmanagedReason: (operation) =>
-      unmanagedPathReason(targetDir, operation.relativePath, {
+      operation.unsafeReason || unmanagedPathReason(targetDir, operation.relativePath, {
         packageRoot: PACKAGE_ROOT,
       }),
     getPathKind: (operation) => pathKind(operation.targetPath),

@@ -7,6 +7,7 @@ const { projectDiff } = require("../api/project-diff");
 
 function runDiff(argv = []) {
   const options = parseArgs(argv);
+  if (options.prune) throw new Error("--prune 仅适用于 sync");
   const plan = projectDiff({
     targetDir: options.targetDir || ".",
     force: Boolean(options.force),

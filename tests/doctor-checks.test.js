@@ -63,6 +63,29 @@ test("managed baseline reports matched and modified files without mutating them"
   }
 });
 
+test("managed baseline ignores legacy README ownership records", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "yss-doctor-readme-"));
+  try {
+    fs.writeFileSync(path.join(root, "README.md"), "project-owned content\n");
+    const result = report();
+    checkManagedBaseline(result, root, {
+      managedFiles: {
+        "README.md": { contentHash: sha256("legacy template content\n") },
+      },
+    });
+    assert.equal(result.checks[0].status, "ok");
+    assert.deepEqual(result.checks[0].data, {
+      total: 0,
+      matched: 0,
+      modified: 0,
+      missing: 0,
+      invalid: 0,
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("managed baseline fails closed on malformed records", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "yss-doctor-invalid-"));
   try {

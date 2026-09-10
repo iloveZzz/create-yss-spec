@@ -49,6 +49,11 @@ function classifySyncOperations({
 
     const currentHash = getFileHash(operation);
 
+    if (operation.safeSectionMerge && currentHash !== operation.desiredHash) {
+      updated.push(operation);
+      continue;
+    }
+
     if (operation.identityConversion && currentHash === operation.identitySourceHash) {
       updated.push(operation);
       continue;

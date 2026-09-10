@@ -44,6 +44,8 @@ function classifyAttachOperations({
     const currentHash = getFileHash(operation);
     if (currentHash === operation.desiredHash) {
       matched.push(operation);
+    } else if (operation.safeSectionMerge) {
+      identity.push(operation);
     } else if (operation.identityConversion) {
       identity.push(operation);
     } else {

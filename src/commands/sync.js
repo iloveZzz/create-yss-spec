@@ -69,7 +69,11 @@ function printSyncDryRun(context) {
     (operation) => `unsafe: ${operation.relativePath} (${operation.reason})`,
   );
   printLimitedOperations(
-    syncPlan.removed,
+    syncPlan.prunable || [],
+    (relativePath) => `prunable: ${relativePath}`,
+  );
+  printLimitedOperations(
+    (syncPlan.retainedRemoved || []).map((item) => item.path),
     (relativePath) => `remove-report: ${relativePath}`,
   );
   console.log(`unchanged: ${syncPlan.unchanged.length}`);
@@ -106,7 +110,10 @@ function runSync(argv = []) {
     printMigrationPlan(context.migrationPlan);
   }
 
-  const result = applySyncContext(context, { force: Boolean(options.force) });
+  const result = applySyncContext(context, {
+    force: Boolean(options.force),
+    prune: Boolean(options.prune),
+  });
 
   console.log("同步完成");
   console.log(
@@ -116,6 +123,7 @@ function runSync(argv = []) {
   console.log(`新增文件：${result.stats.added}`);
   console.log(`跳过文件：${result.stats.skipped}`);
   console.log(`删除差异：${result.stats.removed}`);
+  console.log(`安全清理：${result.stats.pruned}`);
 
   if (result.skipped.length > 0) {
     console.log("本地已修改，已跳过：");
@@ -123,11 +131,17 @@ function runSync(argv = []) {
       console.log(`- ${item.path}: ${item.reason}`);
     }
   }
-  if (result.removed.length > 0) {
+  const pruned = new Set(result.pruned || []);
+  const pendingRemoved = result.removed.filter((relativePath) => !pruned.has(relativePath));
+  if (pendingRemoved.length > 0) {
     console.log("模板已移除但未自动删除：");
-    for (const relativePath of result.removed) {
+    for (const relativePath of pendingRemoved) {
       console.log(`- ${relativePath}`);
     }
+  }
+  if (result.retainedRemoved.length > 0) {
+    console.log("退出分发面但已保留：");
+    for (const item of result.retainedRemoved) console.log(`- ${item.path}: ${item.reason}`);
   }
   if (result.backupPath) {
     console.log(`备份目录：${result.backupPath}`);

@@ -4,6 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { treeHash } = require("../src/template-hash");
+const { extractManagedGitignoreBlock } = require("../src/template/gitignore-section");
 
 const packageRoot = path.resolve(__dirname, "..");
 const targetTemplateRoot = path.join(packageRoot, "template");
@@ -17,7 +18,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "6bce469ddca4d9a85db13fe517973be6bb28a238";
+const DEFAULT_TEMPLATE_REF = "34baac842082db141c81945cc43201b5f7d8e84d";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
@@ -46,6 +47,7 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot, { includeUntrac
   const excludedRootEntries = new Set([...manifest.excludeRootEntries, "dist"]);
   const excludedRootFiles = new Set(manifest.excludeRootFiles);
   const excludedPaths = new Set(manifest.excludePaths);
+  const excludedPathSuffixes = manifest.excludePathSuffixes || [];
   const trackedFiles = run(
     "git",
     includeUntracked
@@ -58,6 +60,7 @@ function copyTrackedFiles(sourceRoot, manifest, destinationRoot, { includeUntrac
   const resolvedCheckoutRoot = fs.realpathSync(sourceRoot);
 
   const shouldCopy = (relativePath) => {
+    if (excludedPathSuffixes.some((suffix) => relativePath.endsWith(suffix))) return false;
     const segments = relativePath.split("/");
     if (allowedRootEntries && allowedRootFiles) {
       const allowed = segments.length === 1
@@ -365,9 +368,11 @@ function assertSnapshotDistribution(stagingRoot, manifest, encodedPaths) {
   const allowedRootFiles = new Set(manifest.allowRootFiles || []);
   const allowedFiles = new Set(manifest.allowFiles || []);
   const excludedPaths = new Set(manifest.excludePaths || []);
+  const excludedPathSuffixes = manifest.excludePathSuffixes || [];
   const logicalPathFor = (relativePath) => logicalByEncodedPath.get(relativePath) || relativePath;
   const allowed = (relativePath) => {
     const logicalPath = logicalPathFor(relativePath);
+    if (excludedPathSuffixes.some((suffix) => logicalPath.endsWith(suffix))) return false;
     const segments = logicalPath.split("/");
     if (segments.length === 1) {
       return allowedRootFiles.has(logicalPath);
@@ -401,6 +406,63 @@ function assertSnapshotDistribution(stagingRoot, manifest, encodedPaths) {
   }
 }
 
+function renderProjectInstanceDocuments(stagingRoot) {
+  const gitignorePath = path.join(stagingRoot, ".gitignore");
+  if (fs.existsSync(gitignorePath)) {
+    const source = fs.readFileSync(gitignorePath, "utf8");
+    fs.writeFileSync(gitignorePath, extractManagedGitignoreBlock(source), "utf8");
+  }
+  const agentsPath = path.join(stagingRoot, "AGENTS.md");
+  if (fs.existsSync(agentsPath)) {
+    const source = fs.readFileSync(agentsPath, "utf8");
+    fs.writeFileSync(
+      agentsPath,
+      source.replace(/\n## 4\. `template-source` 模板维护路由[\s\S]*?(?=\n## 5\.)/, ""),
+      "utf8",
+    );
+  }
+  const tailoringPath = path.join(stagingRoot, "docs/process/harness-process-tailoring.md");
+  if (fs.existsSync(tailoringPath)) {
+    const source = fs.readFileSync(tailoringPath, "utf8")
+      .replace(/\n## 4\. 模板维护验证与审查强度分级[\s\S]*?(?=\n## 5\.)/, "")
+      .replace(/\n模板维护默认停在 `implementation-ready`[\s\S]*$/, "\n");
+    fs.writeFileSync(tailoringPath, source, "utf8");
+  }
+  const integrationPath = path.join(stagingRoot, "docs/process/implementation-repo-integration.md");
+  if (fs.existsSync(integrationPath)) {
+    const source = fs.readFileSync(integrationPath, "utf8")
+      .replace(/\n## 3\. 本变更的跨仓库合同[\s\S]*$/, "\n");
+    fs.writeFileSync(integrationPath, source, "utf8");
+  }
+}
+
+function assertProjectInstanceBoundary(stagingRoot) {
+  const forbidden = [
+    "scripts/run-template-verification",
+    "scripts/lib/template-verification-runner.mjs",
+    "scripts/verify-template",
+    "scripts/verify-template-fast",
+    "scripts/verify-template-candidate",
+    "scripts/prepare-maintenance-review",
+    "scripts/fixtures/maintenance-review",
+  ];
+  for (const relativePath of forbidden) {
+    if (fs.existsSync(path.join(stagingRoot, relativePath))) {
+      throw new Error(`项目实例快照包含模板维护资产：${relativePath}`);
+    }
+  }
+  const scriptsRoot = path.join(stagingRoot, "scripts");
+  if (fs.existsSync(scriptsRoot)) {
+    for (const entry of fs.readdirSync(scriptsRoot, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const content = fs.readFileSync(path.join(scriptsRoot, entry.name), "utf8");
+      if (/\.(?:template-source)\//.test(content) || /submodules\//.test(content)) {
+        throw new Error(`项目实例可执行入口包含模板源路径：scripts/${entry.name}`);
+      }
+    }
+  }
+}
+
 const manifest = JSON.parse(fs.readFileSync(targetManifestPath, "utf8"));
 const checkoutRoot = fs.mkdtempSync(
   path.join(os.tmpdir(), "yss-spec-template-"),
@@ -419,6 +481,8 @@ try {
   copyTrackedFiles(sourceRoot, manifest, stagingRoot, { includeUntracked: sourceRoot !== checkoutRoot });
   materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
+  renderProjectInstanceDocuments(stagingRoot);
+  assertProjectInstanceBoundary(stagingRoot);
   const encodedPaths = encodeNpmIgnoredDotfiles(stagingRoot);
   assertSnapshotDistribution(stagingRoot, manifest, encodedPaths);
   const templateCommit = run("git", ["rev-parse", "HEAD"], sourceRoot).trim();

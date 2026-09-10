@@ -37,7 +37,8 @@ Contract：`src/contracts/ownership-policy-v1.json`
   "version": 1,
   "default": "managed",
   "rules": [
-    { "pattern": "README.md", "ownership": "managed-customizable" },
+    { "pattern": "README.md", "ownership": "user-owned" },
+    { "pattern": ".gitignore", "ownership": "managed-customizable" },
     { "pattern": "apps/**", "ownership": "user-owned" },
     { "pattern": ".git/**", "ownership": "protected" }
   ]
@@ -65,6 +66,8 @@ CLI / Programmatic API
 ```
 
 Init 在实际写入前直接执行 ownership guard。
+
+README 是 init 的一次性生成种子，写入后立即归项目所有且不进入受管 baseline。`.gitignore` 仅管理标记区，项目内容保留在标记外。
 
 ## Metadata baseline
 

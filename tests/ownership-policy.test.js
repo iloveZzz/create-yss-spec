@@ -88,7 +88,7 @@ test("ownership runtime annotates operations and Plan output", () => {
   ]);
   assert.deepEqual(
     operations.map((operation) => operation.ownership),
-    ["managed-customizable", "generated"],
+    ["user-owned", "generated"],
   );
 
   const plan = decoratePlanWithOwnership(
@@ -103,6 +103,6 @@ test("ownership runtime annotates operations and Plan output", () => {
     },
     operations,
   );
-  assert.equal(plan.changes[0].ownership, "managed-customizable");
+  assert.equal(plan.changes[0].ownership, "user-owned");
   assert.equal(plan.changes[1].ownership, "generated");
 });
