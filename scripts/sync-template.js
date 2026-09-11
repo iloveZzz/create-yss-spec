@@ -18,7 +18,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "bf18b7898b030da4406aff92b2a13742c596ff09";
+const DEFAULT_TEMPLATE_REF = "857265c065d48198aaa2a8bcece22da5885daf7b";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
@@ -470,12 +470,13 @@ const stagingRoot = fs.mkdtempSync(
 
 try {
   const sourceRoot = isLocalRepo(templateRepo) ? path.resolve(templateRepo) : checkoutRoot;
+  const useLocalWorkingTree = sourceRoot !== checkoutRoot;
   if (sourceRoot === checkoutRoot) {
     run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
     run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
     run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
   }
-  copyTrackedFiles(sourceRoot, manifest, stagingRoot, { includeUntracked: sourceRoot !== checkoutRoot });
+  copyTrackedFiles(sourceRoot, manifest, stagingRoot, { includeUntracked: useLocalWorkingTree });
   materializeSharedSkillProjections(stagingRoot);
   refreshBundledSkillLock(stagingRoot);
   renderProjectInstanceDocuments(stagingRoot);
@@ -483,13 +484,15 @@ try {
   const encodedPaths = encodeNpmIgnoredDotfiles(stagingRoot);
   assertSnapshotDistribution(stagingRoot, manifest, encodedPaths);
   const templateCommit = run("git", ["rev-parse", "HEAD"], sourceRoot).trim();
+  const sourceState = useLocalWorkingTree ? "working-tree" : "committed";
   const snapshotMetadata = {
     schemaVersion: 1,
     templateName: "yss-spec-project-template",
     templateSource: "github:iloveZzz/yss-spec-project-template",
     templateRepository: defaultRemote,
-    requestedRef: templateCommit,
+    requestedRef: sourceState === "working-tree" ? "working-tree" : templateCommit,
     templateCommit,
+    sourceState,
     manifestHash: sha256(fs.readFileSync(targetManifestPath)),
     encodedPaths,
     snapshotHash: treeHash(stagingRoot),
@@ -498,7 +501,9 @@ try {
   replaceTemplateRoot(stagingRoot, snapshotMetadata);
 
   console.log(
-    `已从 ${templateRepo}#${templateRef} 同步模板快照（commit ${templateCommit}）`,
+    useLocalWorkingTree
+      ? `已从本地工作树 ${sourceRoot} 同步模板快照（HEAD ${templateCommit}）`
+      : `已从 ${templateRepo}#${templateRef} 同步模板快照（commit ${templateCommit}）`,
   );
 } finally {
   fs.rmSync(checkoutRoot, { recursive: true, force: true });

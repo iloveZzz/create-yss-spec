@@ -978,6 +978,11 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(metadata.metadataSchemaVersion, 2);
   assert.equal(metadata.cliVersion, packageVersion);
   assert.match(metadata.templateCommit, /^[0-9a-f]{40}$/);
+  const snapshot = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "template.snapshot.json"), "utf8"),
+  );
+  assert.equal(metadata.templateSourceState, snapshot.sourceState);
+  assert.match(metadata.snapshotHash, /^[0-9a-f]{64}$/);
 });
 
 test("attach preserves an existing project README without requiring force", () => {

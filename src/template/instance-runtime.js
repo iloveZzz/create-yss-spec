@@ -395,13 +395,16 @@ function collectManagedFiles(desiredOperations) {
 }
 
 function buildMetadata(variables, desiredOperations, timestamp = nowIsoString()) {
+  const snapshot = readTemplateSnapshot();
   return {
     metadataSchemaVersion: METADATA_SCHEMA_VERSION,
     templateName: PACKAGE_MANIFEST.name,
     cliVersion: PACKAGE_MANIFEST.version,
     templateVersion: PACKAGE_MANIFEST.version,
     templateSource: TEMPLATE_SOURCE,
-    templateCommit: readTemplateSnapshot().templateCommit,
+    templateCommit: snapshot.templateCommit,
+    templateSourceState: snapshot.sourceState,
+    snapshotHash: snapshot.snapshotHash,
     initializedAt: timestamp,
     lastSyncedAt: timestamp,
     managedFilesManifestVersion: TEMPLATE_MANIFEST_VERSION,
@@ -427,6 +430,7 @@ function writeTemplateMetadata(targetDir, metadata, transaction = null) {
 }
 
 function buildNextSyncMetadata(metadata, syncPlan) {
+  const snapshot = readTemplateSnapshot();
   const nextManagedFiles = { ...(metadata.managedFiles || {}) };
   delete nextManagedFiles["README.md"];
   for (const relativePath of syncPlan.alreadyMissing || []) delete nextManagedFiles[relativePath];
@@ -449,7 +453,9 @@ function buildNextSyncMetadata(metadata, syncPlan) {
     cliVersion: PACKAGE_MANIFEST.version,
     templateVersion: PACKAGE_MANIFEST.version,
     templateSource: TEMPLATE_SOURCE,
-    templateCommit: readTemplateSnapshot().templateCommit,
+    templateCommit: snapshot.templateCommit,
+    templateSourceState: snapshot.sourceState,
+    snapshotHash: snapshot.snapshotHash,
     lastSyncedAt: nowIsoString(),
     managedFilesManifestVersion: TEMPLATE_MANIFEST_VERSION,
     managedFiles: nextManagedFiles,

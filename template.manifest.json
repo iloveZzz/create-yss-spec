@@ -82,6 +82,7 @@
     "scripts/verify-retired-skill-ids",
     "scripts/verify-skill-governance",
     "scripts/verify-skill-registry",
+    "scripts/verify-strategic-handoff-tools-lock",
     "scripts/verify-template",
     "scripts/verify-template-candidate",
     "scripts/verify-template-fast",

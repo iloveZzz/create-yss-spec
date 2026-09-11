@@ -13,6 +13,13 @@ function validateTemplateSnapshot(snapshot, { manifestHash, treeHash } = {}) {
   if (!/^[0-9a-f]{40}$/.test(snapshot.templateCommit || "")) {
     throw new Error("模板快照必须绑定 40 位不可变 templateCommit");
   }
+  if (!["committed", "working-tree"].includes(snapshot.sourceState)) {
+    throw new Error("模板快照 sourceState 必须为 committed 或 working-tree");
+  }
+  const expectedRef = snapshot.sourceState === "working-tree" ? "working-tree" : snapshot.templateCommit;
+  if (snapshot.requestedRef !== expectedRef) {
+    throw new Error(`模板快照 requestedRef 与 sourceState 不一致，预期 ${expectedRef}`);
+  }
   if (!/^[0-9a-f]{64}$/.test(snapshot.snapshotHash || "")) {
     throw new Error("模板快照必须包含 64 位 snapshotHash");
   }

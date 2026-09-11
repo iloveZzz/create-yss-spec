@@ -29,11 +29,15 @@ test("snapshot validation rejects floating or unsafe metadata", () => {
   assert.throws(() => validateTemplateSnapshot({}), /40 位不可变 templateCommit/);
   const base = {
     templateCommit: "a".repeat(40),
+    sourceState: "committed",
+    requestedRef: "a".repeat(40),
     snapshotHash: "b".repeat(64),
     manifestHash: "m",
     encodedPaths: { "safe.md": "safe.md" },
   };
   assert.equal(validateTemplateSnapshot(base, { manifestHash: "m", treeHash: "b".repeat(64) }), base);
+  assert.throws(() => validateTemplateSnapshot({ ...base, sourceState: "working-tree" }), /requestedRef/);
+  assert.throws(() => validateTemplateSnapshot({ ...base, sourceState: "unknown" }), /sourceState/);
   assert.throws(() => validateTemplateSnapshot({ ...base, encodedPaths: { "../bad": "bad" } }), /越界路径/);
 });
 
