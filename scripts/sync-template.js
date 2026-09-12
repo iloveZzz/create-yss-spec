@@ -18,7 +18,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "857265c065d48198aaa2a8bcece22da5885daf7b";
+const DEFAULT_TEMPLATE_REF = "91136c2a67c58d99929160753f416e1c46e3498b";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
@@ -404,6 +404,14 @@ function assertSnapshotDistribution(stagingRoot, manifest, encodedPaths) {
 }
 
 function renderProjectInstanceDocuments(stagingRoot) {
+  const readmePath = path.join(stagingRoot, "README.md");
+  if (fs.existsSync(readmePath)) {
+    const source = fs.readFileSync(readmePath, "utf8")
+      .replace(/^YSS skills 的公开发布投影维护在 .*skills-maintenance\.md.*\n/m, "")
+      .replace(/^\| \[docs\/process\/template-engineering-overview\.md\].*\n/m, "")
+      .replace(/^\| \[docs\/agents\/skills-maintenance\.md\].*\n/m, "");
+    fs.writeFileSync(readmePath, source, "utf8");
+  }
   const gitignorePath = path.join(stagingRoot, ".gitignore");
   if (fs.existsSync(gitignorePath)) {
     const source = fs.readFileSync(gitignorePath, "utf8");

@@ -273,9 +273,11 @@ test("sync snapshot remains valid when packaging and running use different local
   fs.mkdirSync(localizedDocsRoot, { recursive: true });
   for (const fileName of [
     "templates",
+    "用户手册.md",
+    "技术设计用户指南.md",
     "产品生命周期工作流.md",
-    "产品研发全生命周期最佳实践.md",
-    "规格与任务迁移指南.md",
+    "用户手册索引.md",
+    "设备借用贯穿案例.md",
   ]) {
     fs.writeFileSync(path.join(localizedDocsRoot, fileName), `${fileName}\n`, "utf8");
   }

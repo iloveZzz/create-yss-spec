@@ -2,11 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.3.7`。当前固定模板为 `yss-spec-project-template@857265c065d48198aaa2a8bcece22da5885daf7b`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准。
+源码候选版本：`3.3.8`。当前固定模板身份、来源状态和摘要见 `template.snapshot.json`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准，并用 `create-yss-spec --version` 核对当前执行版本。
 
 ## 本版模板能力
 
-本版同步 Handoff v4、领域与阶段决策 v3、前后端交付边界和 committed-source 身份校验。CLI 仍会在同一事务内刷新生成型 `skills-lock.json`，再运行项目实例校验；刷新或校验失败恢复同步前状态。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
+本版同步 Handoff v5、领域与阶段决策、前后端交付边界和 committed-source 身份校验。CLI 仍会在同一事务内刷新生成型 `skills-lock.json`，再运行项目实例校验；刷新或校验失败恢复同步前状态。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 
@@ -25,19 +25,18 @@ npx create-yss-spec@latest \
   --target-dir ./equipment-project
 ```
 
-## 五家族身份保护
+## 四个现行家族与旧实例兼容
 
-CLI 在规划和写入前检查模板家族身份，当前识别：
+CLI 在规划和写入前检查模板家族身份，当前主路线识别：
 
 - `create-yss-spec` / `.yss-template.json`
 - `create-yss-harness-design` / `.yss-harness-design.json`
-- `create-yss-harness-dev` / `.yss-harness-dev.json`
-- repository-local backend / `.yss-harness-backend.json`
-- repository-local frontend / `.yss-harness-frontend.json`
+- `create-yss-harness-backend` / `.yss-harness-backend.json`
+- `create-yss-harness-frontend` / `.yss-harness-frontend.json`
 
 `docs/process/harness-profile.yaml` 也参与身份判断。异族、多重 identity、损坏 metadata、未知或矛盾 profile、identity symlink 均在写入前 fail closed，`--force` 不能绕过；Programmatic API 使用相同 guard。帮助和版本查询不受目标家族限制。
 
-后端/前端专职模板使用各自仓库的 `scripts/instantiate-harness --target <新目录>`，不由本 CLI 做跨家族原地迁移。
+旧 `create-yss-harness-dev` / `.yss-harness-dev.json` 仍会被识别并拒绝跨家族接管；既有实例按原固定版本维护，不再作为新项目入口。战略、后端和前端分别使用专职 CLI，任何家族都不做跨家族原地迁移。
 
 ## CLI 能力
 
@@ -155,17 +154,17 @@ Inspect → Desired State → Policy → Plan → Validate → Transaction → V
 
 ## 使用未发布候选包
 
-从本仓固定提交构建候选包时，先使用 `scripts/sync-template.js` 中的 `DEFAULT_TEMPLATE_REF` 重建模板快照，再打包：
+从本仓构建候选包时，先用明确来源重建模板快照，再打包：
 
 ```bash
-YSS_SPEC_TEMPLATE_REPO=https://github.com/iloveZzz/yss-spec-project-template.git \
-YSS_SPEC_TEMPLATE_REF=017925706a981aec9eadefd470232bb531acd4d6 \
+YSS_SPEC_TEMPLATE_REPO=/absolute/path/to/yss-spec-project-template \
+YSS_SPEC_TEMPLATE_REF=WORKTREE \
 node scripts/sync-template.js
 
 npm pack --ignore-scripts
 ```
 
-`--ignore-scripts` 仅用于已经显式重建并核对固定快照后的候选打包，不代表 npm 发布。
+`WORKTREE` 仅形成 implementation-ready 候选；固定交付必须改用完整 40 位提交。`--ignore-scripts` 仅用于已经显式重建并核对快照后的候选打包，不代表 npm 发布。
 
 ## 开发验证
 
@@ -173,7 +172,7 @@ npm pack --ignore-scripts
 npm run test:contracts
 npm run test:unit
 npm run test:integration
-YSS_SPEC_TEMPLATE_REF=017925706a981aec9eadefd470232bb531acd4d6 npm test
+YSS_SPEC_TEMPLATE_REPO=/absolute/path/to/yss-spec-project-template YSS_SPEC_TEMPLATE_REF=WORKTREE npm test
 npm pack --dry-run
 ```
 
