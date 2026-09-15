@@ -93,6 +93,17 @@ test("interactive init generates a template instance in an empty directory", () 
   assert.ok(fs.existsSync(path.join(targetDir, "docs/process/schemas/context-reconciliation.schema.json")));
   assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
   assert.ok(fs.existsSync(path.join(targetDir, "DESIGN.md")));
+  // The installed skill must retain the manifest-bound scaffold, including encoded dotfiles.
+  for (const root of [".agents/skills", ".codex/skills"]) {
+    const skill = path.join(targetDir, root, "yss-frontend-scaffold-generator");
+    const baseline = JSON.parse(fs.readFileSync(path.join(skill, "references/data-quality-v1.manifest.json"), "utf8"));
+    for (const [relative, digest] of Object.entries(baseline.files)) {
+      const asset = path.join(skill, "assets/data-quality-v1", relative);
+      assert.ok(fs.existsSync(asset), `missing scaffold asset: ${root}/${relative}`);
+      assert.equal(`sha256:${sha256(fs.readFileSync(asset))}`, digest, relative);
+    }
+  }
+
   assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview.html")));
   assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview-dark.html")));
   assert.ok(fs.existsSync(path.join(targetDir, ".cursor/skills")));
@@ -138,7 +149,8 @@ test("interactive init generates a template instance in an empty directory", () 
     ),
   );
   for (const frontendSkill of [
-    "yss-antdv-next-design",
+    "yss-prototype-stage",
+    "yss-design-system",
     "yss-ui-business-page-generation",
     "ytable-usage",
     "yedit-table-usage",
@@ -158,6 +170,9 @@ test("interactive init generates a template instance in an empty directory", () 
       `missing cursor projection for ${frontendSkill}`,
     );
   }
+  for (const asset of ["assets/native-workbench/index.html", "assets/antd-authoring/pnpm-lock.yaml", "scripts/build-antd-prototype.mjs", "scripts/collect-antd-reference.mjs", "references/antd-component-catalog.json"]) {
+    assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/yss-prototype-stage", asset)), `missing prototype asset ${asset}`);
+  }
   for (const mcpConfig of [".vscode/mcp.json"]) {
     assert.ok(
       fs.existsSync(path.join(targetDir, mcpConfig)),
@@ -166,6 +181,8 @@ test("interactive init generates a template instance in an empty directory", () 
   }
   assert.equal(fs.existsSync(path.join(targetDir, ".mcp.json")), false);
   for (const retiredSkill of [
+    "yss-antdv-next-design",
+    "yss-antd-design",
     "high-fidelity-html-prototype",
     "api-integration",
     "use-table-height",
@@ -177,18 +194,44 @@ test("interactive init generates a template instance in an empty directory", () 
       `retired skill ${retiredSkill} must not be generated`,
     );
   }
-  const scaffoldReferenceSkills = [
+  const retiredScaffoldReferenceSkills = [
     "yss-backend-scaffold-application",
     "yss-backend-scaffold-domain",
     "yss-backend-scaffold-infrastructure",
     "yss-backend-scaffold-web",
     "yss-backend-scaffold-adapter",
-    "yss-backend-scaffold-parent",
   ];
   for (const projectionRoot of [".codex", ".cursor", ".pi"]) {
-    for (const skillName of scaffoldReferenceSkills) {
+    assert.ok(
+      fs.existsSync(
+        path.join(
+          targetDir,
+          projectionRoot,
+          "skills",
+          "yss-ddd-scaffold-generator",
+          "references",
+          "yss-backend-scaffold-parent",
+          "SKILL.md",
+        ),
+      ),
+      `${projectionRoot} missing registered yss-backend-scaffold-parent`,
+    );
+    assert.ok(
+      fs.existsSync(
+        path.join(
+          targetDir,
+          projectionRoot,
+          "skills",
+          "yss-ddd-scaffold-generator",
+          "references",
+          "layer-skill-routing.md",
+        ),
+      ),
+      `${projectionRoot} missing ordinary DDD layer routing reference`,
+    );
+    for (const skillName of retiredScaffoldReferenceSkills) {
       assert.ok(
-        fs.existsSync(
+        !fs.existsSync(
           path.join(
             targetDir,
             projectionRoot,
@@ -199,10 +242,11 @@ test("interactive init generates a template instance in an empty directory", () 
             "SKILL.md",
           ),
         ),
-        `${projectionRoot} missing yss-ddd-scaffold-generator reference ${skillName}`,
+        `${projectionRoot} must not expose retired nested skill ${skillName}`,
       );
     }
   }
+  assert.equal(fs.existsSync(path.join(targetDir, ".agents/skills/yss-mvc-scaffold-generator")), false);
   assert.ok(
     fs.existsSync(
       path.join(targetDir, ".codex/skills/yss-openapi-draft-review/SKILL.md"),
