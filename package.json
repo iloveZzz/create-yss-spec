@@ -1,6 +1,6 @@
 {
   "name": "create-yss-spec",
-  "version": "3.4.3",
+  "version": "3.4.4",
   "description": "Initialize a YSS spec project template repository",
   "main": "src/api/index.js",
   "repository": {
@@ -32,6 +32,6 @@
     "test:prepared": "node --test --test-concurrency=1 tests/*.test.js"
   },
   "devDependencies": {
-    "ajv": "^8.17.1"
+    "ajv": "^8.20.0"
   }
 }
