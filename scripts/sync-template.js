@@ -12,16 +12,26 @@ const targetManifestPath = path.join(packageRoot, "template.manifest.json");
 const targetSnapshotPath = path.join(packageRoot, "template.snapshot.json");
 const siblingHarness = path.resolve(packageRoot, "../..");
 const defaultRemote = "https://github.com/iloveZzz/yss-spec-project-template.git";
+const supportedArgs = new Set(["--require-committed"]);
+const cliArgs = process.argv.slice(2);
+for (const arg of cliArgs) {
+  if (!supportedArgs.has(arg)) {
+    throw new Error(`未知参数：${arg}`);
+  }
+}
+const requireCommitted = cliArgs.includes("--require-committed");
 function isLocalRepo(value) {
   return fs.existsSync(value) && fs.existsSync(path.join(value, "yss-project.yaml"));
 }
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "2061a1e090bf813e108718e876d9ee98e7b34d07";
+const DEFAULT_TEMPLATE_REF = "582b6e62b54eab7a02fbe85aa2954aec5770f65f";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
-  (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF);
+  (requireCommitted
+    ? DEFAULT_TEMPLATE_REF
+    : (isLocalRepo(templateRepo) ? "HEAD" : DEFAULT_TEMPLATE_REF));
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
 function run(command, args, cwd = packageRoot) {
@@ -477,8 +487,9 @@ const stagingRoot = fs.mkdtempSync(
 );
 
 try {
-  const sourceRoot = isLocalRepo(templateRepo) ? path.resolve(templateRepo) : checkoutRoot;
-  const useLocalWorkingTree = sourceRoot !== checkoutRoot;
+  const localTemplateRepo = isLocalRepo(templateRepo);
+  const useLocalWorkingTree = localTemplateRepo && !requireCommitted;
+  const sourceRoot = useLocalWorkingTree ? path.resolve(templateRepo) : checkoutRoot;
   if (sourceRoot === checkoutRoot) {
     run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
     run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);

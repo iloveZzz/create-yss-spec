@@ -143,10 +143,10 @@ function createSyncRunner() {
   return runnerRoot;
 }
 
-function runSyncTemplate(runnerRoot, fixtureRoot, environment = {}) {
+function runSyncTemplate(runnerRoot, fixtureRoot, environment = {}, args = []) {
   return spawnSync(
     process.execPath,
-    [path.join(runnerRoot, "scripts/sync-template.js")],
+    [path.join(runnerRoot, "scripts/sync-template.js"), ...args],
     {
       cwd: runnerRoot,
       encoding: "utf8",
@@ -159,6 +159,57 @@ function runSyncTemplate(runnerRoot, fixtureRoot, environment = {}) {
     },
   );
 }
+
+test("package prepack requires a committed template snapshot", () => {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  );
+
+  assert.equal(
+    packageJson.scripts.prepack,
+    "node scripts/sync-template.js --require-committed",
+  );
+});
+
+test("sync --require-committed ignores a dirty local template working tree", () => {
+  const fixtureRoot = createTemplateFixture();
+  fs.writeFileSync(
+    path.join(fixtureRoot, "yss-project.yaml"),
+    "schema_version: 1\nrepository_mode: template-source\n",
+    "utf8",
+  );
+  runGit(fixtureRoot, ["add", "yss-project.yaml"]);
+  runGit(fixtureRoot, ["commit", "-m", "repository identity"]);
+  const templateCommit = runGit(fixtureRoot, ["rev-parse", "HEAD"]).stdout.trim();
+
+  fs.writeFileSync(
+    path.join(fixtureRoot, "docs/adr/README.md"),
+    "dirty working tree content\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(fixtureRoot, "untracked.txt"), "untracked\n", "utf8");
+
+  const runnerRoot = createSyncRunner();
+  const result = runSyncTemplate(
+    runnerRoot,
+    fixtureRoot,
+    {},
+    ["--require-committed"],
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const snapshot = JSON.parse(
+    fs.readFileSync(path.join(runnerRoot, "template.snapshot.json"), "utf8"),
+  );
+  assert.equal(snapshot.sourceState, "committed");
+  assert.equal(snapshot.requestedRef, templateCommit);
+  assert.equal(snapshot.templateCommit, templateCommit);
+  assert.equal(
+    fs.readFileSync(path.join(runnerRoot, "template/docs/adr/README.md"), "utf8"),
+    "project ADR entrypoint\n",
+  );
+  assert.equal(fs.existsSync(path.join(runnerRoot, "template/untracked.txt")), false);
+});
 
 function createCliRunner() {
   const runnerRoot = createSyncRunner();
