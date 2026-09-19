@@ -162,5 +162,8 @@ npx create-yss-spec@latest attach \
 
 - 模板：`yss-spec-project-template@4969d0a5993d95f88b9f13eae24e3ccbefe5aa87`（Boot 3.5 平台门禁、前后端能力边界与最终 Agent 分发快照；相对 `8d07e65` 仅升级四套 CLI submodule 指针，受管快照内容哈希不变）
 - CLI：`create-yss-spec@3.4.7`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
+- `npm test` → **185/185 pass**
+- `npm pack --dry-run` → `create-yss-spec-3.4.7.tgz`（10.3 MB / 4148 files）
 - 快照摘要：`d5df5de9024d4473c4fe2df941ce5f87a1b89b4f459af4f015dec40723361f49`
+- 真实 init：`project-instance`、`templateCommit=4969d0a…`、`cliVersion=3.4.7`；不含 `.template-source/`、`.github/`、`wiki/`、`docs/reviews/`、`scripts/verify-template`
 - 本轮不执行 npm publish（由维护者手动发布）
