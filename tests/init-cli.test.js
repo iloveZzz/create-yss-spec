@@ -195,6 +195,7 @@ test("interactive init generates a template instance in an empty directory", () 
     );
   }
   const retiredScaffoldReferenceSkills = [
+    "yss-backend-scaffold-parent",
     "yss-backend-scaffold-application",
     "yss-backend-scaffold-domain",
     "yss-backend-scaffold-infrastructure",
@@ -202,20 +203,6 @@ test("interactive init generates a template instance in an empty directory", () 
     "yss-backend-scaffold-adapter",
   ];
   for (const projectionRoot of [".codex", ".cursor", ".pi"]) {
-    assert.ok(
-      fs.existsSync(
-        path.join(
-          targetDir,
-          projectionRoot,
-          "skills",
-          "yss-ddd-scaffold-generator",
-          "references",
-          "yss-backend-scaffold-parent",
-          "SKILL.md",
-        ),
-      ),
-      `${projectionRoot} missing registered yss-backend-scaffold-parent`,
-    );
     assert.ok(
       fs.existsSync(
         path.join(
