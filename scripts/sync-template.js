@@ -26,7 +26,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "f2844904dc0f266b7240d0eb46b5611d5309ca48";
+const DEFAULT_TEMPLATE_REF = "0aa2118ba4bbdb7d6f5dc270084ebc1a29a32cd0";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (requireCommitted
