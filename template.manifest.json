@@ -87,7 +87,6 @@
     "scripts/verify-template-candidate",
     "scripts/verify-template-fast",
     "scripts/verify-upstream-skill-source",
-    "scripts/lib/maintenance-candidate.mjs",
     "scripts/lib/maintenance-intensity.mjs",
     "scripts/lib/maintenance-review.mjs",
     "scripts/lib/maintenance-review-workflow.mjs",
