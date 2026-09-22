@@ -47,6 +47,11 @@ function classifySyncOperations({
       continue;
     }
 
+    if (operation.relativePath === "docs/agents/issue-tracker.md") {
+      unchanged.push({ ...operation, reason: "project-owned-tracker-configuration" });
+      continue;
+    }
+
     const currentHash = getFileHash(operation);
 
     if (operation.safeSectionMerge && currentHash !== operation.desiredHash) {
