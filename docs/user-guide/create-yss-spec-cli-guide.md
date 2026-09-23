@@ -24,18 +24,19 @@ npx create-yss-spec@latest --help
 npx create-yss-spec@latest \
   --project-name "设备借用" \
   --business-domain "内部设备管理" \
+  --agent-runtime codex \
   --target-dir ./equipment-project
 ```
 
-初始化只接受不存在或空目录。完成后核对 `yss-project.yaml` 为 `project-instance`、`.yss-template.json` 中的模板摘要、根 `CONTEXT.md` 和 `docs/process/harness-profile.yaml`，再阅读 `docs/user-guide/用户手册索引.md`。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
+初始化只接受不存在或空目录。新项目只安装 `yss-product-lifecycle`、`yss-implementation-contract-compiler`、`yss-research`、`i-have-adhd` 和所选平台的一套投影；示例 IDEATION 默认关闭。`--agent-runtime` 接受 `codex|cursor|pi`，无交互调用必须显式传入。完成后核对 `yss-project.yaml` 为 `project-instance`、`.yss-template.json` 中的模板摘要、根 `CONTEXT.md` 和 `docs/process/harness-profile.yaml`，再阅读 `docs/user-guide/用户手册索引.md`。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
 
 ## 接入、同步与诊断
 
 尚未受管的已有项目使用 attach，且必须显式选择预览或写入：
 
 ```bash
-npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --dry-run
-npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --apply
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --agent-runtime codex --dry-run
+npx create-yss-spec@latest attach --target-dir . --project-name "设备借用" --business-domain "内部设备管理" --agent-runtime codex --apply
 ```
 
 已有本家族实例使用 sync。综合 CLI 的 sync 默认写入，`--dry-run` 与 `--plan` 才是预览：
@@ -50,9 +51,11 @@ npx create-yss-spec@latest sync --target-dir . --plan --prune
 npx create-yss-spec@latest sync --target-dir . --prune
 ```
 
+阶段派发前运行 `create-yss-spec skills ensure <skill-id...> --plan` 核对依赖，再运行 `--apply` 补装；条件依赖用 `--when <trigger>` 指定。后续增加平台用 `create-yss-spec skills runtime add <codex|cursor|pi> --plan` 与 `--apply`。两类写入都要求 CLI 快照提交与实例 metadata 一致，不一致先执行 `sync`。v2 实例继续 `legacy-all` 分发，升级不会自动裁剪旧投影。
+
 普通 sync 保留退出分发文件。显式 `--prune` 只备份并删除内容仍等于可信旧 baseline 的模板文件；人工修改过的旧副本、用户文件和证据不足的文件继续保留并报告。README 初始化后由项目维护，attach、sync、force 和 doctor 都不创建、覆盖或校验它；根 `CONTEXT.md`、批准记录和业务材料也不能被越权接管。
 
-同步只更新满足当前 ownership 与 merge policy 的受管文件。`replace-with-force` 冲突需要显式 `--force`，`manual`、`user-owned`、`protected`、gitlink、路径越界和中间 symlink 均不能被 force 绕过。生成型 `skills-lock.json` 在同一事务内刷新；校验失败会回滚文件和 metadata。成功同步的反向恢复使用升级前 Git 基线或事务备份，综合 CLI 没有独立 `recover` 命令。
+同步只更新满足当前 ownership 与 merge policy 的受管文件。`replace-with-force` 冲突需要显式 `--force`，`manual`、`user-owned`、`protected`、gitlink、路径越界和中间 symlink 均不能被 force 绕过。生成型 `skills-lock.json` 在同一事务内按最终 Skill 内容刷新，并保留原锁中已登记、仍存在且不属于模板管理的项目 Skill。根 `scaffold-architecture-decisions.yaml`、`docs/implementation/` 下的合同与 `docs/requirements/tickets/` 下的 Ticket 不会由 `--force` 重建或清理；这两个目录的 `.gitkeep` 仍由模板管理。重复执行 `sync` 或 `sync --force` 时，若仅有模板锁与项目生成锁的预期差异，且项目校验通过，则不创建事务备份、不重写锁与 metadata；`lastSyncedAt` 保持原值，避免仅因运行命令而产生摘要漂移。校验失败时仍走事务更新，更新失败会回滚文件和 metadata。成功同步的反向恢复使用升级前 Git 基线或事务备份，综合 CLI 没有独立 `recover` 命令。
 
 ## 更新程序
 

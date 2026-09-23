@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+const { spawnSync } = require("./support/spawn-cli");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliBin = path.join(repoRoot, "bin/create-yss-spec.js");

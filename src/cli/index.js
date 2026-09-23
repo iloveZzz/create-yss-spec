@@ -29,6 +29,7 @@ const { runDiff } = require("../commands/diff");
 const { runDoctor } = require("../commands/doctor");
 const { runInit } = require("../commands/init");
 const { runSync } = require("../commands/sync");
+const { runSkills } = require("../commands/skills");
 const { runUpdateCommand } = require("../commands/update");
 const { printHelp, printVersion } = require("./help");
 const { resolveCommand } = require("./router");
@@ -58,6 +59,7 @@ async function runCli(argv = []) {
   if (route.command === "sync") {
     return runSync(route.args);
   }
+  if (route.command === "skills") return runSkills(route.args);
   if (route.command === "doctor") {
     return runDoctor(route.args);
   }

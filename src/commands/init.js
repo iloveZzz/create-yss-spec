@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { parseArgs } = require("../cli/args");
+const { assertRuntime } = require("../template/distribution-runtime");
 const { promptForMissingOptions } = require("../cli/prompts");
 const { printHelp, printVersion } = require("../cli/help");
 const { pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
@@ -32,6 +33,7 @@ const {
 } = require("../template/verification-runtime");
 
 function assertRequiredOptions(options) {
+  assertRuntime(options.agentRuntime);
   if (!options.projectName) {
     throw new Error("init 需要 --project-name，项目名称不能为空");
   }

@@ -2,10 +2,11 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+const { spawnSync } = require("./support/spawn-cli");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliBin = path.join(repoRoot, "bin/create-yss-spec.js");
@@ -134,12 +135,10 @@ test("sync refreshes generated skill lock before project verification", () => {
     ]);
     assert.equal(init.status, 0, init.stderr);
 
-    const relativeSkillFile = "diagnosing-bugs/SKILL.md";
+    const relativeSkillFile = "yss-research/SKILL.md";
     const skillRoots = [
       ".agents/skills",
       ".codex/skills",
-      ".cursor/skills",
-      ".pi/skills",
     ];
     for (const root of skillRoots) {
       fs.appendFileSync(
@@ -158,6 +157,74 @@ test("sync refreshes generated skill lock before project verification", () => {
       { cwd: targetDir, encoding: "utf8" },
     );
     assert.equal(lockCheck.status, 0, lockCheck.stderr);
+  } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("force sync keeps registered project skills and approved project assets", () => {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-sync-project-assets-"));
+  const targetDir = path.join(sandbox, "project");
+  try {
+    const init = runCli([
+      "--project-name", "Project Assets", "--business-domain", "Data Platform",
+      "--target-dir", targetDir,
+    ]);
+    assert.equal(init.status, 0, init.stderr);
+
+    for (const root of [".agents/skills", ".codex/skills", ".cursor/skills", ".pi/skills"]) {
+      const skillDir = path.join(targetDir, root, "local-sync-probe");
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), "---\nname: local-sync-probe\ndescription: Project skill\n---\n");
+    }
+    const platformSkillDir = path.join(targetDir, ".codex/skills/local-platform-probe");
+    fs.mkdirSync(platformSkillDir, { recursive: true });
+    fs.writeFileSync(path.join(platformSkillDir, "SKILL.md"), "---\nname: local-platform-probe\ndescription: Project platform skill\n---\n");
+    const register = spawnSync(path.join(targetDir, "scripts/update-skill-lock"), [
+      "--add=local-sync-probe", "--add-platform=.codex/skills:local-platform-probe",
+    ], {
+      cwd: targetDir, encoding: "utf8",
+    });
+    assert.equal(register.status, 0, register.stderr);
+
+    const projectAssets = {
+      "scaffold-architecture-decisions.yaml": "approved architecture decision\n",
+      "docs/implementation/slice-contract.yaml": "approved slice contract\n",
+    };
+    for (const [relativePath, content] of Object.entries(projectAssets)) {
+      const absolutePath = path.join(targetDir, relativePath);
+      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+      fs.writeFileSync(absolutePath, content);
+    }
+    fs.appendFileSync(path.join(targetDir, "AGENTS.md"), "\nproject local change\n");
+
+    const sync = runCli(["sync", "--target-dir", targetDir, "--force"]);
+    assert.equal(sync.status, 0, sync.stderr);
+    const lock = JSON.parse(fs.readFileSync(path.join(targetDir, "skills-lock.json"), "utf8"));
+    assert.ok(lock.skills.shared["local-sync-probe"]);
+    assert.ok(lock.skills.platform[".codex/skills"]["local-platform-probe"]);
+    const lockHash = crypto.createHash("sha256")
+      .update(fs.readFileSync(path.join(targetDir, "skills-lock.json")))
+      .digest("hex");
+    const metadata = JSON.parse(fs.readFileSync(path.join(targetDir, ".yss-template.json"), "utf8"));
+    assert.equal(metadata.managedFiles["skills-lock.json"].contentHash, lockHash);
+    const metadataBeforeRepeat = fs.readFileSync(path.join(targetDir, ".yss-template.json"), "utf8");
+    const repeat = runCli(["sync", "--target-dir", targetDir]);
+    assert.equal(repeat.status, 0, repeat.stderr);
+    assert.match(repeat.stdout, /自动更新：0/);
+    assert.doesNotMatch(repeat.stdout, /备份目录：/);
+    const repeatForce = runCli(["sync", "--target-dir", targetDir, "--force"]);
+    assert.equal(repeatForce.status, 0, repeatForce.stderr);
+    assert.match(repeatForce.stdout, /自动更新：0/);
+    assert.doesNotMatch(repeatForce.stdout, /备份目录：/);
+    assert.equal(fs.readFileSync(path.join(targetDir, ".yss-template.json"), "utf8"), metadataBeforeRepeat);
+    assert.equal(
+      crypto.createHash("sha256").update(fs.readFileSync(path.join(targetDir, "skills-lock.json"))).digest("hex"),
+      lockHash,
+    );
+    for (const [relativePath, content] of Object.entries(projectAssets)) {
+      assert.equal(fs.readFileSync(path.join(targetDir, relativePath), "utf8"), content);
+    }
   } finally {
     fs.rmSync(sandbox, { recursive: true, force: true });
   }

@@ -23,6 +23,7 @@ function classifySyncOperations({
   const conflicts = [];
   const forceableConflicts = [];
   const unsafe = [];
+  const currentHashes = Object.create(null);
 
   for (const operation of desiredOperations) {
     const unmanagedReason = getUnmanagedReason(operation);
@@ -53,6 +54,7 @@ function classifySyncOperations({
     }
 
     const currentHash = getFileHash(operation);
+    currentHashes[operation.relativePath] = currentHash;
 
     if (operation.safeSectionMerge && currentHash !== operation.desiredHash) {
       updated.push(operation);
@@ -117,6 +119,7 @@ function classifySyncOperations({
     unsafe,
     removed,
     desiredOperations,
+    currentHashes,
   };
 }
 

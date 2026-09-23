@@ -11,8 +11,9 @@ function normalizeInteractiveOptions(options, values) {
     gitInit: Boolean(options.gitInit),
     includeExampleDocs:
       options.includeExampleDocs === undefined
-        ? true
+        ? false
         : Boolean(options.includeExampleDocs),
+    ...(values.agentRuntime || options.agentRuntime ? { agentRuntime: values.agentRuntime || options.agentRuntime } : {}),
   };
 }
 
@@ -40,12 +41,14 @@ async function promptForMissingOptions(options, deps = {}) {
         : await rl.question("团队规模（可留空）: ");
     const targetDir =
       options.targetDir || (await rl.question("目标目录: ")).trim();
+    const agentRuntime = options.agentRuntime || (await rl.question("Agent 平台（codex/cursor/pi）: ")).trim();
 
     return normalizeInteractiveOptions(options, {
       projectName,
       businessDomain,
       teamSize: (teamSizeInput || "").trim() || "待补充",
       targetDir,
+      agentRuntime,
     });
   } finally {
     rl.close();
@@ -53,6 +56,7 @@ async function promptForMissingOptions(options, deps = {}) {
 }
 
 async function promptFromBufferedInput(options, deps = {}) {
+  if (!options.agentRuntime) throw new Error("无交互 init 必须显式指定 --agent-runtime codex|cursor|pi");
   const stdin = deps.stdin || process.stdin;
   const stdout = deps.stdout || process.stdout;
   const chunks = [];

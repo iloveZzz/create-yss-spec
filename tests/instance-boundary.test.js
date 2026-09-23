@@ -22,6 +22,7 @@ function run(args, cwd) {
 function init(targetDir) {
   const result = run([
     "--project-name", "Boundary Test", "--business-domain", "Governance",
+    "--agent-runtime", "codex",
     "--target-dir", targetDir, "--no-example-docs",
   ], __dirname);
   assert.equal(result.status, 0, result.stderr);
@@ -52,18 +53,20 @@ test("gitignore managed block preserves project-owned bytes", () => {
 
 test("prune only accepts unchanged template-managed files", () => {
   const result = classifyRemovedFiles({
-    removed: ["clean", "changed", "owned", "missing"],
+    removed: ["clean", "changed", "owned", "missing", "scaffold-architecture-decisions.yaml", "docs/implementation/slice-contract.yaml"],
     managedFiles: {
       clean: { contentHash: "same", ownership: "managed" },
       changed: { contentHash: "old", ownership: "managed" },
       owned: { contentHash: "same", ownership: "user-owned" },
       missing: { contentHash: "same", ownership: "managed" },
+      "scaffold-architecture-decisions.yaml": { contentHash: "same", ownership: "managed" },
+      "docs/implementation/slice-contract.yaml": { contentHash: "same", ownership: "managed" },
     },
     getPathKind: (path) => (path === "missing" ? "missing" : "file"),
     getFileHash: (path) => (path === "changed" ? "new" : "same"),
   });
   assert.deepEqual(result.prunable, ["clean"]);
-  assert.deepEqual(result.retainedRemoved.map((item) => item.path), ["changed", "owned"]);
+  assert.deepEqual(result.retainedRemoved.map((item) => item.path), ["changed", "owned", "scaffold-architecture-decisions.yaml", "docs/implementation/slice-contract.yaml"]);
   assert.deepEqual(result.alreadyMissing, ["missing"]);
 });
 
@@ -109,7 +112,7 @@ test("attach never creates a missing README", () => {
   fs.writeFileSync(path.join(target, ".gitignore"), "project-only/\n");
   const result = run([
     "attach", "--target-dir", target, "--project-name", "Attached",
-    "--business-domain", "Governance", "--apply",
+    "--business-domain", "Governance", "--agent-runtime", "codex", "--apply",
   ], __dirname);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.existsSync(path.join(target, "README.md")), false);

@@ -283,7 +283,7 @@ function createFamilyGuard(_packageRoot, expectedName) {
         Object.hasOwn(value, "metadataSchemaVersion") &&
         (!Number.isInteger(value.metadataSchemaVersion) ||
           value.metadataSchemaVersion < 1 ||
-          value.metadataSchemaVersion > (expectedName === "create-yss-spec" ? 2 : 1))
+          value.metadataSchemaVersion > (expectedName === "create-yss-spec" ? 3 : 1))
       ) {
         throw new Error("身份 metadata schema 版本非法或不支持");
       }

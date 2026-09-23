@@ -56,6 +56,9 @@ function printSyncDryRun(context) {
     syncPlan.updated,
     (operation) => `update: ${operation.relativePath}`,
   );
+  if ([...syncPlan.updated, ...syncPlan.added].some((operation) => operation.relativePath === "skills-lock.json")) {
+    console.log("提示：skills-lock.json 为生成文件；最终校验后内容一致时不会重新写入。");
+  }
   printLimitedOperations(
     syncPlan.added,
     (operation) => `add: ${operation.relativePath}`,

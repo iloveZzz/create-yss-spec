@@ -320,6 +320,9 @@ test("sync snapshot remains valid when packaging and running use different local
   const fixtureRoot = createTemplateFixture();
   // This fixture executes the real CLI, including its bundled YAML identity parser.
   fs.copyFileSync(path.join(repoRoot, "template/scripts/vendor/yaml.mjs"), path.join(fixtureRoot, "scripts/vendor/yaml.mjs"));
+  const registry = path.join(fixtureRoot, "docs/agents/yss-skill-registry.yaml");
+  fs.mkdirSync(path.dirname(registry), { recursive: true });
+  fs.writeFileSync(registry, "instance_distribution:\n  initial_skills: [shared-skill]\nother:\n", "utf8");
   const localizedDocsRoot = path.join(fixtureRoot, "docs/user-guide");
   fs.mkdirSync(localizedDocsRoot, { recursive: true });
   for (const fileName of [
@@ -351,6 +354,8 @@ test("sync snapshot remains valid when packaging and running use different local
       "Locale Test",
       "--business-domain",
       "Platform",
+      "--agent-runtime",
+      "codex",
       "--target-dir",
       targetDir,
       "--dry-run",

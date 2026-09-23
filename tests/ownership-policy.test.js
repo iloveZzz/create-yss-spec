@@ -67,6 +67,13 @@ test("invalid ownership policies fail closed", () => {
 });
 
 test("write-protected ownership produces explicit blockers", () => {
+  for (const relativePath of [
+    "scaffold-architecture-decisions.yaml",
+    "docs/implementation/slice-contract.yaml",
+    "docs/requirements/tickets/feature.md",
+  ]) {
+    assert.match(ownershipWriteViolation({ relativePath, ownership: "managed" }), /项目合同或决策资产/);
+  }
   assert.match(
     ownershipWriteViolation({ relativePath: ".git/config", ownership: "protected" }),
     /protected/,

@@ -2,12 +2,13 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { isDeepStrictEqual } = require("node:util");
 
 const { pathKind, targetPath, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
 const { assertBundledFamily, assertTargetFamily } = require("../family-runtime");
-const { gitDirtyWarning } = require("../git/worktree");
+const { collectGitRoots, gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
@@ -15,6 +16,7 @@ const { classifyRemovedFiles } = require("../template/prune-planner");
 const { decorateMetadataOwnership } = require("../template/ownership-metadata");
 const { decorateMetadataLifecycle } = require("../template/lifecycle-metadata");
 const {
+  readProjectSkillLock,
   refreshGeneratedProjectInstance,
   verifyGeneratedProjectInstance,
 } = require("../template/verification-runtime");
@@ -47,7 +49,7 @@ function isInsideTemplateRoot(targetDir) {
   );
 }
 
-function inspectExistingTargetDir(targetDir, { force = false } = {}) {
+function inspectExistingTargetDir(targetDir, { force = false, gitRoots = null } = {}) {
   if (isInsideTemplateRoot(targetDir)) {
     throw new Error("目标目录不能位于模板源仓库内部");
   }
@@ -57,6 +59,7 @@ function inspectExistingTargetDir(targetDir, { force = false } = {}) {
   assertTargetWorkingTreeWritable(targetDir, {
     force,
     packageRoot: PACKAGE_ROOT,
+    ...(gitRoots && { deps: { collectGitRoots: () => gitRoots } }),
   });
 }
 
@@ -75,7 +78,9 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
   assertBundledFamily(snapshot);
   const resolvedTargetDir = normalizeTargetDir(targetDir, cwd);
   assertTargetFamily(resolvedTargetDir);
-  inspectExistingTargetDir(resolvedTargetDir, { force: Boolean(force) });
+  const gitRoots = collectGitRoots(resolvedTargetDir);
+  const securityOptions = { packageRoot: PACKAGE_ROOT, deps: { collectGitRoots: () => gitRoots } };
+  inspectExistingTargetDir(resolvedTargetDir, { force: Boolean(force), gitRoots });
 
   const { metadata } = loadTemplateMetadata(resolvedTargetDir);
   const identity = readTargetIdentity(resolvedTargetDir);
@@ -83,6 +88,7 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     resolvedTargetDir,
     metadata,
     identity,
+    snapshot,
   );
   const migrationPlan = buildLegacyMigrationPlan(
     resolvedTargetDir,
@@ -99,9 +105,7 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     warning,
     toVersion: PACKAGE_MANIFEST.version,
     getUnmanagedReason: (operation) =>
-      operation.unsafeReason || unmanagedPathReason(resolvedTargetDir, operation.relativePath, {
-        packageRoot: PACKAGE_ROOT,
-      }),
+      operation.unsafeReason || unmanagedPathReason(resolvedTargetDir, operation.relativePath, securityOptions),
     getPathKind: (operation) => pathKind(operation.targetPath),
     getFileHash: (operation) => fileHash(operation.targetPath),
   });
@@ -111,7 +115,7 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     getPathKind: (relativePath) => pathKind(targetPath(resolvedTargetDir, relativePath)),
     getFileHash: (relativePath) => fileHash(targetPath(resolvedTargetDir, relativePath)),
     getUnmanagedReason: (relativePath) =>
-      unmanagedPathReason(resolvedTargetDir, relativePath, { packageRoot: PACKAGE_ROOT }),
+      unmanagedPathReason(resolvedTargetDir, relativePath, securityOptions),
   });
   const readmeOwnershipTransferred = syncPlan.removed.includes("README.md");
   syncPlan.removed = syncPlan.removed.filter((relativePath) => relativePath !== "README.md");
@@ -133,6 +137,7 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
 
   return {
     targetDir: resolvedTargetDir,
+    snapshot,
     metadata,
     identity,
     desiredOperations,
@@ -158,27 +163,109 @@ function assertSyncApplicable(context) {
   }
 }
 
+function isVerifiedNoopCandidate(context) {
+  const { metadata, migrationPlan, syncPlan } = context;
+  if (
+    syncPlan.updated.some((operation) => operation.relativePath !== "skills-lock.json") ||
+    syncPlan.added.length > 0 ||
+    syncPlan.skipped.length > 0 ||
+    syncPlan.removed.length > 0 ||
+    syncPlan.prunable.length > 0 ||
+    syncPlan.retainedRemoved.length > 0 ||
+    syncPlan.readmeOwnershipTransferred ||
+    (syncPlan.alreadyMissing || []).length > 0 ||
+    migrationPlan.operations.length > 0
+  ) return false;
+
+  const nextMetadata = decorateMetadataLifecycle(
+    decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan, {
+      snapshot: context.snapshot,
+      currentHashes: syncPlan.currentHashes,
+    })),
+  );
+  return isDeepStrictEqual(
+    { ...nextMetadata, lastSyncedAt: metadata.lastSyncedAt },
+    metadata,
+  );
+}
+
 function applySyncContext(context, { force = false, prune = false } = {}) {
   assertSyncApplicable(context);
-  const { targetDir, metadata, migrationPlan, syncPlan } = context;
+  const { targetDir, metadata, desiredOperations, migrationPlan, syncPlan } = context;
+  if (isVerifiedNoopCandidate(context)) {
+    try {
+      verifyGeneratedProjectInstance(targetDir);
+      return {
+        schemaVersion: APPLY_RESULT_SCHEMA_VERSION,
+        operation: "sync",
+        targetDir,
+        backupPath: null,
+        template: context.plan.template,
+        stats: { updated: 0, added: 0, skipped: 0, removed: 0, forceApplied: 0, pruned: 0 },
+        skipped: [],
+        removed: [],
+        prunable: [],
+        pruned: [],
+        retainedRemoved: [],
+        ownershipTransferred: [],
+      };
+    } catch {
+      // A stale generated lock needs the normal transactional refresh and verification.
+    }
+  }
+  const previousSkillLock = readProjectSkillLock(targetDir);
   const managedToApply = [
     ...syncPlan.updated,
     ...syncPlan.added,
     ...(force ? syncPlan.forceableConflicts : []),
   ];
   syncPlan.pruned = prune ? [...syncPlan.prunable] : [];
+  const affectedPaths = [
+    ...affectedPathsForManagedOperations(managedToApply),
+    ...affectedPathsForMigration(migrationPlan),
+    ...syncPlan.pruned,
+    "skills-lock.json",
+    TEMPLATE_METADATA_FILENAME,
+  ];
 
   const { backupPath } = runInTransaction({
     targetDir,
     operation: "sync",
-    affectedPaths: [
-      ...affectedPathsForManagedOperations(managedToApply),
-      ...affectedPathsForMigration(migrationPlan),
-      ...syncPlan.pruned,
-      "skills-lock.json",
-      TEMPLATE_METADATA_FILENAME,
-    ],
+    affectedPaths,
     execute: (transaction) => {
+      const gitRoots = collectGitRoots(targetDir);
+      const securityOptions = { packageRoot: PACKAGE_ROOT, deps: { collectGitRoots: () => gitRoots } };
+      assertTargetWorkingTreeWritable(targetDir, { ...securityOptions, force });
+      for (const relativePath of new Set(affectedPaths)) {
+        const reason = unmanagedPathReason(targetDir, relativePath, securityOptions);
+        if (reason) throw new Error(`${relativePath}: ${reason}`);
+        const kind = pathKind(targetPath(targetDir, relativePath));
+        if (kind === "other") throw new Error(`${relativePath}: 写入前路径类型已变化为 ${kind}`);
+        if (["skills-lock.json", TEMPLATE_METADATA_FILENAME].includes(relativePath) && kind === "directory") {
+          throw new Error(`${relativePath}: 写入前路径类型已变化为 ${kind}`);
+        }
+      }
+      if (!isDeepStrictEqual(loadTemplateMetadata(targetDir).metadata, metadata)) {
+        throw new Error("模板元数据在规划后已变化，请重新运行 sync");
+      }
+      for (const operation of managedToApply) {
+        const kind = pathKind(targetPath(targetDir, operation.relativePath));
+        const plannedHash = syncPlan.currentHashes[operation.relativePath];
+        if (plannedHash === undefined ? kind !== "missing" : kind !== "file" || fileHash(operation.targetPath) !== plannedHash) {
+          throw new Error(`${operation.relativePath}: 规划后目标文件已变化，请重新运行 sync`);
+        }
+      }
+      for (const relativePath of syncPlan.pruned) {
+        const current = targetPath(targetDir, relativePath);
+        if (pathKind(current) !== "file" || fileHash(current) !== metadata.managedFiles[relativePath]?.contentHash) {
+          throw new Error(`${relativePath}: 待清理文件在规划后已变化，请重新运行 sync`);
+        }
+      }
+      const currentMigration = buildLegacyMigrationPlan(targetDir, desiredOperations, { checkFlatTickets: false });
+      if (!isDeepStrictEqual(currentMigration.operations, migrationPlan.operations) ||
+          currentMigration.unsafe.length || currentMigration.conflicts.length) {
+        throw new Error("旧路径迁移在规划后已变化，请重新运行 sync");
+      }
       for (const operation of managedToApply) {
         applyManagedOperation(operation, transaction);
       }
@@ -187,12 +274,18 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
         transaction.remove(targetPath(targetDir, relativePath));
       }
       verifyGeneratedSyncInstance(targetDir);
-      refreshGeneratedProjectInstance(targetDir);
+      refreshGeneratedProjectInstance(targetDir, {
+        previousSkillLock,
+        previousManagedFiles: metadata.managedFiles,
+        transaction,
+      });
       verifyGeneratedProjectInstance(targetDir);
       const nextMetadata = decorateMetadataLifecycle(
-        decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan)),
+        decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan, { snapshot: context.snapshot })),
       );
-      writeTemplateMetadata(targetDir, nextMetadata, transaction);
+      if (!isDeepStrictEqual({ ...nextMetadata, lastSyncedAt: metadata.lastSyncedAt }, metadata)) {
+        writeTemplateMetadata(targetDir, nextMetadata, transaction);
+      }
     },
   });
 

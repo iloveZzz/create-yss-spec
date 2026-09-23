@@ -73,7 +73,7 @@ test("interactive option normalization preserves legacy defaults", () => {
       dryRun: true,
       force: false,
       gitInit: false,
-      includeExampleDocs: true,
+    includeExampleDocs: false,
     },
   );
 });

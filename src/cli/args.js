@@ -8,6 +8,7 @@ const VALUE_OPTIONS = new Map([
   ["--team-size", "teamSize"],
   ["--target-dir", "targetDir"],
   ["--issue-tracker", "issueTracker"],
+  ["--agent-runtime", "agentRuntime"],
 ]);
 
 function parseArgs(argv = []) {

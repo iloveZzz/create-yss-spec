@@ -134,7 +134,61 @@ function verifyGeneratedAttach(targetDir) {
   runTemplateVerification(targetDir, "scripts/verify-project-instance", []);
 }
 
-function refreshGeneratedProjectInstance(targetDir) {
+function readProjectSkillLock(targetDir) {
+  const lockPath = targetPath(targetDir, "skills-lock.json");
+  if (pathKind(lockPath) === "missing") return null;
+  const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+  const isRecord = (value) => value && typeof value === "object" && !Array.isArray(value);
+  if (
+    lock.version !== 3 || !isRecord(lock.skills?.shared) ||
+    !isRecord(lock.skills?.platform) || !isRecord(lock.sources) ||
+    !Array.isArray(lock.projectionRoots)
+  ) {
+    throw new Error("现有 skills-lock.json 结构非法，无法安全保留项目技能登记");
+  }
+  return lock;
+}
+
+function preserveProjectSkillRegistrations(targetDir, previousLock, previousManagedFiles, transaction) {
+  if (!previousLock) return;
+  const lockPath = targetPath(targetDir, "skills-lock.json");
+  const generated = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+  const managedPaths = Object.keys(previousManagedFiles || {});
+  const wasManaged = (skillPath) => managedPaths.some((ref) => ref.startsWith(`${skillPath}/`));
+  let changed = false;
+
+  for (const [name, record] of Object.entries(previousLock.skills.shared)) {
+    const skillPath = `.agents/skills/${name}`;
+    if (generated.skills.shared[name] || wasManaged(skillPath)) continue;
+    if (pathKind(targetPath(targetDir, skillPath)) !== "directory") continue;
+    generated.skills.shared[name] = record;
+    changed = true;
+  }
+  for (const [root, entries] of Object.entries(previousLock.skills.platform || {})) {
+    if (!generated.projectionRoots.includes(root)) continue;
+    for (const [name, record] of Object.entries(entries)) {
+      const skillPath = `${root}/${name}`;
+      if (generated.skills.platform?.[root]?.[name] || wasManaged(skillPath)) continue;
+      if (pathKind(targetPath(targetDir, skillPath)) !== "directory") continue;
+      generated.skills.platform ||= {};
+      generated.skills.platform[root] ||= {};
+      generated.skills.platform[root][name] = record;
+      changed = true;
+    }
+  }
+  if (changed) {
+    generated.sources = { ...previousLock.sources, ...generated.sources };
+    transaction.writeFile(lockPath, `${JSON.stringify(generated, null, 2)}\n`);
+  }
+}
+
+function refreshGeneratedProjectInstance(targetDir, options = {}) {
+  preserveProjectSkillRegistrations(
+    targetDir,
+    options.previousSkillLock,
+    options.previousManagedFiles,
+    options.transaction,
+  );
   runTemplateVerification(targetDir, "scripts/update-skill-lock", []);
 }
 
@@ -146,6 +200,7 @@ module.exports = {
   verifyGeneratedInstance,
   verifyGeneratedInit,
   verifyGeneratedAttach,
+  readProjectSkillLock,
   refreshGeneratedProjectInstance,
   verifyGeneratedProjectInstance: verifyGeneratedAttach,
 };

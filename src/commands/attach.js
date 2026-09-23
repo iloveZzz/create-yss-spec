@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { parseArgs } = require("../cli/args");
+const { assertRuntime } = require("../template/distribution-runtime");
 const { pathKind, targetPath, normalizeRelativePath } = require("../filesystem/path-utils");
 const { applyManagedOperation, applyMigrationOperations } = require("../filesystem/apply-plan");
 const { runInTransaction } = require("../filesystem/transaction-runner");
@@ -29,6 +30,8 @@ const {
 } = require("../template/verification-runtime");
 
 function assertRequiredOptions(options) {
+  if (!options.agentRuntime && !process.stdin.isTTY) throw new Error("无交互 attach 必须显式指定 --agent-runtime codex|cursor|pi");
+  if (options.agentRuntime) assertRuntime(options.agentRuntime);
   if (!options.projectName) {
     throw new Error("attach 需要 --project-name，项目名称不能为空");
   }
@@ -73,8 +76,9 @@ function attachVariables(options) {
     issueTracker: options.issueTracker || "github",
     includeExampleDocs:
       options.includeExampleDocs === undefined
-        ? true
+        ? false
         : Boolean(options.includeExampleDocs),
+    agentRuntime: options.agentRuntime,
   };
 }
 
@@ -156,8 +160,14 @@ function affectedPathsForMigration(migrationPlan) {
   );
 }
 
-function runAttach(argv = []) {
+async function runAttach(argv = []) {
   const options = parseArgs(argv);
+  if (!options.agentRuntime && process.stdin.isTTY) {
+    const readline = require("node:readline/promises");
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try { options.agentRuntime = (await rl.question("Agent 平台（codex/cursor/pi）: ")).trim(); }
+    finally { rl.close(); }
+  }
   if (options.prune) throw new Error("--prune 仅适用于 sync");
   assertRequiredOptions(options);
 

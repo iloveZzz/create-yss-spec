@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+const { spawnSync } = require("./support/spawn-cli");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliBin = path.join(repoRoot, "bin/create-yss-spec.js");
@@ -67,258 +67,25 @@ function snapshotTreeHash(rootPath) {
   return digest.digest("hex");
 }
 
-test("interactive init generates a template instance in an empty directory", () => {
+test("init generates a slim project with one runtime", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "demo-project");
-  const input = ["Demo Project", "Data Platform", "12", targetDir].join("\n") + "\n";
-
-  const result = spawnSync(process.execPath, [cliBin], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    input,
-  });
-
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /初始化完成/);
-  assert.match(result.stdout, /下一步建议/);
-  assert.ok(fs.existsSync(path.join(targetDir, "AGENTS.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, "README.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, metadataFileName)));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/templates/spec-template.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml")));
-  assert.deepEqual(contextContractFiles(targetDir), ["CONTEXT.md"]);
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-context-contract")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-context-reconciliation")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-strategic-context-import")));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/process/schemas/context-reconciliation.schema.json")));
-  assert.ok(fs.existsSync(path.join(targetDir, "yss-project.yaml")));
-  assert.ok(fs.existsSync(path.join(targetDir, "DESIGN.md")));
-  // The installed skill must retain the manifest-bound scaffold, including encoded dotfiles.
-  for (const root of [".agents/skills", ".codex/skills"]) {
-    const skill = path.join(targetDir, root, "yss-frontend-scaffold-generator");
-    const baseline = JSON.parse(fs.readFileSync(path.join(skill, "references/data-quality-v1.manifest.json"), "utf8"));
-    for (const [relative, digest] of Object.entries(baseline.files)) {
-      const asset = path.join(skill, "assets/data-quality-v1", relative);
-      assert.ok(fs.existsSync(asset), `missing scaffold asset: ${root}/${relative}`);
-      assert.equal(`sha256:${sha256(fs.readFileSync(asset))}`, digest, relative);
-    }
-  }
-
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview.html")));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/design/preview-dark.html")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".cursor/skills")));
-  for (const removedPath of [
-    "docs/templates/prd-template.md",
-    ".agent/skills",
-    ".codex/skills/yss-file/SKILL.md",
-    ".codex/skills/yss-domain-modeling/SKILL.md",
-    ".agents/skills/yss-quality/SKILL.md",
-    ".agents/skills/yss-page-module-development/SKILL.md",
-    ".cursor/skills/yss-page-module-development/SKILL.md",
-  ]) {
-    assert.equal(
-      fs.existsSync(path.join(targetDir, removedPath)),
-      false,
-      `${removedPath} must not be generated`,
-    );
-  }
-  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-spec/SKILL.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/plan/templates/plan-template.md")));
-  assert.equal(fs.existsSync(path.join(targetDir, "docs/discovery")), false);
-  const planQuery = spawnSync(process.execPath, ["scripts/query-lifecycle-context", "--work-unit", "work-unit.plan-requirements"], { cwd: targetDir, encoding: "utf8" });
-  assert.equal(planQuery.status, 0, planQuery.stderr);
-  const planContext = JSON.parse(planQuery.stdout);
-  assert.ok(planContext.execution.selected.planning);
-  assert.ok(planContext.execution.plan_checks.length > 0);
-  assert.ok(planContext.execution.plan_checks.every(check => check.status === "pending"));
-  const bypass = spawnSync(process.execPath, ["--input-type=module", "-e", "import {validateNextRoute} from './scripts/lib/lifecycle-transition.mjs'; process.stdout.write(validateNextRoute('work-unit.plan-opportunity','work-unit.spec-synthesis').result)"], { cwd: targetDir, encoding: "utf8" });
-  assert.equal(bypass.status, 0, bypass.stderr);
-  assert.equal(bypass.stdout, "blocked");
-  const lifecycle = fs.readFileSync(path.join(targetDir, "docs/process/lifecycle-registry.yaml"), "utf8");
-  assert.match(lifecycle, /- id: stage\.plan\n/);
-  assert.doesNotMatch(lifecycle, /- id: stage\.discovery\n|\n  migrations:/);
-  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/to-tickets/SKILL.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/wayfinder/SKILL.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".cursorrules")));
-  assert.ok(
-    fs.existsSync(path.join(targetDir, ".agents/rules/yss-ai-skills.md")),
-  );
-  assert.ok(
-    fs.existsSync(
-      path.join(targetDir, ".agents/skills/.yss-skills-manifest.json"),
-    ),
-  );
-  for (const frontendSkill of [
-    "yss-prototype-stage",
-    "yss-design-system",
-    "yss-ui-business-page-generation",
-    "ytable-usage",
-    "yedit-table-usage",
-    "formily-foundation",
-    "theme-token-usage",
-  ]) {
-    assert.ok(
-      fs.existsSync(
-        path.join(targetDir, ".agents/skills", frontendSkill, "SKILL.md"),
-      ),
-      `missing frontend skill ${frontendSkill}`,
-    );
-    assert.ok(
-      fs.existsSync(
-        path.join(targetDir, ".cursor/skills", frontendSkill, "SKILL.md"),
-      ),
-      `missing cursor projection for ${frontendSkill}`,
-    );
-  }
-  for (const asset of ["assets/native-workbench/index.html", "assets/antd-authoring/pnpm-lock.yaml", "scripts/build-antd-prototype.mjs", "scripts/collect-antd-reference.mjs", "references/antd-component-catalog.json"]) {
-    assert.ok(fs.existsSync(path.join(targetDir, ".agents/skills/yss-prototype-stage", asset)), `missing prototype asset ${asset}`);
-  }
-  for (const mcpConfig of [".vscode/mcp.json"]) {
-    assert.ok(
-      fs.existsSync(path.join(targetDir, mcpConfig)),
-      `missing MCP configuration ${mcpConfig}`,
-    );
-  }
-  assert.equal(fs.existsSync(path.join(targetDir, ".mcp.json")), false);
-  for (const retiredSkill of [
-    "yss-antdv-next-design",
-    "yss-antd-design",
-    "high-fidelity-html-prototype",
-    "api-integration",
-    "use-table-height",
-    "use-tree-height",
-  ]) {
-    assert.equal(
-      fs.existsSync(path.join(targetDir, ".agents/skills", retiredSkill)),
-      false,
-      `retired skill ${retiredSkill} must not be generated`,
-    );
-  }
-  const retiredScaffoldReferenceSkills = [
-    "yss-backend-scaffold-parent",
-    "yss-backend-scaffold-application",
-    "yss-backend-scaffold-domain",
-    "yss-backend-scaffold-infrastructure",
-    "yss-backend-scaffold-web",
-    "yss-backend-scaffold-adapter",
-  ];
-  for (const projectionRoot of [".codex", ".cursor", ".pi"]) {
-    assert.ok(
-      fs.existsSync(
-        path.join(
-          targetDir,
-          projectionRoot,
-          "skills",
-          "yss-ddd-scaffold-generator",
-          "references",
-          "layer-skill-routing.md",
-        ),
-      ),
-      `${projectionRoot} missing ordinary DDD layer routing reference`,
-    );
-    for (const skillName of retiredScaffoldReferenceSkills) {
-      assert.ok(
-        !fs.existsSync(
-          path.join(
-            targetDir,
-            projectionRoot,
-            "skills",
-            "yss-ddd-scaffold-generator",
-            "references",
-            skillName,
-            "SKILL.md",
-          ),
-        ),
-        `${projectionRoot} must not expose retired nested skill ${skillName}`,
-      );
-    }
-  }
-  assert.equal(fs.existsSync(path.join(targetDir, ".agents/skills/yss-mvc-scaffold-generator")), false);
-  assert.ok(
-    fs.existsSync(
-      path.join(targetDir, ".codex/skills/yss-openapi-draft-review/SKILL.md"),
-    ),
-  );
-  assert.ok(
-    fs.existsSync(
-      path.join(targetDir, ".codex/skills/yss-openapi-governance/SKILL.md"),
-    ),
-  );
-  assert.equal(fs.existsSync(path.join(targetDir, ".git")), false);
-  for (const excludedInitPath of [
-    "wiki",
-    ".github",
-    "yss-public-skills.json",
-    ".cursor/environment.json",
-  ]) {
-    assert.equal(
-      fs.existsSync(path.join(targetDir, excludedInitPath)),
-      false,
-      `${excludedInitPath} must not be generated by init`,
-    );
-  }
-  assert.equal(fs.existsSync(path.join(targetDir, "packages")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, ".template-source")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "docs/adr/0001-template-source.md")), false);
-  assert.ok(fs.existsSync(path.join(targetDir, "docs/adr/README.md")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".gitignore")));
-  assert.ok(fs.existsSync(path.join(targetDir, ".nvmrc")));
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")));
-  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template-fast")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-template-candidate")), false);
-  assert.ok(fs.existsSync(path.join(targetDir, "scripts/vendor/yaml.mjs")));
-  assert.equal(
-    fs.existsSync(path.join(targetDir, "docs/.scratch/code-review-candidates")),
-    false,
-  );
-  assert.equal(
-    fs.existsSync(path.join(targetDir, "scripts/sync-cli-template.js")),
-    false,
-  );
-  assert.equal(
-    fs.existsSync(path.join(targetDir, ".claude/settings.local.json")),
-    false,
-  );
-  assert.equal(
-    fs.existsSync(path.join(targetDir, ".codex/hooks.json")),
-    false,
-  );
-  assert.equal(
-    fs.existsSync(path.join(targetDir, ".codex/settings.local.json")),
-    false,
-  );
-  assert.equal(fs.existsSync(path.join(targetDir, ".pi/settings.json")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, ".codebuddy")), false);
-  for (const retiredRoot of [".claude", ".qoder", ".trae"]) {
-    assert.equal(fs.existsSync(path.join(targetDir, retiredRoot)), false);
-  }
-  assert.equal(fs.existsSync(path.join(targetDir, ".qwen")), false);
-
-  const agentsContent = fs.readFileSync(path.join(targetDir, "AGENTS.md"), "utf8");
-  const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
-  const projectIdentity = fs.readFileSync(
-    path.join(targetDir, "yss-project.yaml"),
-    "utf8",
-  );
-  const metadata = JSON.parse(
-    fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"),
-  );
-
-  assert.doesNotMatch(agentsContent, /\[填写\]/);
-  assert.match(readmeContent, /^# Demo Project/m);
-  assert.match(projectIdentity, /^repository_mode:\s*project-instance$/m);
-  assert.deepEqual(
-    [...projectIdentity.matchAll(/^([a-z_][a-z0-9_-]*):/gm)]
-      .map((match) => match[1])
-      .sort(),
-    ["repository_mode", "schema_version"],
-  );
-  assert.equal(metadata.templateName, "create-yss-spec");
-  assert.equal(metadata.templateVersion, packageVersion);
-  assert.equal(metadata.variables.projectName, "Demo Project");
-  assert.equal(metadata.variables.businessDomain, "Data Platform");
+  try {
+    const result = spawnSync(process.execPath, [cliBin, "--project-name", "Demo Project", "--business-domain", "Data Platform", "--target-dir", targetDir], { cwd: repoRoot, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const metadata = JSON.parse(fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"));
+    const lock = JSON.parse(fs.readFileSync(path.join(targetDir, "skills-lock.json"), "utf8"));
+    assert.equal(metadata.metadataSchemaVersion, 3);
+    assert.deepEqual(metadata.distribution.runtimes, ["codex"]);
+    assert.deepEqual(lock.projectionRoots, [".codex/skills"]);
+    assert.equal(Object.keys(lock.skills.shared).length, 4);
+    assert.equal(fs.existsSync(path.join(targetDir, ".cursor")), false);
+    assert.equal(fs.existsSync(path.join(targetDir, ".pi")), false);
+    assert.equal(fs.existsSync(path.join(targetDir, "docs/design/preview.html")), false);
+    assert.deepEqual(contextContractFiles(targetDir), ["CONTEXT.md"]);
+    const verify = spawnSync(path.join(targetDir, "scripts/verify-project-instance"), [], { cwd: targetDir, encoding: "utf8" });
+    assert.equal(verify.status, 0, verify.stderr);
+  } finally { fs.rmSync(sandboxDir, { recursive: true, force: true }); }
 });
 
 test("sync preserves the init distribution boundary", () => {
@@ -975,7 +742,7 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.readFileSync(runtimeFile, "utf8"), "module.exports = 'runtime';\n");
   assert.equal(fs.existsSync(path.join(targetDir, ".git")), true);
   assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-project-instance")), true);
-  assert.equal(fs.existsSync(path.join(targetDir, ".codex/skills/to-spec/SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".codex/skills/yss-product-lifecycle/SKILL.md")), true);
   for (const retiredRoot of [".claude", ".qoder", ".trae"]) {
     assert.equal(fs.existsSync(path.join(targetDir, retiredRoot)), false);
   }
@@ -983,12 +750,12 @@ test("attach applies management assets while preserving runtime files and .git",
   assert.equal(fs.existsSync(path.join(targetDir, "docs/reviews")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".github")), false);
   assert.equal(fs.existsSync(path.join(targetDir, ".cursor/environment.json")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, "yss-public-skills.json")), false);
   assert.equal(fs.existsSync(path.join(targetDir, "scripts/verify-skill-governance")), false);
-  assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), true);
+  assert.equal(fs.existsSync(path.join(targetDir, ".cursorrules")), false);
   assert.equal(
     fs.existsSync(path.join(targetDir, ".agents/skills/ytable-usage/SKILL.md")),
-    true,
+    false,
   );
   assert.equal(
     fs.existsSync(path.join(targetDir, ".agents/skills/high-fidelity-html-prototype")),
@@ -1006,7 +773,7 @@ test("attach applies management assets while preserving runtime files and .git",
   const metadata = JSON.parse(
     fs.readFileSync(path.join(targetDir, metadataFileName), "utf8"),
   );
-  assert.equal(metadata.metadataSchemaVersion, 2);
+  assert.equal(metadata.metadataSchemaVersion, 3);
   assert.equal(metadata.cliVersion, packageVersion);
   assert.match(metadata.templateCommit, /^[0-9a-f]{40}$/);
   const snapshot = JSON.parse(

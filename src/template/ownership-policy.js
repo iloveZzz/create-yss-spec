@@ -124,10 +124,25 @@ function isWriteProtectedOwnership(ownership) {
   return ownership === "user-owned" || ownership === "protected";
 }
 
+function projectAssetWriteViolation(relativePath) {
+  const path = normalizePolicyPath(relativePath);
+  if (path === "docs/implementation/.gitkeep" || path === "docs/requirements/tickets/.gitkeep") return null;
+  if (
+    path === "scaffold-architecture-decisions.yaml" ||
+    path.startsWith("docs/implementation/") ||
+    path.startsWith("docs/requirements/tickets/")
+  ) {
+    return `${path} 是项目合同或决策资产，CLI 同步不得写入或清理`;
+  }
+  return null;
+}
+
 function ownershipWriteViolation(operation) {
+  const path = operation?.relativePath || operation?.path || "unknown";
+  const projectAssetViolation = projectAssetWriteViolation(path);
+  if (projectAssetViolation) return projectAssetViolation;
   const ownership = operation?.ownership || "managed";
   if (!isWriteProtectedOwnership(ownership)) return null;
-  const path = operation?.relativePath || operation?.path || "unknown";
   return ownership === "protected"
     ? `${path} 被 ownership policy 标记为 protected，CLI 不得写入或覆盖`
     : `${path} 被 ownership policy 标记为 user-owned，不属于受管模板文件`;
@@ -145,5 +160,6 @@ module.exports = {
   resolveOwnership,
   isTemplateManagedOwnership,
   isWriteProtectedOwnership,
+  projectAssetWriteViolation,
   ownershipWriteViolation,
 };

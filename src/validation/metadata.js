@@ -22,7 +22,7 @@ function assertSha256(value, name) {
 }
 
 function validateTemplateMetadata(metadata, {
-  currentSchemaVersion = 2,
+  currentSchemaVersion = 3,
   templateName,
   templateSource,
 } = {}) {
@@ -34,6 +34,18 @@ function validateTemplateMetadata(metadata, {
   }
   if (metadata.metadataSchemaVersion > currentSchemaVersion) {
     throw new Error(`不支持的模板元数据版本：${metadata.metadataSchemaVersion}`);
+  }
+  if (metadata.metadataSchemaVersion === 3) {
+    const selection = metadata.distribution;
+    if (!selection || !["selected", "legacy-all"].includes(selection.mode)) throw new Error("模板元数据 distribution 非法");
+    if (selection.mode === "selected" && (
+      !Array.isArray(selection.runtimes) || !selection.runtimes.length ||
+      new Set(selection.runtimes).size !== selection.runtimes.length ||
+      selection.runtimes.some((runtime) => !["codex", "cursor", "pi"].includes(runtime)) ||
+      !Array.isArray(selection.installedSkills) ||
+      new Set(selection.installedSkills).size !== selection.installedSkills.length ||
+      selection.installedSkills.some((skill) => !/^[a-z][a-z0-9-]+$/.test(skill))
+    )) throw new Error("模板元数据 distribution 选择非法");
   }
   if (metadata.managedFiles !== undefined && (typeof metadata.managedFiles !== "object" || metadata.managedFiles === null || Array.isArray(metadata.managedFiles))) {
     throw new Error("模板元数据 managedFiles 必须是 JSON 对象");

@@ -8,6 +8,7 @@ const { treeHash } = require("../template-hash");
 const { targetPath, pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
 const { validateTemplateSnapshot } = require("../validation/snapshot");
 const { validateTemplateMetadata } = require("../validation/metadata");
+const { distributionForVariables, isIncludedInstancePath, selectedSkillLock, renderInstanceSkillSupplyChain, renderInstanceDesignSkillFile } = require("./distribution-runtime");
 const {
   extractManagedGitignoreBlock,
   mergeManagedGitignoreBlock,
@@ -29,7 +30,7 @@ const TEMPLATE_MANIFEST_TEXT = fs.readFileSync(BUNDLED_MANIFEST_PATH, "utf8");
 const TEMPLATE_MANIFEST = JSON.parse(TEMPLATE_MANIFEST_TEXT);
 const TEMPLATE_METADATA_FILENAME = ".yss-template.json";
 const TEMPLATE_SOURCE = "github:iloveZzz/yss-spec-project-template";
-const METADATA_SCHEMA_VERSION = 2;
+const METADATA_SCHEMA_VERSION = 3;
 
 const ROOT_EXCLUDED_ENTRIES = new Set(TEMPLATE_MANIFEST.excludeRootEntries);
 const ROOT_EXCLUDED_FILES = new Set(TEMPLATE_MANIFEST.excludeRootFiles);
@@ -46,8 +47,6 @@ const INIT_EXCLUDED_RELATIVE_PATHS = new Set(
 );
 const RENDERED_RELATIVE_PATHS = new Set(TEMPLATE_MANIFEST.renderPaths);
 const EXAMPLE_DOC_PATHS = new Set(TEMPLATE_MANIFEST.exampleDocPaths);
-
-let bundledPathToLogicalPath = null;
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -79,16 +78,16 @@ function readTemplateSnapshot() {
   });
 }
 
-function logicalTemplatePath(bundledPath) {
-  if (bundledPathToLogicalPath === null) {
-    const snapshot = readTemplateSnapshot();
-    bundledPathToLogicalPath = new Map(
-      Object.entries(snapshot.encodedPaths || {}).map(([logicalPath, encodedPath]) => [
-        normalizeRelativePath(encodedPath),
-        normalizeRelativePath(logicalPath),
-      ]),
-    );
-  }
+function logicalPathMap(snapshot) {
+  return new Map(
+    Object.entries(snapshot.encodedPaths || {}).map(([logicalPath, encodedPath]) => [
+      normalizeRelativePath(encodedPath),
+      normalizeRelativePath(logicalPath),
+    ]),
+  );
+}
+
+function logicalTemplatePath(bundledPath, bundledPathToLogicalPath) {
   return (
     bundledPathToLogicalPath.get(normalizeRelativePath(bundledPath)) ||
     normalizeRelativePath(bundledPath)
@@ -143,12 +142,32 @@ function readTargetIdentity(targetDir) {
 }
 
 function renderTemplateFile(relativePath, content, variables) {
+  const distribution = variables.distribution || distributionForVariables(variables, BUNDLED_TEMPLATE_ROOT);
+  if (relativePath === "skills-lock.json") return selectedSkillLock(content, distribution);
+  if (relativePath === "scripts/lib/skill-supply-chain.mjs" && distribution.mode === "selected") return renderInstanceSkillSupplyChain(content);
+  if (distribution.mode === "selected" && /^\.(agents|codex|cursor|pi)\/skills\/yss-design-system\/(SKILL\.md|references\/data-quality-theme\.md)$/.test(relativePath)) return renderInstanceDesignSkillFile(content);
+  if (relativePath === "docs/engineering/backend-platforms.json" && distribution.mode === "selected") {
+    return content.replaceAll(".template-source/evidence/maintenance/2026-09-18-yss-backend-components/aliyun-artifact-resolution.json", "docs/engineering/evidence/aliyun-artifact-resolution.json");
+  }
+  if (relativePath === "docs/agents/backend-architecture-profiles.md" && distribution.mode === "selected") {
+    return content.replace(/；依据见 `\.template-source\/evidence\/maintenance\/2026-09-12-existing-project-delivery\/maven-adapters-04\.json`/, "；适配验证证据保留在模板源，项目实例须对自身工程重新验证");
+  }
+  if (relativePath === "docs/user-guide/用户手册.md" && distribution.mode === "selected") {
+    return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化只安装四项入口 Skill 和所选 Agent 平台。阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 查看依赖与引用，再运行 \`--apply\` 安装；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n`;
+  }
+  if (distribution.mode === "selected" && relativePath === "docs/design/README.md") {
+    return content.replace(/^.*design-system-sync\.yaml.*\n/m, "");
+  }
+  if (distribution.mode === "selected" && relativePath.startsWith("docs/user-guide/") && relativePath.endsWith(".md")) {
+    return content.replaceAll("[设备借用贯穿案例](设备借用贯穿案例.md)", "[项目用户手册](用户手册.md)")
+      .replaceAll("本仓是 `template-source`", "模板源是 `template-source`");
+  }
   if (relativePath === "yss-project.yaml") {
     return convertTemplateSourceToInstance(content);
   }
 
   if (relativePath === "AGENTS.md") {
-    return content
+    const rendered = content
       .replace(
         /(\*\*项目名称：\*\*\s*)\[填写\]/,
         (_, prefix) => `${prefix}${variables.projectName}`,
@@ -161,10 +180,14 @@ function renderTemplateFile(relativePath, content, variables) {
         /(\*\*团队规模：\*\*\s*)\[填写\]/,
         (_, prefix) => `${prefix}${variables.teamSize}`,
       );
+    return distribution.mode === "selected"
+      ? `${rendered.replace(/## 4\. \`template-source\` 模板维护路由[\s\S]*?(?=## 5\.)/, "")
+        .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `docs/process/harness-process-tailoring.md` |\n")}\n## 按需 Skill\n\n阶段派发或专项任务开始前，根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 \`create-yss-spec skills ensure <skill-id...> --plan\`，核对后运行 \`--apply\`。若 CLI 快照与实例模板提交不一致，先运行 \`create-yss-spec sync\`。\n`
+      : rendered;
   }
 
   if (relativePath === "README.md") {
-    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n`;
+    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- Agent 平台：${distribution.mode === "selected" ? distribution.runtimes.join(", ") : "legacy-all"}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n\n项目校验：\`scripts/verify-project-instance\`。按需安装 Skill：\`create-yss-spec skills ensure <skill-id> --plan\`，确认后使用 \`--apply\`。\n`;
   }
 
   if (relativePath === ".gitignore") return extractManagedGitignoreBlock(content);
@@ -178,6 +201,8 @@ function buildCopyPlan(
   variables,
   relativeDir = "",
   mode = "managed",
+  bundledPathToLogicalPath,
+  distribution = { mode: "legacy-all" },
 ) {
   const operations = [];
   const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
@@ -188,9 +213,10 @@ function buildCopyPlan(
     const bundledRelativePath = relativeDir
       ? path.posix.join(relativeDir, entry.name)
       : entry.name;
-    const relativePath = logicalTemplatePath(bundledRelativePath);
+    const relativePath = logicalTemplatePath(bundledRelativePath, bundledPathToLogicalPath);
 
     if (shouldExcludeRelativePath(relativePath, mode)) continue;
+    if (!isIncludedInstancePath(relativePath, distribution)) continue;
     if (!variables.includeExampleDocs && EXAMPLE_DOC_PATHS.has(relativePath)) continue;
 
     const sourcePath = path.join(sourceDir, entry.name);
@@ -205,6 +231,8 @@ function buildCopyPlan(
           variables,
           bundledRelativePath,
           mode,
+          bundledPathToLogicalPath,
+          distribution,
         ),
       );
       continue;
@@ -235,8 +263,9 @@ function buildSyncVariables(metadata) {
     issueTracker: variables.issueTracker || "github",
     includeExampleDocs:
       variables.includeExampleDocs === undefined
-        ? true
+        ? !(metadata.metadataSchemaVersion >= 3)
         : Boolean(variables.includeExampleDocs),
+    distribution: metadata.metadataSchemaVersion >= 3 ? metadata.distribution : { mode: "legacy-all" },
   };
 }
 
@@ -254,15 +283,17 @@ function buildDesiredManagedFile(operation, variables) {
     };
   }
 
+  const desiredContent = fs.readFileSync(operation.sourcePath);
   return {
     ...operation,
-    desiredContent: fs.readFileSync(operation.sourcePath),
-    desiredHash: fileHash(operation.sourcePath),
+    desiredContent,
+    desiredHash: sha256(desiredContent),
   };
 }
 
-function buildDesiredManagedOperations(targetDir, variables, mode = "managed") {
-  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, variables, "", mode)
+function buildDesiredManagedOperations(targetDir, variables, mode = "managed", snapshot = readTemplateSnapshot()) {
+  const distribution = variables.distribution || distributionForVariables(variables, BUNDLED_TEMPLATE_ROOT);
+  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, { ...variables, distribution }, "", mode, logicalPathMap(snapshot), distribution)
     .filter((operation) => operation.type === "copy" || operation.type === "render")
     .map((operation) => buildDesiredManagedFile(operation, variables));
 }
@@ -297,9 +328,9 @@ function adaptGitignoreOperation(
   };
 }
 
-function buildSyncDesiredOperations(targetDir, metadata, identity) {
+function buildSyncDesiredOperations(targetDir, metadata, identity, snapshot = readTemplateSnapshot()) {
   const variables = buildSyncVariables(metadata);
-  return buildDesiredManagedOperations(targetDir, variables, "init")
+  return buildDesiredManagedOperations(targetDir, variables, "init", snapshot)
     .filter((operation) => operation.relativePath !== "README.md")
     .map((operation) =>
       adaptGitignoreOperation(operation, targetDir, {
@@ -327,7 +358,7 @@ function buildSyncDesiredOperations(targetDir, metadata, identity) {
 }
 
 function buildAttachDesiredOperations(targetDir, variables, identity) {
-  return buildDesiredManagedOperations(targetDir, variables, "managed")
+  return buildDesiredManagedOperations(targetDir, variables, "init")
     .filter((operation) => operation.relativePath !== "README.md")
     .map((operation) => adaptGitignoreOperation(operation, targetDir, { attach: true }))
     .map((operation) => {
@@ -396,6 +427,7 @@ function collectManagedFiles(desiredOperations) {
 
 function buildMetadata(variables, desiredOperations, timestamp = nowIsoString()) {
   const snapshot = readTemplateSnapshot();
+  const distribution = variables.distribution || distributionForVariables(variables, BUNDLED_TEMPLATE_ROOT);
   return {
     metadataSchemaVersion: METADATA_SCHEMA_VERSION,
     templateName: PACKAGE_MANIFEST.name,
@@ -408,6 +440,7 @@ function buildMetadata(variables, desiredOperations, timestamp = nowIsoString())
     initializedAt: timestamp,
     lastSyncedAt: timestamp,
     managedFilesManifestVersion: TEMPLATE_MANIFEST_VERSION,
+    distribution,
     variables: {
       projectName: variables.projectName,
       businessDomain: variables.businessDomain,
@@ -429,19 +462,21 @@ function writeTemplateMetadata(targetDir, metadata, transaction = null) {
   fs.writeFileSync(metadataPath, content, "utf8");
 }
 
-function buildNextSyncMetadata(metadata, syncPlan) {
-  const snapshot = readTemplateSnapshot();
+function buildNextSyncMetadata(metadata, syncPlan, {
+  snapshot = readTemplateSnapshot(),
+  currentHashes = null,
+} = {}) {
   const nextManagedFiles = { ...(metadata.managedFiles || {}) };
   delete nextManagedFiles["README.md"];
   for (const relativePath of syncPlan.alreadyMissing || []) delete nextManagedFiles[relativePath];
   for (const relativePath of syncPlan.pruned || []) delete nextManagedFiles[relativePath];
   for (const operation of syncPlan.desiredOperations) {
     if (pathKind(operation.targetPath) !== "file") continue;
-    const currentHash = fileHash(operation.targetPath);
-    if (currentHash === operation.desiredHash) {
+    const currentHash = currentHashes?.[operation.relativePath] ?? fileHash(operation.targetPath);
+    if (currentHash === operation.desiredHash || operation.relativePath === "skills-lock.json") {
       nextManagedFiles[operation.relativePath] = {
         type: operation.type,
-        contentHash: operation.desiredHash,
+        contentHash: currentHash,
       };
     }
   }
@@ -449,6 +484,7 @@ function buildNextSyncMetadata(metadata, syncPlan) {
   return {
     ...metadata,
     metadataSchemaVersion: METADATA_SCHEMA_VERSION,
+    distribution: metadata.metadataSchemaVersion >= 3 ? metadata.distribution : { mode: "legacy-all" },
     templateName: PACKAGE_MANIFEST.name,
     cliVersion: PACKAGE_MANIFEST.version,
     templateVersion: PACKAGE_MANIFEST.version,

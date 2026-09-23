@@ -16,6 +16,7 @@ COMMANDS
   sync       同步已有模板实例的受管资产
   diff       只计算同步差异，不写入文件
   doctor     检查模板实例、身份、Git 和安全状态
+  skills     按需补装 Skill 或增加 Agent 平台
   update     检查 npm 最新版本，如有更新则安装
   upgrade    update 的别名
 
@@ -25,6 +26,7 @@ OPTIONS
   --team-size <size>                 团队规模；init 不传则可留空，默认「待补充」
   --target-dir <dir>                 目标目录；init 不传则进入交互输入，sync/diff/doctor 默认为当前目录
   --issue-tracker github|gitlab      默认 issue tracker 偏好（默认 github）
+  --agent-runtime codex|cursor|pi    init/attach 必选；交互模式可在提示中选择
   --dry-run                          兼容预演模式，不写入文件
   --plan                             sync：输出结构化文本计划，不写入文件
   --json                             sync/diff/doctor：输出机器可读 JSON，不写入文件
@@ -34,7 +36,7 @@ OPTIONS
                                      update：即使已是最新时仍重新安装；npx / 源码目录仍不覆盖
   --prune                            sync：备份并删除与旧受管基线一致的退出分发文件
   --git-init                         初始化完成后执行 git init
-  --include-example-docs             显式保留示例文档（默认开启）
+  --include-example-docs             显式保留示例文档（默认关闭）
   --no-example-docs                  不生成示例文档
   -h, --help                         显示本帮助信息
   -v, --version                      显示 CLI 版本
@@ -70,6 +72,10 @@ EXAMPLES
   $ npx create-yss-spec@latest doctor --json
   $ npx create-yss-spec@latest sync --target-dir . --force
   $ npx create-yss-spec@latest sync --plan --prune
+  $ npx create-yss-spec@latest skills ensure yss-web-controller --plan
+  $ npx create-yss-spec@latest skills ensure yss-web-controller --apply
+  $ npx create-yss-spec@latest skills runtime add cursor --plan
+  $ npx create-yss-spec@latest skills runtime add cursor --apply
   $ npx create-yss-spec@latest sync --prune
   $ npx create-yss-spec update
   $ npx create-yss-spec update --dry-run

@@ -1,6 +1,6 @@
 "use strict";
 
-const { isTemplateManagedOwnership } = require("./ownership-policy");
+const { isTemplateManagedOwnership, projectAssetWriteViolation } = require("./ownership-policy");
 const { resolveTemplateOwnership } = require("./ownership-runtime");
 
 function classifyRemovedFiles({
@@ -27,6 +27,11 @@ function classifyRemovedFiles({
     }
     if (!record?.contentHash) {
       retainedRemoved.push({ path: relativePath, reason: "缺少可信受管基线" });
+      continue;
+    }
+    const projectAssetViolation = projectAssetWriteViolation(relativePath);
+    if (projectAssetViolation) {
+      retainedRemoved.push({ path: relativePath, reason: projectAssetViolation });
       continue;
     }
     const recordedOwnership = record.ownership || getCurrentOwnership(relativePath);
