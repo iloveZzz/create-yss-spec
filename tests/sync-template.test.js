@@ -164,11 +164,15 @@ test("package prepack requires a committed template snapshot", () => {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
   );
+  const syncSource = fs.readFileSync(path.join(repoRoot, "scripts/sync-template.js"), "utf8");
+  const snapshot = JSON.parse(fs.readFileSync(path.join(repoRoot, "template.snapshot.json"), "utf8"));
 
   assert.equal(
     packageJson.scripts.prepack,
     "node scripts/sync-template.js --require-committed",
   );
+  assert.equal(snapshot.sourceState, "committed");
+  assert.equal(syncSource.match(/const DEFAULT_TEMPLATE_REF = "([0-9a-f]{40})";/)?.[1], snapshot.templateCommit);
 });
 
 test("sync --require-committed ignores a dirty local template working tree", () => {
