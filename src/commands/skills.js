@@ -3,11 +3,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { runInTransaction } = require("../filesystem/transaction-runner");
+const { applyManagedOperation } = require("../filesystem/apply-plan");
 const { pathKind, targetPath } = require("../filesystem/path-utils");
 const { assertTargetFamily } = require("../family-runtime");
 const { assertTargetWorkingTreeWritable } = require("../validation/security");
 const { readTemplateSnapshot, loadTemplateMetadata, writeTemplateMetadata, buildDesiredManagedOperations, BUNDLED_TEMPLATE_ROOT, fileHash } = require("../template/instance-runtime");
 const { RUNTIMES, assertRuntime, readDistributionRegistry, requiredSkills, renderInstanceDesignSkillFile } = require("../template/distribution-runtime");
+const { ASSET_PROFILE, STAGES } = require("../template/asset-runtime");
 const { refreshGeneratedProjectInstance, verifyGeneratedProjectInstance } = require("../template/verification-runtime");
 
 function parseSkillArgs(argv) {
@@ -64,6 +66,92 @@ function context(targetDir) {
   return { metadata, lock, lockPath };
 }
 
+function runAssetSelection({ targetDir, requestedSkills = [], triggers = [], stage = null, plan = false }) {
+  const { metadata, lock, lockPath } = context(targetDir);
+  const distribution = metadata.distribution;
+  if (distribution.assetProfile !== ASSET_PROFILE) {
+    throw new Error("阶段资产命令仅适用于新建的按阶段分发实例；旧实例保持原分发范围");
+  }
+  if (stage && !Object.hasOwn(STAGES, stage)) throw new Error(`未知生命周期阶段：${stage}`);
+  const stageSkills = stage ? STAGES[stage].skills : [];
+  const registry = readDistributionRegistry(BUNDLED_TEMPLATE_ROOT);
+  const requested = [...new Set([...requestedSkills, ...stageSkills])];
+  const addStage = stage && !distribution.installedStages.includes(stage) ? stage : null;
+  const variables = { ...metadata.variables };
+  const before = buildDesiredManagedOperations(targetDir, { ...variables, distribution }, "init");
+  for (const operation of before) {
+    if (metadata.managedFiles[operation.relativePath] && pathKind(operation.targetPath) === "missing") {
+      throw new Error(`实例受管资产缺失，请先运行 create-yss-spec sync：${operation.relativePath}`);
+    }
+  }
+  let names, missingSkills, nextDistribution, after;
+  for (let attempt = 0; attempt <= 50; attempt++) {
+    names = requiredSkills(registry.text, requested, triggers, BUNDLED_TEMPLATE_ROOT);
+    missingSkills = names.filter((name) => !distribution.installedSkills.includes(name));
+    nextDistribution = {
+      ...distribution,
+      installedSkills: [...distribution.installedSkills, ...missingSkills].sort(),
+      installedStages: addStage ? [...distribution.installedStages, addStage] : [...distribution.installedStages],
+      resourceSkills: [...new Set([...distribution.resourceSkills, ...missingSkills])].sort(),
+    };
+    try {
+      after = buildDesiredManagedOperations(targetDir, { ...variables, distribution: nextDistribution }, "init");
+      break;
+    } catch (error) {
+      if (!error.requiredSkill || requested.includes(error.requiredSkill) || attempt === 50) throw error;
+      requested.push(error.requiredSkill);
+    }
+  }
+  const beforePaths = new Set(before.map((operation) => operation.relativePath));
+  const newOperations = after.filter((operation) => !beforePaths.has(operation.relativePath) && operation.relativePath !== "skills-lock.json");
+  const paths = newOperations.map((operation) => operation.relativePath);
+  for (const relative of paths) {
+    if (pathKind(targetPath(targetDir, relative)) !== "missing") throw new Error(`目标阶段资产路径已存在，拒绝覆盖：${relative}`);
+  }
+  if (plan) {
+    console.log(JSON.stringify({ operation: stage ? "assets ensure" : "skills ensure", targetDir, requested: stage || requestedSkills,
+      dependencies: names, addSkills: missingSkills, addStage, paths }, null, 2));
+    return;
+  }
+  if (!addStage && !missingSkills.length && !paths.length) {
+    verifyGeneratedProjectInstance(targetDir);
+    console.log("阶段资产已满足，无需写入");
+    return;
+  }
+  assertTargetWorkingTreeWritable(targetDir, { packageRoot: path.resolve(__dirname, "../..") });
+  const sourceLock = JSON.parse(fs.readFileSync(path.join(BUNDLED_TEMPLATE_ROOT, "skills-lock.json"), "utf8"));
+  runInTransaction({
+    targetDir, operation: stage ? "assets" : "skills", affectedPaths: [...paths, "skills-lock.json", ".yss-template.json"],
+    execute(transaction) {
+      const nextMetadata = structuredClone(metadata);
+      const nextLock = structuredClone(lock);
+      for (const operation of newOperations) {
+        applyManagedOperation(operation, transaction);
+        nextMetadata.managedFiles[operation.relativePath] = { type: operation.type, contentHash: fileHash(operation.targetPath) };
+      }
+      for (const name of missingSkills) {
+        if (!sourceLock.skills.shared[name]) throw new Error(`CLI 快照缺少 Skill 锁记录：${name}`);
+        nextLock.skills.shared[name] = { ...sourceLock.skills.shared[name], targets: [".agents/skills", ...nextLock.projectionRoots] };
+      }
+      nextMetadata.distribution = nextDistribution;
+      transaction.writeFile(lockPath, `${JSON.stringify(nextLock, null, 2)}\n`);
+      refreshGeneratedProjectInstance(targetDir);
+      nextMetadata.managedFiles["skills-lock.json"] = { type: "render", contentHash: fileHash(lockPath) };
+      verifyGeneratedProjectInstance(targetDir);
+      writeTemplateMetadata(targetDir, nextMetadata, transaction);
+    },
+  });
+  console.log(stage ? `已安装阶段资产 ${stage}` : `已补装 ${missingSkills.join(", ")}`);
+}
+
+function runAssets(argv = []) {
+  const [command, stage, ...rest] = argv;
+  if (command !== "ensure" || !stage || stage.startsWith("--")) throw new Error("用法：assets ensure <stage-id> --plan|--apply");
+  const options = parseSkillArgs(rest);
+  if (options.names.length || options.triggers.length) throw new Error("assets ensure 只接受一个阶段 ID");
+  runAssetSelection({ targetDir: path.resolve(options.targetDir), stage, plan: Boolean(options.plan) });
+}
+
 function runSkills(argv = []) {
   const [command, maybeAction, ...rest] = argv;
   const runtimeAdd = command === "runtime" && maybeAction === "add";
@@ -74,6 +162,10 @@ function runSkills(argv = []) {
   const targetDir = path.resolve(options.targetDir);
   const { metadata, lock, lockPath } = context(targetDir);
   const distribution = metadata.distribution;
+  if (!runtimeAdd && distribution.assetProfile === ASSET_PROFILE) {
+    runAssetSelection({ targetDir, requestedSkills: options.names, triggers: options.triggers, plan: Boolean(options.plan) });
+    return;
+  }
   const registry = readDistributionRegistry(BUNDLED_TEMPLATE_ROOT);
   const names = runtimeAdd ? [] : requiredSkills(registry.text, options.names, options.triggers, BUNDLED_TEMPLATE_ROOT);
   const runtime = runtimeAdd ? assertRuntime(options.names[0]) : null;
@@ -158,4 +250,4 @@ function runSkills(argv = []) {
   console.log(runtimeAdd ? `已增加平台 ${runtime}` : `已补装 ${missing.join(", ")}`);
 }
 
-module.exports = { runSkills };
+module.exports = { runSkills, runAssets };

@@ -9,6 +9,7 @@ const { targetPath, pathKind, normalizeRelativePath } = require("../filesystem/p
 const { validateTemplateSnapshot } = require("../validation/snapshot");
 const { validateTemplateMetadata } = require("../validation/metadata");
 const { distributionForVariables, isIncludedInstancePath, selectedSkillLock, renderInstanceSkillSupplyChain, renderInstanceDesignSkillFile } = require("./distribution-runtime");
+const { ASSET_PROFILE, assetPaths } = require("./asset-runtime");
 const {
   extractManagedGitignoreBlock,
   mergeManagedGitignoreBlock,
@@ -153,7 +154,10 @@ function renderTemplateFile(relativePath, content, variables) {
     return content.replace(/；依据见 `\.template-source\/evidence\/maintenance\/2026-09-12-existing-project-delivery\/maven-adapters-04\.json`/, "；适配验证证据保留在模板源，项目实例须对自身工程重新验证");
   }
   if (relativePath === "docs/user-guide/用户手册.md" && distribution.mode === "selected") {
-    return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化只安装四项入口 Skill 和所选 Agent 平台。阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 查看依赖与引用，再运行 \`--apply\` 安装；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n`;
+    if (distribution.assetProfile !== ASSET_PROFILE) {
+      return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 核对依赖，再运行 \`--apply\` 安装。旧实例继续沿用既有文件分发范围；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`。\n`;
+    }
+    return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化安装分诊与 Plan 入口资产、三项入口 Skill 与所选 Agent 平台。进入后续阶段前，运行 \`create-yss-spec assets ensure <stage-id> --plan\` 核对文件，再运行 \`--apply\` 原子安装；专项 Skill 使用 \`create-yss-spec skills ensure <skill-id...> --plan/--apply\`，会补齐该 Skill 引用的实例文件。增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n`;
   }
   if (distribution.mode === "selected" && relativePath === "docs/design/README.md") {
     return content.replace(/^.*design-system-sync\.yaml.*\n/m, "");
@@ -180,14 +184,20 @@ function renderTemplateFile(relativePath, content, variables) {
         /(\*\*团队规模：\*\*\s*)\[填写\]/,
         (_, prefix) => `${prefix}${variables.teamSize}`,
       );
-    return distribution.mode === "selected"
-      ? `${rendered.replace(/## 4\. \`template-source\` 模板维护路由[\s\S]*?(?=## 5\.)/, "")
-        .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `docs/process/harness-process-tailoring.md` |\n")}\n## 按需 Skill\n\n阶段派发或专项任务开始前，根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 \`create-yss-spec skills ensure <skill-id...> --plan\`，核对后运行 \`--apply\`。若 CLI 快照与实例模板提交不一致，先运行 \`create-yss-spec sync\`。\n`
-      : rendered;
+    if (distribution.mode !== "selected") return rendered;
+    const base = rendered.replace(/## 4\. \`template-source\` 模板维护路由[\s\S]*?(?=## 5\.)/, "")
+      .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `docs/process/harness-process-tailoring.md` |\n");
+    const guidance = distribution.assetProfile === ASSET_PROFILE
+      ? "## 按需阶段资产与 Skill\n\n进入后续生命周期阶段前，运行 `create-yss-spec assets ensure <stage-id> --plan` 查看完整依赖，核对后运行 `--apply`。专项任务根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。缺少阶段资产时先补装，不以缺文件推定门禁不适用。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n"
+      : "## 按需 Skill\n\n此实例继续沿用原文件分发范围。阶段派发或专项任务开始前，根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n";
+    return `${base}\n${guidance}`;
   }
 
   if (relativePath === "README.md") {
-    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- Agent 平台：${distribution.mode === "selected" ? distribution.runtimes.join(", ") : "legacy-all"}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n\n项目校验：\`scripts/verify-project-instance\`。按需安装 Skill：\`create-yss-spec skills ensure <skill-id> --plan\`，确认后使用 \`--apply\`。\n`;
+    const assetGuidance = distribution.assetProfile === ASSET_PROFILE
+      ? "后续阶段先运行 `create-yss-spec assets ensure <stage-id> --plan` 核对依赖，再运行 `--apply`；专项 Skill 使用 `create-yss-spec skills ensure <skill-id> --plan/--apply`。"
+      : "专项 Skill 使用 `create-yss-spec skills ensure <skill-id> --plan/--apply`。";
+    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- Agent 平台：${distribution.mode === "selected" ? distribution.runtimes.join(", ") : "legacy-all"}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n\n项目校验：\`scripts/verify-project-instance\`。${assetGuidance}\n`;
   }
 
   if (relativePath === ".gitignore") return extractManagedGitignoreBlock(content);
@@ -293,7 +303,8 @@ function buildDesiredManagedFile(operation, variables) {
 
 function buildDesiredManagedOperations(targetDir, variables, mode = "managed", snapshot = readTemplateSnapshot()) {
   const distribution = variables.distribution || distributionForVariables(variables, BUNDLED_TEMPLATE_ROOT);
-  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, { ...variables, distribution }, "", mode, logicalPathMap(snapshot), distribution)
+  const effectiveDistribution = { ...distribution, assetPaths: assetPaths(BUNDLED_TEMPLATE_ROOT, distribution) };
+  return buildCopyPlan(BUNDLED_TEMPLATE_ROOT, targetDir, { ...variables, distribution }, "", mode, logicalPathMap(snapshot), effectiveDistribution)
     .filter((operation) => operation.type === "copy" || operation.type === "render")
     .map((operation) => buildDesiredManagedFile(operation, variables));
 }

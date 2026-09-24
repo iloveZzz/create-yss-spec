@@ -17,6 +17,7 @@ COMMANDS
   diff       只计算同步差异，不写入文件
   doctor     检查模板实例、身份、Git 和安全状态
   skills     按需补装 Skill 或增加 Agent 平台
+  assets     按生命周期阶段补装所需文件与 Skill
   update     检查 npm 最新版本，如有更新则安装
   upgrade    update 的别名
 
@@ -73,6 +74,8 @@ EXAMPLES
   $ npx create-yss-spec@latest sync --target-dir . --force
   $ npx create-yss-spec@latest sync --plan --prune
   $ npx create-yss-spec@latest skills ensure yss-web-controller --plan
+  $ npx create-yss-spec@latest assets ensure stage.spec-architecture --plan
+  $ npx create-yss-spec@latest assets ensure stage.spec-architecture --apply
   $ npx create-yss-spec@latest skills ensure yss-web-controller --apply
   $ npx create-yss-spec@latest skills runtime add cursor --plan
   $ npx create-yss-spec@latest skills runtime add cursor --apply

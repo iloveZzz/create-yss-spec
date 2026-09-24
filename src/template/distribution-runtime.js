@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { ASSET_PROFILE, INITIAL_STAGES } = require("./asset-runtime");
 
 const RUNTIMES = Object.freeze({ codex: ".codex/skills", cursor: ".cursor/skills", pi: ".pi/skills" });
 const OMIT_INSTANCE_PATHS = [
@@ -34,13 +35,25 @@ function distributionForVariables(variables, templateRoot) {
   if (variables.distribution?.mode === "legacy-all") return { mode: "legacy-all" };
   if (variables.distribution?.mode === "selected") return variables.distribution;
   const runtime = assertRuntime(variables.agentRuntime);
-  return { mode: "selected", runtimes: [runtime], installedSkills: [...readDistributionRegistry(templateRoot).initialSkills] };
+  return {
+    mode: "selected",
+    runtimes: [runtime],
+    installedSkills: [...readDistributionRegistry(templateRoot).initialSkills],
+    assetProfile: ASSET_PROFILE,
+    installedStages: [...INITIAL_STAGES],
+    resourceSkills: [],
+  };
 }
 
 function isIncludedInstancePath(relativePath, distribution) {
   if (distribution.mode === "legacy-all") return true;
   if (relativePath === ".cursorrules" && !distribution.runtimes.includes("cursor")) return false;
   if (OMIT_INSTANCE_PATHS.some((excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`))) return false;
+  if (distribution.assetProfile === ASSET_PROFILE &&
+      (relativePath.startsWith("docs/") || relativePath.startsWith("scripts/") || relativePath.startsWith(".vscode/"))) {
+    return distribution.assetPaths.has(relativePath) ||
+      [...distribution.assetPaths].some((ref) => ref.startsWith(`${relativePath}/`));
+  }
   for (const [runtime, root] of Object.entries(RUNTIMES)) {
     const runtimeRoot = root.split("/")[0];
     if (relativePath === runtimeRoot || relativePath.startsWith(`${runtimeRoot}/`)) {

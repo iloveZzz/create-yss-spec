@@ -8,6 +8,7 @@ const OWNERSHIP_TYPES = new Set([
   "protected",
 ]);
 const MERGE_STRATEGIES = new Set(["replace-with-force", "manual"]);
+const { ASSET_PROFILE, INITIAL_STAGES, STAGES } = require("../template/asset-runtime");
 
 function assertPositiveInteger(value, name) {
   if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
@@ -46,6 +47,16 @@ function validateTemplateMetadata(metadata, {
       new Set(selection.installedSkills).size !== selection.installedSkills.length ||
       selection.installedSkills.some((skill) => !/^[a-z][a-z0-9-]+$/.test(skill))
     )) throw new Error("模板元数据 distribution 选择非法");
+    if (selection.mode === "selected" && selection.assetProfile !== undefined && (
+      selection.assetProfile !== ASSET_PROFILE ||
+      !Array.isArray(selection.installedStages) ||
+      INITIAL_STAGES.some((stage) => !selection.installedStages.includes(stage)) ||
+      new Set(selection.installedStages).size !== selection.installedStages.length ||
+      selection.installedStages.some((stage) => !Object.hasOwn(STAGES, stage)) ||
+      !Array.isArray(selection.resourceSkills) ||
+      new Set(selection.resourceSkills).size !== selection.resourceSkills.length ||
+      selection.resourceSkills.some((skill) => !selection.installedSkills.includes(skill))
+    )) throw new Error("模板元数据阶段资产选择非法");
   }
   if (metadata.managedFiles !== undefined && (typeof metadata.managedFiles !== "object" || metadata.managedFiles === null || Array.isArray(metadata.managedFiles))) {
     throw new Error("模板元数据 managedFiles 必须是 JSON 对象");

@@ -319,7 +319,9 @@ test("sync omits tracked files deleted from a local working tree", () => {
 test("sync snapshot remains valid when packaging and running use different locales", () => {
   const fixtureRoot = createTemplateFixture();
   // This fixture executes the real CLI, including its bundled YAML identity parser.
-  fs.copyFileSync(path.join(repoRoot, "template/scripts/vendor/yaml.mjs"), path.join(fixtureRoot, "scripts/vendor/yaml.mjs"));
+  for (const directory of ["docs", "scripts"]) {
+    fs.cpSync(path.join(repoRoot, "template", directory), path.join(fixtureRoot, directory), { recursive: true });
+  }
   const registry = path.join(fixtureRoot, "docs/agents/yss-skill-registry.yaml");
   fs.mkdirSync(path.dirname(registry), { recursive: true });
   fs.writeFileSync(registry, "instance_distribution:\n  initial_skills: [shared-skill]\nother:\n", "utf8");

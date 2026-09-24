@@ -120,9 +120,7 @@
     ".pi/skills/yss-design-system/references/data-quality-theme.md",
     "yss-project.yaml"
   ],
-  "exampleDocPaths": [
-    "docs/plan/IDEATION.md"
-  ],
+  "exampleDocPaths": [],
   "initExcludeRootEntries": [],
   "initExcludeRootFiles": [
     "yss-public-skills.json"

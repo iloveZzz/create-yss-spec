@@ -78,7 +78,7 @@ test("init generates a slim project with one runtime", () => {
     assert.equal(metadata.metadataSchemaVersion, 3);
     assert.deepEqual(metadata.distribution.runtimes, ["codex"]);
     assert.deepEqual(lock.projectionRoots, [".codex/skills"]);
-    assert.equal(Object.keys(lock.skills.shared).length, 4);
+    assert.equal(Object.keys(lock.skills.shared).length, 3);
     assert.equal(fs.existsSync(path.join(targetDir, ".cursor")), false);
     assert.equal(fs.existsSync(path.join(targetDir, ".pi")), false);
     assert.equal(fs.existsSync(path.join(targetDir, "docs/design/preview.html")), false);
@@ -323,7 +323,7 @@ test("non-empty target requires --force, and --git-init initializes a repository
   assert.ok(fs.existsSync(path.join(targetDir, ".git")));
 });
 
-test("manifest-driven optional flags affect rendered output and example docs", () => {
+test("manifest-driven issue tracker option renders output", () => {
   const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-"));
   const targetDir = path.join(sandboxDir, "customized-project");
 
@@ -339,7 +339,6 @@ test("manifest-driven optional flags affect rendered output and example docs", (
       targetDir,
       "--issue-tracker",
       "gitlab",
-      "--no-example-docs",
     ],
     {
       cwd: repoRoot,
@@ -352,11 +351,6 @@ test("manifest-driven optional flags affect rendered output and example docs", (
   const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf8");
 
   assert.match(readmeContent, /默认 Issue Tracker：gitlab/);
-  assert.doesNotMatch(readmeContent, /docs\/plan\/IDEATION\.md/);
-  assert.equal(
-    fs.existsSync(path.join(targetDir, "docs/plan/IDEATION.md")),
-    false,
-  );
 });
 
 test("bundled template snapshot excludes untracked source files", () => {
@@ -429,8 +423,8 @@ test("sync updates unchanged managed files and restores missing managed files", 
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
-  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
-  const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
+  const managedPath = path.join(targetDir, "docs/plan/templates/plan-template.md");
+  const restoredPath = path.join(targetDir, "docs/plan/templates/market-analysis-template.md");
   const originalReadme = fs.readFileSync(readmePath, "utf8");
   const originalManaged = fs.readFileSync(managedPath, "utf8");
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
@@ -440,8 +434,8 @@ test("sync updates unchanged managed files and restores missing managed files", 
   fs.rmSync(restoredPath, { force: true });
 
   metadata.templateVersion = "0.9.0";
-  metadata.managedFiles["docs/templates/spec-template.md"].contentHash = sha256(legacyManaged);
-  delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
+  metadata.managedFiles["docs/plan/templates/plan-template.md"].contentHash = sha256(legacyManaged);
+  delete metadata.managedFiles["docs/plan/templates/market-analysis-template.md"];
   fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n", "utf8");
 
   const syncResult = spawnSync(process.execPath, [cliBin, "sync"], {
@@ -463,7 +457,7 @@ test("sync updates unchanged managed files and restores missing managed files", 
   assert.equal(syncedMetadata.templateVersion, packageVersion);
   assert.equal(syncedMetadata.managedFiles["README.md"], undefined);
   assert.ok(
-    syncedMetadata.managedFiles["docs/templates/spec-delta-template.md"],
+    syncedMetadata.managedFiles["docs/plan/templates/market-analysis-template.md"],
   );
 });
 
@@ -492,8 +486,8 @@ test("sync dry-run previews changes without mutating files or metadata", () => {
 
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
-  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
-  const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
+  const managedPath = path.join(targetDir, "docs/plan/templates/plan-template.md");
+  const restoredPath = path.join(targetDir, "docs/plan/templates/market-analysis-template.md");
   const originalReadme = fs.readFileSync(readmePath, "utf8");
   const originalManaged = fs.readFileSync(managedPath, "utf8");
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
@@ -503,8 +497,8 @@ test("sync dry-run previews changes without mutating files or metadata", () => {
   fs.rmSync(restoredPath, { force: true });
 
   metadata.templateVersion = "0.8.0";
-  metadata.managedFiles["docs/templates/spec-template.md"].contentHash = sha256(legacyManaged);
-  delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
+  metadata.managedFiles["docs/plan/templates/plan-template.md"].contentHash = sha256(legacyManaged);
+  delete metadata.managedFiles["docs/plan/templates/market-analysis-template.md"];
   const beforeDryRunMetadata = `${JSON.stringify(metadata, null, 2)}\n`;
   fs.writeFileSync(metadataPath, beforeDryRunMetadata, "utf8");
 
@@ -517,8 +511,8 @@ test("sync dry-run previews changes without mutating files or metadata", () => {
   assert.match(result.stdout, /sync dry-run/i);
   assert.match(result.stdout, /0\.8\.0/);
   assert.match(result.stdout, new RegExp(packageVersion.replace(/\./g, "\\.")));
-  assert.match(result.stdout, /update: docs\/templates\/spec-template\.md/);
-  assert.match(result.stdout, /add: docs\/templates\/spec-delta-template\.md/);
+  assert.match(result.stdout, /update: docs\/plan\/templates\/plan-template\.md/);
+  assert.match(result.stdout, /add: docs\/plan\/templates\/market-analysis-template\.md/);
   assert.equal(fs.readFileSync(readmePath, "utf8"), originalReadme);
   assert.equal(fs.readFileSync(managedPath, "utf8"), legacyManaged);
   assert.equal(fs.existsSync(restoredPath), false);
@@ -615,7 +609,7 @@ test("sync skips locally modified managed files and reports removed managed file
   const metadataPath = path.join(targetDir, metadataFileName);
   const readmePath = path.join(targetDir, "README.md");
   const customizablePath = path.join(targetDir, "AGENTS.md");
-  const restoredPath = path.join(targetDir, "docs/templates/spec-delta-template.md");
+  const restoredPath = path.join(targetDir, "docs/plan/templates/market-analysis-template.md");
   const removedPath = path.join(targetDir, "docs/legacy-note.md");
   const removedTemplateSourcePath = path.join(
     targetDir,
@@ -638,7 +632,7 @@ test("sync skips locally modified managed files and reports removed managed file
   fs.writeFileSync(removedReviewsPath, "legacy docs review", "utf8");
 
   metadata.templateVersion = "0.9.0";
-  delete metadata.managedFiles["docs/templates/spec-delta-template.md"];
+  delete metadata.managedFiles["docs/plan/templates/market-analysis-template.md"];
   metadata.managedFiles["docs/legacy-note.md"] = {
     type: "copy",
     contentHash: sha256("legacy note"),
@@ -1058,11 +1052,11 @@ test("sync force does not overwrite a non-baseline managed file", () => {
   );
   assert.equal(initResult.status, 0, initResult.stderr);
 
-  const managedPath = path.join(targetDir, "docs/templates/spec-template.md");
+  const managedPath = path.join(targetDir, "docs/plan/templates/plan-template.md");
   const metadataPath = path.join(targetDir, metadataFileName);
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
   fs.writeFileSync(managedPath, "local unmanaged template\n", "utf8");
-  delete metadata.managedFiles["docs/templates/spec-template.md"];
+  delete metadata.managedFiles["docs/plan/templates/plan-template.md"];
   fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
 
   const result = spawnSync(
@@ -1072,11 +1066,11 @@ test("sync force does not overwrite a non-baseline managed file", () => {
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /docs\/templates\/spec-template\.md/);
+  assert.match(result.stdout, /docs\/plan\/templates\/plan-template\.md/);
   assert.equal(fs.readFileSync(managedPath, "utf8"), "local unmanaged template\n");
   const backupPath = result.stdout.match(/备份目录：([^\n]+)/)?.[1]?.trim();
   assert.ok(backupPath);
-  assert.equal(fs.existsSync(path.join(backupPath, "docs/templates/spec-template.md")), false);
+  assert.equal(fs.existsSync(path.join(backupPath, "docs/plan/templates/plan-template.md")), false);
 });
 
 test("sync converts a valid template-source identity to project-instance", () => {

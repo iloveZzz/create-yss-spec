@@ -51,7 +51,7 @@ npx create-yss-spec@latest sync --target-dir . --plan --prune
 npx create-yss-spec@latest sync --target-dir . --prune
 ```
 
-阶段派发前运行 `create-yss-spec skills ensure <skill-id...> --plan` 核对依赖，再运行 `--apply` 补装；条件依赖用 `--when <trigger>` 指定。后续增加平台用 `create-yss-spec skills runtime add <codex|cursor|pi> --plan` 与 `--apply`。两类写入都要求 CLI 快照提交与实例 metadata 一致，不一致先执行 `sync`。v2 实例继续 `legacy-all` 分发，升级不会自动裁剪旧投影。
+新实例初始化时具备分诊和 Plan 入口资产，默认安装三项入口 Skill。进入后续生命周期阶段前运行 `create-yss-spec assets ensure <stage-id> --plan` 核对文件和 Skill 依赖，再运行 `--apply` 原子补装。专项 Skill 使用 `create-yss-spec skills ensure <skill-id...> --plan` 与 `--apply`，会一并补齐该 Skill 引用的实例文件；条件依赖用 `--when <trigger>` 指定。增加平台用 `create-yss-spec skills runtime add <codex|cursor|pi> --plan` 与 `--apply`。写入均要求 CLI 快照提交与实例 metadata 一致，不一致先执行 `sync`。旧实例保持原分发范围，升级不会自动裁剪既有文件。
 
 普通 sync 保留退出分发文件。显式 `--prune` 只备份并删除内容仍等于可信旧 baseline 的模板文件；人工修改过的旧副本、用户文件和证据不足的文件继续保留并报告。README 初始化后由项目维护，attach、sync、force 和 doctor 都不创建、覆盖或校验它；根 `CONTEXT.md`、批准记录和业务材料也不能被越权接管。
 

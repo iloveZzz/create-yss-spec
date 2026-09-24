@@ -2,11 +2,11 @@
 
 用于初始化、接管已有项目并持续同步 `yss-spec-project-template` 研发管理资产的 npm CLI。
 
-源码候选版本：`3.4.9`。当前固定模板身份、来源状态和摘要见 `template.snapshot.json`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准，并用 `create-yss-spec --version` 核对当前执行版本。
+源码候选版本：`3.5.0`。当前固定模板身份、来源状态和摘要见 `template.snapshot.json`；CLI 运行时不会拉取模板仓库。`npm create yss-spec@latest` 获取的是实际已发布 npm 包，发布版本请以 `npm view create-yss-spec version` 为准，并用 `create-yss-spec --version` 核对当前执行版本。
 
 ## 本版模板能力
 
-本版同步 Handoff v5、领域与阶段决策、前后端交付边界和 committed-source 身份校验。CLI 仍会在同一事务内刷新生成型 `skills-lock.json`，再运行项目实例校验；刷新或校验失败恢复同步前状态。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
+本版新增按阶段分发项目实例资产及 `assets ensure` 命令；旧实例沿用原有分发范围。CLI 在同一事务内刷新生成型 `skills-lock.json` 并运行项目实例校验，失败时恢复同步前状态。版本升级只完成 GitHub 源码交付，npm 发布状态仍以 registry 为准。
 
 ## 快速开始
 

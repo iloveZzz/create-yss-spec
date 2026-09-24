@@ -20,6 +20,7 @@ function resolveCommand(argv = []) {
     return { command: "sync", args: rest };
   }
   if (head === "skills") return { command: "skills", args: rest };
+  if (head === "assets") return { command: "assets", args: rest };
   if (head === "attach") {
     return { command: "attach", args: rest };
   }
