@@ -121,6 +121,7 @@ function parentDirectoryOperations(desiredOperations, targetDir) {
 async function runInit(argv = []) {
   const options = parseArgs(argv);
   if (options.prune) throw new Error("--prune 仅适用于 sync");
+  if (options.migrateLayout) throw new Error("--migrate-layout 仅适用于 attach/sync");
   if (options.help) {
     printHelp(PACKAGE_MANIFEST.version);
     return;
@@ -195,7 +196,7 @@ async function runInit(argv = []) {
       ? "2. 运行 git status 检查初始化结果"
       : "2. 如需版本管理，可执行 git init",
   );
-  console.log("3. 检查 AGENTS.md、README 和 docs 目录是否符合预期");
+  console.log("3. 检查 AGENTS.md、README 和 .template-spec 目录是否符合预期；docs 将在首次项目产出时创建");
 }
 
 module.exports = {

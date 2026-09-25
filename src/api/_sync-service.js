@@ -12,6 +12,7 @@ const { collectGitRoots, gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildSyncPlanFromRuntime } = require("../template/sync-planner-runtime");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
+const { prepareLayoutMigration, combineMigrationPlans } = require("../template/layout-migration");
 const { classifyRemovedFiles } = require("../template/prune-planner");
 const { decorateMetadataOwnership } = require("../template/ownership-metadata");
 const { decorateMetadataLifecycle } = require("../template/lifecycle-metadata");
@@ -73,7 +74,7 @@ function affectedPathsForMigration(migrationPlan) {
   );
 }
 
-function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() } = {}) {
+function buildSyncContext({ targetDir = ".", force = false, migrateLayout = false, cwd = process.cwd() } = {}) {
   const snapshot = readTemplateSnapshot();
   assertBundledFamily(snapshot);
   const resolvedTargetDir = normalizeTargetDir(targetDir, cwd);
@@ -84,17 +85,24 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
 
   const { metadata } = loadTemplateMetadata(resolvedTargetDir);
   const identity = readTargetIdentity(resolvedTargetDir);
-  const desiredOperations = buildSyncDesiredOperations(
+  const baseDesiredOperations = buildSyncDesiredOperations(
     resolvedTargetDir,
     metadata,
     identity,
     snapshot,
   );
-  const migrationPlan = buildLegacyMigrationPlan(
+  const layout = prepareLayoutMigration({
+    targetDir: resolvedTargetDir,
+    desiredOperations: baseDesiredOperations,
+    managedFiles: metadata.managedFiles || {},
+    explicit: migrateLayout,
+  });
+  const desiredOperations = layout.desiredOperations;
+  const migrationPlan = combineMigrationPlans(layout.plan, buildLegacyMigrationPlan(
     resolvedTargetDir,
     desiredOperations,
     { checkFlatTickets: false },
-  );
+  ));
   const warning = gitDirtyWarning(resolvedTargetDir);
 
   const { classified: syncPlan, plan } = buildSyncPlanFromRuntime({
@@ -110,7 +118,9 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     getFileHash: (operation) => fileHash(operation.targetPath),
   });
   const removedPlan = classifyRemovedFiles({
-    removed: syncPlan.removed.filter((relativePath) => relativePath !== "README.md"),
+    removed: syncPlan.removed.filter((relativePath) =>
+      relativePath !== "README.md" &&
+      !layout.plan.operations.some((operation) => operation.kind === "remove" && operation.path === relativePath)),
     managedFiles: metadata.managedFiles || {},
     getPathKind: (relativePath) => pathKind(targetPath(resolvedTargetDir, relativePath)),
     getFileHash: (relativePath) => fileHash(targetPath(resolvedTargetDir, relativePath)),
@@ -142,6 +152,7 @@ function buildSyncContext({ targetDir = ".", force = false, cwd = process.cwd() 
     identity,
     desiredOperations,
     migrationPlan,
+    migrateLayout,
     warning,
     syncPlan,
     plan,
@@ -261,8 +272,17 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
           throw new Error(`${relativePath}: 待清理文件在规划后已变化，请重新运行 sync`);
         }
       }
-      const currentMigration = buildLegacyMigrationPlan(targetDir, desiredOperations, { checkFlatTickets: false });
+      const currentLayout = prepareLayoutMigration({
+        targetDir,
+        desiredOperations: buildSyncDesiredOperations(targetDir, metadata, readTargetIdentity(targetDir), context.snapshot),
+        managedFiles: metadata.managedFiles || {},
+        explicit: context.migrateLayout,
+      });
+      const currentMigration = combineMigrationPlans(currentLayout.plan,
+        buildLegacyMigrationPlan(targetDir, desiredOperations, { checkFlatTickets: false }));
       if (!isDeepStrictEqual(currentMigration.operations, migrationPlan.operations) ||
+          !isDeepStrictEqual(currentLayout.desiredOperations.map((operation) => [operation.relativePath, operation.desiredHash]),
+            desiredOperations.map((operation) => [operation.relativePath, operation.desiredHash])) ||
           currentMigration.unsafe.length || currentMigration.conflicts.length) {
         throw new Error("旧路径迁移在规划后已变化，请重新运行 sync");
       }
@@ -283,6 +303,11 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
       const nextMetadata = decorateMetadataLifecycle(
         decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan, { snapshot: context.snapshot })),
       );
+      for (const operation of context.migrationPlan.operations) {
+        if (operation.kind === "remove" && operation.path.startsWith("docs/")) {
+          delete nextMetadata.managedFiles[operation.path];
+        }
+      }
       if (!isDeepStrictEqual({ ...nextMetadata, lastSyncedAt: metadata.lastSyncedAt }, metadata)) {
         writeTemplateMetadata(targetDir, nextMetadata, transaction);
       }

@@ -67,8 +67,9 @@ function createTemplateFixture({ externalSymlink = false } = {}) {
     "template source ADR\n",
     "utf8",
   );
+  fs.mkdirSync(path.join(fixtureRoot, ".template-spec/adr"), { recursive: true });
   fs.writeFileSync(
-    path.join(fixtureRoot, "docs/adr/README.md"),
+    path.join(fixtureRoot, ".template-spec/adr/README.md"),
     "project ADR entrypoint\n",
     "utf8",
   );
@@ -187,7 +188,7 @@ test("sync --require-committed ignores a dirty local template working tree", () 
   const templateCommit = runGit(fixtureRoot, ["rev-parse", "HEAD"]).stdout.trim();
 
   fs.writeFileSync(
-    path.join(fixtureRoot, "docs/adr/README.md"),
+    path.join(fixtureRoot, ".template-spec/adr/README.md"),
     "dirty working tree content\n",
     "utf8",
   );
@@ -209,7 +210,7 @@ test("sync --require-committed ignores a dirty local template working tree", () 
   assert.equal(snapshot.requestedRef, templateCommit);
   assert.equal(snapshot.templateCommit, templateCommit);
   assert.equal(
-    fs.readFileSync(path.join(runnerRoot, "template/docs/adr/README.md"), "utf8"),
+    fs.readFileSync(path.join(runnerRoot, "template/.template-spec/adr/README.md"), "utf8"),
     "project ADR entrypoint\n",
   );
   assert.equal(fs.existsSync(path.join(runnerRoot, "template/untracked.txt")), false);
@@ -282,7 +283,7 @@ test("sync expands internal directory projections into the bundled template", ()
     false,
   );
   assert.equal(
-    fs.readFileSync(path.join(runnerRoot, "template/docs/adr/README.md"), "utf8"),
+    fs.readFileSync(path.join(runnerRoot, "template/.template-spec/adr/README.md"), "utf8"),
     "project ADR entrypoint\n",
   );
   assert.equal(fs.existsSync(path.join(runnerRoot, "template/unlisted-root.md")), false);
@@ -303,7 +304,7 @@ test("sync omits tracked files deleted from a local working tree", () => {
   );
   runGit(fixtureRoot, ["add", "yss-project.yaml"]);
   runGit(fixtureRoot, ["commit", "-m", "repository identity"]);
-  fs.rmSync(path.join(fixtureRoot, "docs/adr/README.md"));
+  fs.rmSync(path.join(fixtureRoot, ".template-spec/adr/README.md"));
   fs.rmSync(path.join(fixtureRoot, ".agents/skills/shared-skill/SKILL.md"));
 
   const runnerRoot = createSyncRunner();
@@ -311,7 +312,7 @@ test("sync omits tracked files deleted from a local working tree", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
-    fs.existsSync(path.join(runnerRoot, "template/docs/adr/README.md")),
+    fs.existsSync(path.join(runnerRoot, "template/.template-spec/adr/README.md")),
     false,
   );
   assert.equal(
@@ -323,13 +324,13 @@ test("sync omits tracked files deleted from a local working tree", () => {
 test("sync snapshot remains valid when packaging and running use different locales", () => {
   const fixtureRoot = createTemplateFixture();
   // This fixture executes the real CLI, including its bundled YAML identity parser.
-  for (const directory of ["docs", "scripts"]) {
+  for (const directory of [".template-spec", "scripts"]) {
     fs.cpSync(path.join(repoRoot, "template", directory), path.join(fixtureRoot, directory), { recursive: true });
   }
-  const registry = path.join(fixtureRoot, "docs/agents/yss-skill-registry.yaml");
+  const registry = path.join(fixtureRoot, ".template-spec/agents/yss-skill-registry.yaml");
   fs.mkdirSync(path.dirname(registry), { recursive: true });
   fs.writeFileSync(registry, "instance_distribution:\n  initial_skills: [shared-skill]\nother:\n", "utf8");
-  const localizedDocsRoot = path.join(fixtureRoot, "docs/user-guide");
+  const localizedDocsRoot = path.join(fixtureRoot, ".template-spec/user-guide");
   fs.mkdirSync(localizedDocsRoot, { recursive: true });
   for (const fileName of [
     "templates",

@@ -48,7 +48,7 @@ function classifySyncOperations({
       continue;
     }
 
-    if (operation.relativePath === "docs/agents/issue-tracker.md") {
+    if (operation.relativePath === ".template-spec/agents/issue-tracker.md") {
       unchanged.push({ ...operation, reason: "project-owned-tracker-configuration" });
       continue;
     }

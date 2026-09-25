@@ -28,10 +28,10 @@ const LEGACY_SKILL_MAPPINGS = [
 ];
 
 const LEGACY_FILE_MAPPINGS = [
-  ["docs/templates/prd-template.md", "docs/templates/spec-template.md"],
+  ["docs/templates/prd-template.md", ".template-spec/templates/spec-template.md"],
   [
     "docs/templates/vertical-slice-issue-template.md",
-    "docs/templates/vertical-slice-ticket-template.md",
+    ".template-spec/templates/vertical-slice-ticket-template.md",
   ],
 ];
 

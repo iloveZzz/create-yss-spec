@@ -16,7 +16,7 @@ owner: ai
 | 机会想法 / 用户反馈 | 当前会话用户指令 | 已确认 | 需要一个 npm CLI 来初始化本项目模板 |
 | 竞品 / 市场分析 | 本轮不使用 | 不适用 | 这是内部工程效率工具，当前不需要 `competitive-intelligence` |
 | 现有系统 / 业务材料 | `AGENTS.md` | 已确认 | 当前仓库默认是研发管理仓库 |
-| 现有系统 / 业务材料 | `docs/process/implementation-repo-integration.md` | 已确认 | 进入实现前必须先明确实现位置 |
+| 现有系统 / 业务材料 | `.template-spec/process/implementation-repo-integration.md` | 已确认 | 进入实现前必须先明确实现位置 |
 | 约束 / 决策 | 当前会话用户指令 | 已确认 | 先做需求澄清，再决定 CLI 落在当前仓库还是独立仓库 |
 
 ## 2. 目标用户与场景
@@ -160,7 +160,7 @@ owner: ai
 - 变量来源：用户交互输入 + CLI 默认值 + 包版本上下文
 - 建议把文件分成三类：
   1. `render`：需要替换项目级元信息的文件，例如 `AGENTS.md`、README、部分说明文档
-  2. `copy`：原样复制的模板资产，例如大多数 `docs/templates/`、`docs/process/`、技能说明
+  2. `copy`：原样复制的模板资产，例如大多数 `.template-spec/templates/`、`.template-spec/process/`、技能说明
   3. `exclude`：不进入实例仓库的模板维护文件，例如 npm CLI 源码目录、本地开发配置、仅模板维护使用的目录
 
 ### 12.6 版本、更新、覆盖与 dry-run

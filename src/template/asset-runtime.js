@@ -7,39 +7,39 @@ const ASSET_PROFILE = "stage-selective";
 const INITIAL_STAGES = ["stage.entry-triage", "stage.plan"];
 const TEMPLATE_ONLY_IMPORTS = new Set(["scripts/lib/maintenance-intensity.mjs"]);
 const RENDERED_SKILL_SCRIPTS = Object.freeze({ "yss-design-system": ["scripts/design-md"] });
-const SKILL_ASSET_PREFIXES = Object.freeze({ "yss-design-system": ["docs/design/tokens/"] });
+const SKILL_ASSET_PREFIXES = Object.freeze({ "yss-design-system": [".template-spec/design/tokens/"] });
 
 // Paths here are the entry points for each stage. Relative JavaScript imports
 // are included by moduleClosure; files named by an explicitly installed Skill
 // are included by skillReferences. The CLI snapshot retains every source file.
 const COMMON = {
   files: [
-    "docs/agents/yss-skill-registry.yaml",
-    "docs/agents/digital-human-roles.yaml",
-    "docs/agents/digital-human-roles.md",
-    "docs/agents/issue-tracker.md",
-    "docs/agents/triage-labels.md",
-    "docs/agents/domain.md",
-    "docs/process/lifecycle-registry.yaml",
-    "docs/process/lifecycle-registry-baseline.json",
-    "docs/process/lifecycle-artifact-map.md",
-    "docs/process/harness-process-tailoring.md",
-    "docs/process/document-writing.md",
-    "docs/process/contract-reading.md",
-    "docs/process/stage-tracking.md",
-    "docs/process/schemas/context-reconciliation.schema.json",
-    "docs/process/schemas/digital-human-task-package.schema.json",
-    "docs/process/schemas/lifecycle-checkpoint.schema.json",
-    "docs/process/schemas/stage-tracking.schema.json",
-    "docs/process/schemas/user-decision.schema.json",
-    "docs/process/templates/context-reconciliation-template.yaml",
-    "docs/process/templates/lifecycle-checkpoint-template.yaml",
-    "docs/process/templates/stage-checkpoint-template.md",
-    "docs/process/templates/user-decision-template.yaml",
-    "docs/templates/local-parent-ticket-template.md",
-    "docs/templates/approval-record-template.yaml",
-    "docs/templates/review-report-template.md",
-    "docs/user-guide/用户手册.md",
+    ".template-spec/agents/yss-skill-registry.yaml",
+    ".template-spec/agents/digital-human-roles.yaml",
+    ".template-spec/agents/digital-human-roles.md",
+    ".template-spec/agents/issue-tracker.md",
+    ".template-spec/agents/triage-labels.md",
+    ".template-spec/agents/domain.md",
+    ".template-spec/process/lifecycle-registry.yaml",
+    ".template-spec/process/lifecycle-registry-baseline.json",
+    ".template-spec/process/lifecycle-artifact-map.md",
+    ".template-spec/process/harness-process-tailoring.md",
+    ".template-spec/process/document-writing.md",
+    ".template-spec/process/contract-reading.md",
+    ".template-spec/process/stage-tracking.md",
+    ".template-spec/process/schemas/context-reconciliation.schema.json",
+    ".template-spec/process/schemas/digital-human-task-package.schema.json",
+    ".template-spec/process/schemas/lifecycle-checkpoint.schema.json",
+    ".template-spec/process/schemas/stage-tracking.schema.json",
+    ".template-spec/process/schemas/user-decision.schema.json",
+    ".template-spec/process/templates/context-reconciliation-template.yaml",
+    ".template-spec/process/templates/lifecycle-checkpoint-template.yaml",
+    ".template-spec/process/templates/stage-checkpoint-template.md",
+    ".template-spec/process/templates/user-decision-template.yaml",
+    ".template-spec/templates/local-parent-ticket-template.md",
+    ".template-spec/templates/approval-record-template.yaml",
+    ".template-spec/templates/review-report-template.md",
+    ".template-spec/user-guide/用户手册.md",
   ],
   scripts: [
     "scripts/verify-project-instance",
@@ -62,35 +62,35 @@ const COMMON = {
 const STAGES = Object.freeze({
   "stage.entry-triage": { files: [], scripts: [], skills: [] },
   "stage.plan": {
-    prefixes: ["docs/plan/"],
-    files: ["docs/process/plan-migration.md"],
+    prefixes: [".template-spec/plan/"],
+    files: [".template-spec/process/plan-migration.md"],
     scripts: ["scripts/verify-plan-spec-entry"],
     skills: [],
   },
   "stage.spec-architecture": {
     files: [
-      "docs/templates/spec-template.md",
-      "docs/templates/spec-delta-template.md",
-      "docs/architecture/templates/business-architecture-template.md",
-      "docs/architecture/templates/functional-architecture-template.md",
+      ".template-spec/templates/spec-template.md",
+      ".template-spec/templates/spec-delta-template.md",
+      ".template-spec/architecture/templates/business-architecture-template.md",
+      ".template-spec/architecture/templates/functional-architecture-template.md",
     ],
     scripts: [],
     skills: [],
   },
   "stage.product-design": {
-    prefixes: ["docs/design/"],
+    prefixes: [".template-spec/design/"],
     files: [],
     scripts: ["scripts/design-md"],
     skills: ["yss-prototype-stage"],
   },
   "stage.system-data-engineering": {
-    prefixes: ["docs/engineering/"],
+    prefixes: [".template-spec/engineering/"],
     files: [
-      "docs/process/implementation-repo-integration.md",
-      "docs/process/existing-backend-architecture.md",
-      "docs/process/existing-ui-baseline.md",
-      "docs/process/frontend-backend-delivery.md",
-      "docs/templates/implementation-repo-registry-template.md",
+      ".template-spec/process/implementation-repo-integration.md",
+      ".template-spec/process/existing-backend-architecture.md",
+      ".template-spec/process/existing-ui-baseline.md",
+      ".template-spec/process/frontend-backend-delivery.md",
+      ".template-spec/templates/implementation-repo-registry-template.md",
     ],
     scripts: [
       "scripts/backend-platforms",
@@ -101,21 +101,21 @@ const STAGES = Object.freeze({
     skills: ["yss-implementation-contract-compiler"],
   },
   "stage.ticket-formalization": {
-    files: ["docs/templates/vertical-slice-ticket-template.md", "docs/templates/cross-repo-slice-template.md"],
+    files: [".template-spec/templates/vertical-slice-ticket-template.md", ".template-spec/templates/cross-repo-slice-template.md"],
     scripts: ["scripts/dispatch-slice-task", "scripts/slice-contract"],
     skills: [],
   },
   "stage.vertical-slice-implementation": {
-    files: ["docs/templates/verification-record-template.md"],
+    files: [".template-spec/templates/verification-record-template.md"],
     scripts: ["scripts/implementation-path-policy", "scripts/complete-backend-delivery"],
     skills: [],
   },
   "stage.verification-release-retrospective": {
     files: [
-      "docs/process/delivery-preflight.md",
-      "docs/templates/release-note-template.md",
-      "docs/templates/retro-report-template.md",
-      "docs/templates/review-bundle-template.yaml",
+      ".template-spec/process/delivery-preflight.md",
+      ".template-spec/templates/release-note-template.md",
+      ".template-spec/templates/retro-report-template.md",
+      ".template-spec/templates/review-bundle-template.yaml",
     ],
     scripts: ["scripts/preflight-delivery"],
     skills: [],
@@ -181,7 +181,7 @@ function skillReferences(root, result, skillId, selectedSkills) {
       if (entry.isDirectory()) visit(file);
       else if (entry.isFile() && /\.(?:md|yaml|json)$/.test(entry.name)) {
         const source = fs.readFileSync(file, "utf8");
-        for (const match of source.matchAll(/(?:docs|scripts)\/[\p{L}\p{N}_.\/-]+/gu)) {
+        for (const match of source.matchAll(/(?:\.template-spec|scripts)\/[\p{L}\p{N}_.\/-]+/gu)) {
           const ref = match[0].replace(/[.,;]+$/, "");
           if (!fs.existsSync(path.join(root, ref)) || !fs.statSync(path.join(root, ref)).isFile()) continue;
           if (ref.startsWith("scripts/")) moduleClosure(root, result, ref, selectedSkills);
@@ -197,7 +197,7 @@ function skillReferences(root, result, skillId, selectedSkills) {
 
 function assetPaths(root, distribution) {
   if (distribution.mode !== "selected" || distribution.assetProfile !== ASSET_PROFILE) return null;
-  const lifecycle = fs.readFileSync(sourceFile(root, "docs/process/lifecycle-registry.yaml"), "utf8");
+  const lifecycle = fs.readFileSync(sourceFile(root, ".template-spec/process/lifecycle-registry.yaml"), "utf8");
   const stageIds = [...lifecycle.matchAll(/^  - id: (stage\.[a-z0-9-]+)\s*$/gm)].map((match) => match[1]).sort();
   if (JSON.stringify(stageIds) !== JSON.stringify(Object.keys(STAGES).sort())) {
     throw new Error("CLI 阶段资产映射与生命周期注册表阶段 ID 不一致");

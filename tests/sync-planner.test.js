@@ -175,7 +175,7 @@ test("createSyncPlan exposes unsafe and migration conflicts as blockers", () => 
 });
 
 test('existing tracker configuration is never enabled by sync', () => {
-  const operation = op('docs/agents/issue-tracker.md', 'new-enabled');
+  const operation = op('.template-spec/agents/issue-tracker.md', 'new-enabled');
   const classified = classifySyncOperations({ managedFiles: { [operation.relativePath]: { contentHash: 'legacy' } }, desiredOperations: [operation], getPathKind: () => 'file', getFileHash: () => 'legacy' });
   assert.equal(classified.updated.length, 0);
   assert.equal(classified.unchanged.length, 1);

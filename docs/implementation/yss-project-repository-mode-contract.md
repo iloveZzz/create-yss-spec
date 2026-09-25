@@ -55,7 +55,7 @@ npx create-yss-spec@latest attach \
 
 身份规则：缺失身份文件时创建合法 `project-instance`；合法 `template-source` 在显式 attach 中转换为 `project-instance`；合法 `project-instance` 保留并校验；schema、字段或 mode 非法时在写入前阻断。
 
-`644111b` 起实例会带上数字人角色叠加（`docs/agents/digital-human-roles.yaml`）、`@yss/skills` 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
+`644111b` 起实例会带上数字人角色叠加（`.template-spec/agents/digital-human-roles.yaml`）、`@yss/skills` 前端技能叠加层、DDD Tactical Design 与生命周期转换校验资产、`.cursorrules` 和 `.agents/rules/yss-ai-skills.md`，退役技能如 `high-fidelity-html-prototype` 不再作为独立物理目录进入实例。快照会把已登记 shared skill 的投影对齐到 `.agents/skills` 权威树，再按逻辑文件名刷新 `skills-lock.json` hash，最后才做 npm 点文件编码。叠加层已在模板源完成全 Agent 投影并登记进锁文件。
 
 每个 manifest 路径在计划中归类为 `missing`、`matched`、`conflict` 或 `unsafe`。`--force` 只允许覆盖受管 `conflict`，不能绕过 `unsafe` 或旧路径迁移冲突。attach 仍会阻断无法推断功能归属的扁平 Ticket；sync 不检查或迁移 `docs/requirements/tickets/`。覆盖前保存目标目录外的临时备份；校验失败时按操作日志回滚，metadata 不更新。
 
@@ -79,8 +79,8 @@ npx create-yss-spec@latest attach \
 |---|---|---|
 | `to-prd` | `to-spec` | 已知 skill 映射，安全时删除旧目录 |
 | `to-issues` | `to-tickets` | 已知 skill 映射，安全时删除旧目录 |
-| `docs/templates/prd-template.md` | `docs/templates/spec-template.md` | 内容冲突阻断 |
-| `docs/templates/vertical-slice-issue-template.md` | `docs/templates/vertical-slice-ticket-template.md` | 内容冲突阻断 |
+| `.template-spec/templates/prd-template.md` | `.template-spec/templates/spec-template.md` | 内容冲突阻断 |
+| `.template-spec/templates/vertical-slice-issue-template.md` | `.template-spec/templates/vertical-slice-ticket-template.md` | 内容冲突阻断 |
 | `docs/requirements/<feature>-prd.md` | `docs/requirements/<feature>-spec.md` | 目标冲突阻断 |
 | `.scratch/<feature>/` | `docs/.scratch/<feature>/` | 目标冲突阻断 |
 | 扁平 `docs/requirements/tickets/*` | `docs/.scratch/<feature>/issues/` | 仅 attach 检查；无法推断功能归属时 `unsafe`。sync 不检查、不迁移 |
@@ -108,7 +108,7 @@ npx create-yss-spec@latest attach \
 - CLI：`create-yss-spec@2.2.3`，`DEFAULT_TEMPLATE_REF` 已绑定上述 commit
 - `YSS_SPEC_TEMPLATE_REF=030d8062634018880a3422fd55065d8d8e61e41e npm test` → **41/41 pass**
 - `YSS_SPEC_TEMPLATE_REF=030d8062634018880a3422fd55065d8d8e61e41e npm pack --dry-run` → `create-yss-spec-2.2.3.tgz`
-- 交互式 init 实例：`project-instance`、`templateCommit` 写入 metadata；含 `docs/agents/digital-human-roles.yaml`、`.cursorrules`、共享 `scripts/`、`scripts/vendor/`、`.nvmrc`、`.gitignore`；不含 `.template-source/`、`.github/`、`wiki/`、`docs/reviews/`、根 `package.json`
+- 交互式 init 实例：`project-instance`、`templateCommit` 写入 metadata；含 `.template-spec/agents/digital-human-roles.yaml`、`.cursorrules`、共享 `scripts/`、`scripts/vendor/`、`.nvmrc`、`.gitignore`；不含 `.template-source/`、`.github/`、`wiki/`、`docs/reviews/`、根 `package.json`
 - 本轮不执行 npm publish（由维护者手动发布）
 
 ### 2026-08-25 跨仓库验证回写（`51189ca` / CLI `2.2.2`）

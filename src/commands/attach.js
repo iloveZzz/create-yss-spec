@@ -13,6 +13,7 @@ const { gitDirtyWarning } = require("../git/worktree");
 const { unmanagedPathReason, assertTargetWorkingTreeWritable } = require("../validation/security");
 const { buildAttachPlanFromRuntime } = require("../template/attach-planner-runtime");
 const { buildLegacyMigrationPlan } = require("../template/migration-runtime");
+const { prepareLayoutMigration, combineMigrationPlans } = require("../template/layout-migration");
 const {
   PACKAGE_ROOT,
   BUNDLED_TEMPLATE_ROOT,
@@ -190,14 +191,19 @@ async function runAttach(argv = []) {
 
   const variables = attachVariables(options);
   const identity = readTargetIdentity(targetDir);
-  const desiredOperations = buildAttachDesiredOperations(
+  const baseDesiredOperations = buildAttachDesiredOperations(
     targetDir,
     variables,
     identity,
   );
-  const migrationPlan = buildLegacyMigrationPlan(targetDir, desiredOperations, {
-    checkFlatTickets: true,
+  const layout = prepareLayoutMigration({
+    targetDir, desiredOperations: baseDesiredOperations,
+    explicit: Boolean(options.migrateLayout),
   });
+  const desiredOperations = layout.desiredOperations;
+  const migrationPlan = combineMigrationPlans(layout.plan, buildLegacyMigrationPlan(targetDir, desiredOperations, {
+    checkFlatTickets: true,
+  }));
   const warning = gitDirtyWarning(targetDir);
 
   const { classified: plan } = buildAttachPlanFromRuntime({

@@ -36,7 +36,7 @@ const FAMILIES = [
   },
 ];
 
-const PROFILE_PATH = "docs/process/harness-profile.yaml";
+const PROFILE_PATH = ".template-spec/process/harness-profile.yaml";
 
 function statOrMissing(file) {
   try {

@@ -119,7 +119,7 @@ test("managed attach conflicts alone are not hard blockers", () => {
 });
 
 test('existing tracker configuration is preserved by attach', () => {
-  const classified = classifyAttachOperations({ desiredOperations: [{ relativePath: 'docs/agents/issue-tracker.md', desiredHash: 'new-enabled' }], getPathKind: () => 'file', getFileHash: () => 'legacy' });
+  const classified = classifyAttachOperations({ desiredOperations: [{ relativePath: '.template-spec/agents/issue-tracker.md', desiredHash: 'new-enabled' }], getPathKind: () => 'file', getFileHash: () => 'legacy' });
   assert.equal(classified.identity.length, 0);
   assert.equal(classified.matched.length, 1);
   assert.equal(classified.forceableConflicts.length, 0);

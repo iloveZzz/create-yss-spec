@@ -36,6 +36,7 @@ OPTIONS
                                      attach / sync：覆盖受管冲突文件；unsafe 路径始终阻断
                                      update：即使已是最新时仍重新安装；npx / 源码目录仍不覆盖
   --prune                            sync：备份并删除与旧受管基线一致的退出分发文件
+  --migrate-layout                   attach/sync：显式迁移旧 docs 治理布局，冲突时停止并保留备份
   --git-init                         初始化完成后执行 git init
   --include-example-docs             显式保留示例文档（默认关闭）
   --no-example-docs                  不生成示例文档
@@ -66,6 +67,8 @@ EXAMPLES
   $ npx create-yss-spec@latest sync
   $ npx create-yss-spec@latest sync --dry-run
   $ npx create-yss-spec@latest sync --plan
+  $ npx create-yss-spec@latest sync --plan --migrate-layout
+  $ npx create-yss-spec@latest sync --migrate-layout
   $ npx create-yss-spec@latest sync --json
   $ npx create-yss-spec@latest diff
   $ npx create-yss-spec@latest diff --json
@@ -86,7 +89,7 @@ EXAMPLES
 
 LEARN MORE
   仓库 README：https://github.com/iloveZzz/create-yss-spec#readme
-  使用手册：https://github.com/iloveZzz/create-yss-spec/blob/main/docs/user-guide/create-yss-spec-cli-guide.md
+  使用手册：https://github.com/iloveZzz/create-yss-spec/blob/main/.template-spec/user-guide/create-yss-spec-cli-guide.md
   模板仓库：https://github.com/iloveZzz/yss-spec-project-template
 `;
 }

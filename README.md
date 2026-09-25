@@ -34,7 +34,7 @@ CLI 在规划和写入前检查模板家族身份，当前主路线识别：
 - `create-yss-harness-backend` / `.yss-harness-backend.json`
 - `create-yss-harness-frontend` / `.yss-harness-frontend.json`
 
-`docs/process/harness-profile.yaml` 也参与身份判断。异族、多重 identity、损坏 metadata、未知或矛盾 profile、identity symlink 均在写入前 fail closed，`--force` 不能绕过；Programmatic API 使用相同 guard。帮助和版本查询不受目标家族限制。
+`.template-spec/process/harness-profile.yaml` 也参与身份判断。异族、多重 identity、损坏 metadata、未知或矛盾 profile、identity symlink 均在写入前 fail closed，`--force` 不能绕过；Programmatic API 使用相同 guard。帮助和版本查询不受目标家族限制。
 
 旧 `create-yss-harness-dev` / `.yss-harness-dev.json` 仍会被识别并拒绝跨家族接管；既有实例按原固定版本维护，不再作为新项目入口。战略、后端和前端分别使用专职 CLI，任何家族都不做跨家族原地迁移。
 
@@ -183,4 +183,8 @@ npm pack --dry-run
 - [Ownership Policy v1](docs/implementation/ownership-policy-v1.md)
 - [Lifecycle Policies v1](docs/implementation/lifecycle-policies-v1.md)
 - [Programmatic API v1](docs/implementation/programmatic-api-v1.md)
-- [完整中文使用手册](docs/user-guide/create-yss-spec-cli-guide.md)
+- [完整中文使用手册](.template-spec/user-guide/create-yss-spec-cli-guide.md)
+
+## 治理目录迁移
+
+新实例将分发治理资产安装到 `.template-spec/`，项目规格产物放在 `docs/`。已有实例只有显式运行 `sync --migrate-layout --plan` 审阅后，才运行 `sync --migrate-layout --apply`；`attach` 同样支持该开关。迁移保留项目 tracker 配置，缺少可信摘要、旧文件被修改或目标路径冲突时阻断。普通 sync 不自动改变旧实例目录。

@@ -28,12 +28,12 @@ for (const runtime of ["codex", "cursor", "pi"]) {
       assert.deepEqual(Object.keys(lock.skills.shared).sort(), ["i-have-adhd", "yss-product-lifecycle", "yss-research"]);
       assert.deepEqual(lock.projectionRoots, [`.${runtime}/skills`]);
       assert.deepEqual(metadata.distribution.installedStages, ["stage.entry-triage", "stage.plan"]);
-      assert.equal(fs.existsSync(path.join(target, "docs/plan/templates/plan-template.md")), true);
-      assert.equal(fs.existsSync(path.join(target, "docs/api/templates/openapi-freeze-record-template.md")), false);
-      assert.equal(fs.existsSync(path.join(target, "docs/adr/README.md")), false);
+      assert.equal(fs.existsSync(path.join(target, ".template-spec/plan/templates/plan-template.md")), true);
+      assert.equal(fs.existsSync(path.join(target, ".template-spec/api/templates/openapi-freeze-record-template.md")), false);
+      assert.equal(fs.existsSync(path.join(target, ".template-spec/adr/README.md")), false);
       assert.equal(fs.existsSync(path.join(target, "scripts/lib/api-contract-decision.test.mjs")), false);
       assert.equal(fs.existsSync(path.join(target, ".vscode/mcp.json")), false);
-      assert.equal(fs.existsSync(path.join(target, "docs/design/preview.html")), false);
+      assert.equal(fs.existsSync(path.join(target, ".template-spec/design/preview.html")), false);
       const verify = spawnSync(path.join(target, "scripts/verify-project-instance"), [], { cwd: target, encoding: "utf8" });
       assert.equal(verify.status, 0, verify.stderr);
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
@@ -50,19 +50,19 @@ test("stage asset plan, apply, repeat and sync preserve the selected file set", 
     assert.equal(plan.status, 0, plan.stderr);
     const preview = JSON.parse(plan.stdout);
     assert.equal(preview.addStage, "stage.spec-architecture");
-    assert.ok(preview.paths.includes("docs/templates/spec-template.md"));
+    assert.ok(preview.paths.includes(".template-spec/templates/spec-template.md"));
     assert.deepEqual(fs.readFileSync(path.join(target, ".yss-template.json")), before);
-    assert.equal(fs.existsSync(path.join(target, "docs/templates/spec-template.md")), false);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/templates/spec-template.md")), false);
     const applied = run(["assets", "ensure", "stage.spec-architecture", "--target-dir", target, "--apply"], root);
     assert.equal(applied.status, 0, applied.stderr);
-    assert.equal(fs.existsSync(path.join(target, "docs/templates/spec-template.md")), true);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/templates/spec-template.md")), true);
     const repeated = run(["assets", "ensure", "stage.spec-architecture", "--target-dir", target, "--apply"], root);
     assert.equal(repeated.status, 0, repeated.stderr);
     assert.match(repeated.stdout, /无需写入/);
     const sync = run(["sync", "--target-dir", target], root);
     assert.equal(sync.status, 0, sync.stderr);
-    assert.equal(fs.existsSync(path.join(target, "docs/templates/spec-template.md")), true);
-    assert.equal(fs.existsSync(path.join(target, "docs/api/templates/openapi-freeze-record-template.md")), false);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/templates/spec-template.md")), true);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/api/templates/openapi-freeze-record-template.md")), false);
     const invalid = run(["assets", "ensure", "stage.unknown", "--target-dir", target, "--plan"], root);
     assert.notEqual(invalid.status, 0);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
@@ -181,7 +181,7 @@ test("existing v3 selected instances keep their original asset distribution on s
     fs.writeFileSync(path.join(target, ".yss-template.json"), `${JSON.stringify(runtime.buildMetadata(vars, operations), null, 2)}\n`);
     const sync = run(["sync", "--target-dir", target], root);
     assert.equal(sync.status, 0, sync.stderr);
-    assert.equal(fs.existsSync(path.join(target, "docs/templates/spec-template.md")), true);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/templates/spec-template.md")), true);
     assert.equal(read(target, ".yss-template.json").distribution.assetProfile, undefined);
     assert.doesNotMatch(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8"), /assets ensure/);
     assert.doesNotMatch(fs.readFileSync(path.join(target, "README.md"), "utf8"), /assets ensure/);

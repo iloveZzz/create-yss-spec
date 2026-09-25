@@ -32,8 +32,8 @@ test("frontend identity prevents another CLI from planning takeover, even with f
 test("profile alone cannot bypass family protection by omitting metadata", () => {
   const target = fs.mkdtempSync(path.join(os.tmpdir(), "yss-profile-"));
   try {
-    fs.mkdirSync(path.join(target, "docs/process"), { recursive: true });
-    const file = path.join(target, "docs/process/harness-profile.yaml");
+    fs.mkdirSync(path.join(target, ".template-spec/process"), { recursive: true });
+    const file = path.join(target, ".template-spec/process/harness-profile.yaml");
     const bytes = "schema_version: 1\nprofile_id: harness.frontend-delivery\n";
     fs.writeFileSync(file, bytes);
     const result = run(argsFor(target));
@@ -119,8 +119,8 @@ for (const [label, content] of [
   ["duplicate profile", "schema_version: 1\nprofile_id: harness.backend-delivery\nprofile_id: harness.frontend-delivery\n"],
 ]) {
   test(`profile rejects ${label}`, () => withTarget(target => {
-    fs.mkdirSync(path.join(target, "docs/process"), { recursive: true });
-    fs.writeFileSync(path.join(target, "docs/process/harness-profile.yaml"), content);
+    fs.mkdirSync(path.join(target, ".template-spec/process"), { recursive: true });
+    fs.writeFileSync(path.join(target, ".template-spec/process/harness-profile.yaml"), content);
     rejectedUnchanged(target, commands[0]);
   }));
 }
@@ -133,7 +133,7 @@ test("own metadata symlink is rejected without following or overwriting it", () 
 
 test("profile parent symlink is rejected before reading target content", () => withTarget(target => {
   fs.mkdirSync(path.join(target, "real"));
-  fs.symlinkSync("real", path.join(target, "docs"));
+  fs.symlinkSync("real", path.join(target, ".template-spec"));
   rejectedUnchanged(target, commands[0]);
 }));
 
@@ -157,8 +157,8 @@ test("unmanaged projects can still preview initialization", () => withTarget(tar
 
 if (own[2]) {
   test("matching profile supports quoted YAML and identity fields", () => withTarget(target => {
-    fs.mkdirSync(path.join(target, "docs/process"), { recursive: true });
-    fs.writeFileSync(path.join(target, "docs/process/harness-profile.yaml"),
+    fs.mkdirSync(path.join(target, ".template-spec/process"), { recursive: true });
+    fs.writeFileSync(path.join(target, ".template-spec/process/harness-profile.yaml"),
       `schema_version: 1\nprofile_id: '${own[2]}' # valid identity\ninstantiation:\n  metadata_file: '${own[1]}'\n  cli_package: '${name}'\n`);
     const result = run(argsFor(target, "init"));
     assert.equal(result.status, 0, result.stderr);

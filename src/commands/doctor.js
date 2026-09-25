@@ -394,6 +394,7 @@ function renderDoctorText(report) {
 function runDoctor(argv = []) {
   const options = parseArgs(argv);
   if (options.prune) throw new Error("--prune 仅适用于 sync");
+  if (options.migrateLayout) throw new Error("--migrate-layout 仅适用于 attach/sync");
   const targetDir = normalizeTargetDir(options.targetDir);
   const report = buildDoctorReport(targetDir);
 

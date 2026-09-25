@@ -88,6 +88,7 @@ function runSync(argv = []) {
   const context = buildSyncContext({
     targetDir: options.targetDir || ".",
     force: Boolean(options.force),
+    migrateLayout: Boolean(options.migrateLayout),
   });
 
   if (options.json) {

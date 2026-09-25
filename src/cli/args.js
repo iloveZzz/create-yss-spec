@@ -39,6 +39,8 @@ function parseArgs(argv = []) {
       options.force = true;
     } else if (current === "--prune") {
       options.prune = true;
+    } else if (current === "--migrate-layout") {
+      options.migrateLayout = true;
     } else if (current === "--git-init") {
       options.gitInit = true;
     } else if (current === "--include-example-docs") {

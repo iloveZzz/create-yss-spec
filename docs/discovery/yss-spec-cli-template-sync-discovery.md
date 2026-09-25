@@ -52,10 +52,10 @@ owner: ai
 
 推荐默认只同步以下“研发管理模板资产”：
 
-- `docs/templates/`
-- `docs/process/`
-- `docs/agents/`
-- `docs/user-guide/` 中明确标记为模板资产的部分
+- `.template-spec/templates/`
+- `.template-spec/process/`
+- `.template-spec/agents/`
+- `.template-spec/user-guide/` 中明确标记为模板资产的部分
 - `AGENTS.md`
 - `CONTEXT.md` 中模板占位初始化后的公共段落
 - 辅助脚本（如 `scripts/verify-template`、`scripts/gitworks`）

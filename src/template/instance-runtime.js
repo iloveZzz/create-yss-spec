@@ -147,22 +147,22 @@ function renderTemplateFile(relativePath, content, variables) {
   if (relativePath === "skills-lock.json") return selectedSkillLock(content, distribution);
   if (relativePath === "scripts/lib/skill-supply-chain.mjs" && distribution.mode === "selected") return renderInstanceSkillSupplyChain(content);
   if (distribution.mode === "selected" && /^\.(agents|codex|cursor|pi)\/skills\/yss-design-system\/(SKILL\.md|references\/data-quality-theme\.md)$/.test(relativePath)) return renderInstanceDesignSkillFile(content);
-  if (relativePath === "docs/engineering/backend-platforms.json" && distribution.mode === "selected") {
+  if (relativePath === ".template-spec/engineering/backend-platforms.json" && distribution.mode === "selected") {
     return content.replaceAll(".template-source/evidence/maintenance/2026-09-18-yss-backend-components/aliyun-artifact-resolution.json", "docs/engineering/evidence/aliyun-artifact-resolution.json");
   }
-  if (relativePath === "docs/agents/backend-architecture-profiles.md" && distribution.mode === "selected") {
+  if (relativePath === ".template-spec/agents/backend-architecture-profiles.md" && distribution.mode === "selected") {
     return content.replace(/；依据见 `\.template-source\/evidence\/maintenance\/2026-09-12-existing-project-delivery\/maven-adapters-04\.json`/, "；适配验证证据保留在模板源，项目实例须对自身工程重新验证");
   }
-  if (relativePath === "docs/user-guide/用户手册.md" && distribution.mode === "selected") {
+  if (relativePath === ".template-spec/user-guide/用户手册.md" && distribution.mode === "selected") {
     if (distribution.assetProfile !== ASSET_PROFILE) {
       return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 核对依赖，再运行 \`--apply\` 安装。旧实例继续沿用既有文件分发范围；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`。\n`;
     }
     return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化安装分诊与 Plan 入口资产、三项入口 Skill 与所选 Agent 平台。进入后续阶段前，运行 \`create-yss-spec assets ensure <stage-id> --plan\` 核对文件，再运行 \`--apply\` 原子安装；专项 Skill 使用 \`create-yss-spec skills ensure <skill-id...> --plan/--apply\`，会补齐该 Skill 引用的实例文件。增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n`;
   }
-  if (distribution.mode === "selected" && relativePath === "docs/design/README.md") {
+  if (distribution.mode === "selected" && relativePath === ".template-spec/design/README.md") {
     return content.replace(/^.*design-system-sync\.yaml.*\n/m, "");
   }
-  if (distribution.mode === "selected" && relativePath.startsWith("docs/user-guide/") && relativePath.endsWith(".md")) {
+  if (distribution.mode === "selected" && relativePath.startsWith(".template-spec/user-guide/") && relativePath.endsWith(".md")) {
     return content.replaceAll("[设备借用贯穿案例](设备借用贯穿案例.md)", "[项目用户手册](用户手册.md)")
       .replaceAll("本仓是 `template-source`", "模板源是 `template-source`");
   }
@@ -186,10 +186,10 @@ function renderTemplateFile(relativePath, content, variables) {
       );
     if (distribution.mode !== "selected") return rendered;
     const base = rendered.replace(/## 4\. \`template-source\` 模板维护路由[\s\S]*?(?=## 5\.)/, "")
-      .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `docs/process/harness-process-tailoring.md` |\n");
+      .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `.template-spec/process/harness-process-tailoring.md` |\n");
     const guidance = distribution.assetProfile === ASSET_PROFILE
-      ? "## 按需阶段资产与 Skill\n\n进入后续生命周期阶段前，运行 `create-yss-spec assets ensure <stage-id> --plan` 查看完整依赖，核对后运行 `--apply`。专项任务根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。缺少阶段资产时先补装，不以缺文件推定门禁不适用。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n"
-      : "## 按需 Skill\n\n此实例继续沿用原文件分发范围。阶段派发或专项任务开始前，根据 docs/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n";
+      ? "## 按需阶段资产与 Skill\n\n进入后续生命周期阶段前，运行 `create-yss-spec assets ensure <stage-id> --plan` 查看完整依赖，核对后运行 `--apply`。专项任务根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。缺少阶段资产时先补装，不以缺文件推定门禁不适用。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n"
+      : "## 按需 Skill\n\n此实例继续沿用原文件分发范围。阶段派发或专项任务开始前，根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n";
     return `${base}\n${guidance}`;
   }
 
@@ -197,7 +197,7 @@ function renderTemplateFile(relativePath, content, variables) {
     const assetGuidance = distribution.assetProfile === ASSET_PROFILE
       ? "后续阶段先运行 `create-yss-spec assets ensure <stage-id> --plan` 核对依赖，再运行 `--apply`；专项 Skill 使用 `create-yss-spec skills ensure <skill-id> --plan/--apply`。"
       : "专项 Skill 使用 `create-yss-spec skills ensure <skill-id> --plan/--apply`。";
-    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- Agent 平台：${distribution.mode === "selected" ? distribution.runtimes.join(", ") : "legacy-all"}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[docs/user-guide/用户手册.md](./docs/user-guide/用户手册.md)\n\n项目校验：\`scripts/verify-project-instance\`。${assetGuidance}\n`;
+    return `# ${variables.projectName}\n\n本仓库用于管理 ${variables.businessDomain} 的研发资产。\n\n- 默认 Issue Tracker：${variables.issueTracker}\n- Agent 平台：${distribution.mode === "selected" ? distribution.runtimes.join(", ") : "legacy-all"}\n- 协作入口：[AGENTS.md](./AGENTS.md)\n- 业务词汇：[CONTEXT.md](./CONTEXT.md)\n- 用户指南：[.template-spec/user-guide/用户手册.md](./.template-spec/user-guide/用户手册.md)\n\n项目校验：\`scripts/verify-project-instance\`。${assetGuidance}\n`;
   }
 
   if (relativePath === ".gitignore") return extractManagedGitignoreBlock(content);

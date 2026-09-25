@@ -6,16 +6,16 @@ const { ASSET_PROFILE, INITIAL_STAGES } = require("./asset-runtime");
 
 const RUNTIMES = Object.freeze({ codex: ".codex/skills", cursor: ".cursor/skills", pi: ".pi/skills" });
 const OMIT_INSTANCE_PATHS = [
-  "docs/process/github-workflows.md",
-  "docs/process/harness-executive-blueprint.md",
-  "docs/process/PDCA-SCRUM.md",
-  "docs/design/preview.html", "docs/design/preview.css", "docs/design/preview.js", "docs/design/preview-dark.html",
-  "docs/design/facts/antdv-next", "docs/user-guide/设备借用贯穿案例.md",
-  "docs/design/design-system-sync.yaml",
+  ".template-source/process/github-workflows.md",
+  ".template-spec/process/harness-executive-blueprint.md",
+  ".template-spec/process/PDCA-SCRUM.md",
+  ".template-spec/design/preview.html", ".template-spec/design/preview.css", ".template-spec/design/preview.js", ".template-spec/design/preview-dark.html",
+  ".template-spec/design/facts/antdv-next", ".template-spec/user-guide/设备借用贯穿案例.md",
+  ".template-spec/design/design-system-sync.yaml",
 ];
 
 function readDistributionRegistry(templateRoot) {
-  const registry = fs.readFileSync(path.join(templateRoot, "docs/agents/yss-skill-registry.yaml"), "utf8");
+  const registry = fs.readFileSync(path.join(templateRoot, ".template-spec/agents/yss-skill-registry.yaml"), "utf8");
   const match = registry.match(/^instance_distribution:\n([\s\S]*?)(?=^[^\s#][^\n]*:\s*$)/m);
   if (!match) throw new Error("Skill 注册表缺少 instance_distribution");
   const initial = match[1].match(/^  initial_skills: \[([^\]]+)\]/m);
@@ -50,7 +50,7 @@ function isIncludedInstancePath(relativePath, distribution) {
   if (relativePath === ".cursorrules" && !distribution.runtimes.includes("cursor")) return false;
   if (OMIT_INSTANCE_PATHS.some((excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`))) return false;
   if (distribution.assetProfile === ASSET_PROFILE &&
-      (relativePath.startsWith("docs/") || relativePath.startsWith("scripts/") || relativePath.startsWith(".vscode/"))) {
+      (relativePath.startsWith(".template-spec/") || relativePath.startsWith("scripts/") || relativePath.startsWith(".vscode/"))) {
     return distribution.assetPaths.has(relativePath) ||
       [...distribution.assetPaths].some((ref) => ref.startsWith(`${relativePath}/`));
   }
@@ -103,7 +103,7 @@ function renderInstanceSkillSupplyChain(sourceText) {
 function renderInstanceDesignSkillFile(sourceText) {
   return sourceText
     .replaceAll("node .template-source/tooling/node/scripts/design-md.mjs", "scripts/design-md")
-    .replace("运行前先更新 `docs/design/design-system-sync.yaml` 的规范源摘要。", "项目实例无需模板间的 design-system-sync 摘要。")
+    .replace("运行前先更新 `.template-spec/design/design-system-sync.yaml` 的规范源摘要。", "项目实例无需模板间的 design-system-sync 摘要。")
     .replace("修改根 DESIGN.md → 更新 design-system-sync.yaml 摘要 →", "修改根 DESIGN.md →");
 }
 

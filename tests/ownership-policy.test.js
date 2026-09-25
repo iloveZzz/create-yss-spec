@@ -39,7 +39,7 @@ test("repository ownership policy resolves representative paths", () => {
   assert.equal(resolveOwnership("yss-project.yaml", OWNERSHIP_POLICY), "generated");
   assert.equal(resolveOwnership("apps/web/src/main.ts", OWNERSHIP_POLICY), "user-owned");
   assert.equal(resolveOwnership(".git/config", OWNERSHIP_POLICY), "protected");
-  assert.equal(resolveOwnership("docs/process/example.md", OWNERSHIP_POLICY), "managed");
+  assert.equal(resolveOwnership(".template-spec/process/example.md", OWNERSHIP_POLICY), "managed");
 });
 
 test("invalid ownership policies fail closed", () => {

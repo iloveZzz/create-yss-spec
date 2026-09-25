@@ -28,7 +28,7 @@ npx create-yss-spec@latest \
   --target-dir ./equipment-project
 ```
 
-初始化只接受不存在或空目录。新项目只安装 `yss-product-lifecycle`、`yss-implementation-contract-compiler`、`yss-research`、`i-have-adhd` 和所选平台的一套投影；示例 IDEATION 默认关闭。`--agent-runtime` 接受 `codex|cursor|pi`，无交互调用必须显式传入。完成后核对 `yss-project.yaml` 为 `project-instance`、`.yss-template.json` 中的模板摘要、根 `CONTEXT.md` 和 `docs/process/harness-profile.yaml`，再阅读 `docs/user-guide/用户手册索引.md`。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
+初始化只接受不存在或空目录。新项目只安装 `yss-product-lifecycle`、`yss-implementation-contract-compiler`、`yss-research`、`i-have-adhd` 和所选平台的一套投影；示例 IDEATION 默认关闭。`--agent-runtime` 接受 `codex|cursor|pi`，无交互调用必须显式传入。完成后核对 `yss-project.yaml` 为 `project-instance`、`.yss-template.json` 中的模板摘要、根 `CONTEXT.md` 和 `.template-spec/process/harness-profile.yaml`，再阅读 `.template-spec/user-guide/用户手册索引.md`。CLI 不创建远程仓、CI、Tracker 或运行时代码工程。
 
 ## 接入、同步与诊断
 
@@ -93,4 +93,4 @@ npm pack --ignore-scripts --pack-destination /absolute/path/to/output
 | 校验失败 | 查看事务回滚和旧 metadata，修复原因后重新预览 |
 | npm 手册与源码不同 | 比对 `npm view`、`--version` 和包内 `template.snapshot.json` |
 
-综合模板的职责、提示词、用户决定和贯穿案例见模板根 `docs/user-guide/用户手册索引.md`；CLI 参数以当前安装版本的 `--help` 为准。
+综合模板的职责、提示词、用户决定和贯穿案例见模板根 `.template-spec/user-guide/用户手册索引.md`；CLI 参数以当前安装版本的 `--help` 为准。

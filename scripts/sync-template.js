@@ -26,7 +26,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "085a80540035c6430a2dff1fb3fb7396469152df";
+const DEFAULT_TEMPLATE_REF = "744c9689f2488b8c31e7a4ccdbd97e44ca732578";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (requireCommitted
@@ -418,8 +418,8 @@ function renderProjectInstanceDocuments(stagingRoot) {
   if (fs.existsSync(readmePath)) {
     const source = fs.readFileSync(readmePath, "utf8")
       .replace(/^YSS skills 的公开发布投影维护在 .*skills-maintenance\.md.*\n/m, "")
-      .replace(/^\| \[docs\/process\/template-engineering-overview\.md\].*\n/m, "")
-      .replace(/^\| \[docs\/agents\/skills-maintenance\.md\].*\n/m, "");
+      .replace(/^\| \[\.template-source\/process\/template-engineering-overview\.md\].*\n/m, "")
+      .replace(/^\| \[\.template-source\/agents\/skills-maintenance\.md\].*\n/m, "");
     fs.writeFileSync(readmePath, source, "utf8");
   }
   const gitignorePath = path.join(stagingRoot, ".gitignore");
@@ -436,14 +436,14 @@ function renderProjectInstanceDocuments(stagingRoot) {
       "utf8",
     );
   }
-  const tailoringPath = path.join(stagingRoot, "docs/process/harness-process-tailoring.md");
+  const tailoringPath = path.join(stagingRoot, ".template-spec/process/harness-process-tailoring.md");
   if (fs.existsSync(tailoringPath)) {
     const source = fs.readFileSync(tailoringPath, "utf8")
       .replace(/\n## 4\. 模板维护验证与审查强度分级[\s\S]*?(?=\n## 5\.)/, "")
       .replace(/\n模板维护默认停在 `implementation-ready`[\s\S]*$/, "\n");
     fs.writeFileSync(tailoringPath, source, "utf8");
   }
-  const integrationPath = path.join(stagingRoot, "docs/process/implementation-repo-integration.md");
+  const integrationPath = path.join(stagingRoot, ".template-spec/process/implementation-repo-integration.md");
   if (fs.existsSync(integrationPath)) {
     const source = fs.readFileSync(integrationPath, "utf8")
       .replace(/\n## 3\. 本变更的跨仓库合同[\s\S]*$/, "\n");
