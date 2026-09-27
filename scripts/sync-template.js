@@ -26,7 +26,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "744c9689f2488b8c31e7a4ccdbd97e44ca732578";
+const DEFAULT_TEMPLATE_REF = "13d8d9c9304a73d65d1e2e6842744b9578f4876a";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (requireCommitted
@@ -491,7 +491,7 @@ try {
   const useLocalWorkingTree = localTemplateRepo && !requireCommitted;
   const sourceRoot = useLocalWorkingTree ? path.resolve(templateRepo) : checkoutRoot;
   if (sourceRoot === checkoutRoot) {
-    run("git", ["clone", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
+    run("git", ["clone", "--no-local", "--no-checkout", "--depth", "1", templateRepo, checkoutRoot]);
     run("git", ["fetch", "--depth", "1", "origin", templateRef], checkoutRoot);
     run("git", ["checkout", "--detach", "FETCH_HEAD"], checkoutRoot);
   }

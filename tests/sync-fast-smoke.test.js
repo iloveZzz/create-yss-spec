@@ -35,7 +35,8 @@ test("sync fast path preserves unchanged files, project assets and rollback", ()
   try {
     const snapshot = JSON.parse(fs.readFileSync(path.join(packageRoot, "template.snapshot.json"), "utf8"));
     const manifestHash = crypto.createHash("sha256").update(fs.readFileSync(path.join(packageRoot, "template.manifest.json"))).digest("hex");
-    const sourceScriptsCurrent = ["scripts/lib/skill-supply-chain.mjs", "scripts/verify-project-instance"].every((relative) =>
+    const sourceScriptsCurrent = ["scripts/lib/skill-supply-chain.mjs", "scripts/verify-project-instance", ".template-spec/process/lifecycle-registry-baseline-v1.json"].every((relative) =>
+      fs.existsSync(path.join(packageRoot, "template", relative)) &&
       fs.readFileSync(path.join(packageRoot, "template", relative)).equals(fs.readFileSync(path.join(templateRoot, relative))));
     const prepared = snapshot.manifestHash === manifestHash && snapshot.snapshotHash === treeHash(path.join(packageRoot, "template")) && sourceScriptsCurrent
       ? packageRoot : path.join(sandbox, "cli");

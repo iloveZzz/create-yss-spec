@@ -22,6 +22,7 @@ const COMMON = {
     ".template-spec/agents/domain.md",
     ".template-spec/process/lifecycle-registry.yaml",
     ".template-spec/process/lifecycle-registry-baseline.json",
+    ".template-spec/process/lifecycle-registry-baseline-v1.json",
     ".template-spec/process/lifecycle-artifact-map.md",
     ".template-spec/process/harness-process-tailoring.md",
     ".template-spec/process/document-writing.md",
@@ -204,7 +205,14 @@ function assetPaths(root, distribution) {
   }
   const result = new Set();
   const selectedSkills = new Set(distribution.installedSkills);
-  for (const ref of COMMON.files) addFile(root, result, ref);
+  for (const ref of COMMON.files) {
+    if (ref === ".template-spec/process/lifecycle-registry-baseline-v1.json" &&
+        !fs.existsSync(path.join(root, ref))) {
+      const baseline = JSON.parse(fs.readFileSync(sourceFile(root, ".template-spec/process/lifecycle-registry-baseline.json"), "utf8"));
+      if (baseline.schema_version === 1) continue;
+    }
+    addFile(root, result, ref);
+  }
   for (const ref of COMMON.scripts) moduleClosure(root, result, ref, selectedSkills);
   for (const stage of distribution.installedStages) {
     const bundle = STAGES[stage];
