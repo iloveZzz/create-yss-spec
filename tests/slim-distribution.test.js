@@ -204,3 +204,27 @@ test("design-system on-demand install uses the project-local update tool", () =>
     assert.equal(sync.status, 0, sync.stderr);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("retired entries stay absent and commit entry installs its hidden shared contract", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "yss-retirement-")), target = path.join(root, "project");
+  try {
+    const init = run(["--project-name", "Probe", "--business-domain", "Demo", "--target-dir", target, "--agent-runtime", "codex"], root);
+    assert.equal(init.status, 0, init.stderr);
+    assert.equal(fs.existsSync(path.join(target, ".template-spec/agents/domain.md")), false);
+    assert.match(fs.readFileSync(path.join(target, "CONTEXT.md"), "utf8"), /消费规则/);
+    const before = fs.readFileSync(path.join(target, ".yss-template.json"));
+    for (const id of ["wait-what", "grill-with-docs", "to-questionnaire", "improve-codebase-architecture", "data-analytics"]) {
+      const result = run(["skills", "ensure", id, "--target-dir", target, "--apply"], root);
+      assert.notEqual(result.status, 0);
+      assert.deepEqual(fs.readFileSync(path.join(target, ".yss-template.json")), before);
+      assert.equal(fs.existsSync(path.join(target, ".agents/skills", id)), false);
+    }
+    const plan = run(["skills", "ensure", "frontend-commit", "--target-dir", target, "--plan"], root);
+    assert.equal(plan.status, 0, plan.stderr);
+    assert.deepEqual(JSON.parse(plan.stdout).addSkills, ["frontend-commit", "git-commit-core"]);
+    const apply = run(["skills", "ensure", "frontend-commit", "--target-dir", target, "--apply"], root);
+    assert.equal(apply.status, 0, apply.stderr);
+    assert.equal(fs.existsSync(path.join(target, ".agents/skills/git-commit-core/SKILL.md")), true);
+    assert.equal(fs.existsSync(path.join(target, ".agents/skills/java-backend-commit")), false);
+  } finally { fs.rmSync(root, {recursive:true,force:true}); }
+});

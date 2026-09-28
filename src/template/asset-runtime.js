@@ -19,7 +19,6 @@ const COMMON = {
     ".template-spec/agents/digital-human-roles.md",
     ".template-spec/agents/issue-tracker.md",
     ".template-spec/agents/triage-labels.md",
-    ".template-spec/agents/domain.md",
     ".template-spec/process/lifecycle-registry.yaml",
     ".template-spec/process/lifecycle-registry-baseline.json",
     ".template-spec/process/lifecycle-registry-baseline-v1.json",
