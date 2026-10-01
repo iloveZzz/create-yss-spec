@@ -191,6 +191,8 @@ npm pack --dry-run
 
 ## 固定计划实例迁移
 
+创建实例时默认安装 `yss-harness-upgrade`；已有实例执行 `sync` 时自动补齐该技能、已选择运行时的投影和升级协议，并更新技能锁与分发登记。`sync --dry-run` 只预览，不安装。补装保留原有技能、运行时和阶段选择。
+
 `migrate plan --target-dir <项目绝对路径> --output <项目外新计划.json>` 生成项目只读计划；`migrate apply --plan <计划>` 执行固定候选并保存持久归档。计划后输入变化必须重新规划。需要旧布局迁移或安全退出分发清理时，规划阶段显式加入 `--migrate-layout` / `--prune`。
 
 `migrate status` 查看状态；`migrate recover` 预览中断恢复，`migrate rollback` 预览最近一次成功迁移的整体回退，均需显式 `--apply` 才写入。后续修改、跨家族、未知基线及损坏归档阻断，禁止用 force 绕过。所有新接口支持 `--json`。

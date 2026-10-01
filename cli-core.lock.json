@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "https://github.com/iloveZzz/yss-spec-project-template.git",
-  "sourceRevision": "b98bafda74fc60c2b41c6020e3d41d84a4f1b1b7",
+  "sourceRevision": "dd58fc3929b3958579ac8a426f06f087682f2f6c",
   "sourceState": "committed",
   "sourcePath": ".template-source/cli-core",
   "coreVersion": "0.2.0",
@@ -84,7 +84,7 @@
       "mode": 420
     },
     "tests/package-contract.mjs": {
-      "digest": "812129d3c327515269ed2aff08fec97049aa306b65f752d47a3cd004a168be72",
+      "digest": "ce8fcaa4e4f4498e2f4f49e86c9ab455b54c9ce386fe0911396ffe8f5eb6ff49",
       "mode": 420
     },
     "transaction.mjs": {
@@ -112,7 +112,7 @@
       "mode": 420
     }
   },
-  "digest": "f5199dba3f9dc94a9b2e92a8b4d65d0633a5a3dfc489d88d30cb461204b8d63d",
+  "digest": "9a4cfce884a706efa91ae8dd8dc2fc82cd7d17e8a84f633bdb049ea531436ae1",
   "upgradeResources": {
     "SKILL.md": {
       "digest": "40495ca033ebd0345363714e45571ee77258a435ea1523ae716dc2402ced0487",

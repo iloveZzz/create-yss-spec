@@ -244,7 +244,9 @@ function assetPaths(root, distribution) {
     for (const ref of bundle.files || []) addFile(root, result, ref);
     for (const ref of bundle.scripts || []) moduleClosure(root, result, ref, selectedSkills);
   }
-  for (const skill of distribution.resourceSkills || []) skillReferences(root, result, skill, selectedSkills);
+  const resourceSkills = new Set(distribution.resourceSkills || []);
+  if (selectedSkills.has("yss-harness-upgrade")) resourceSkills.add("yss-harness-upgrade");
+  for (const skill of resourceSkills) skillReferences(root, result, skill, selectedSkills);
   return result;
 }
 

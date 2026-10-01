@@ -1,0 +1,23 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {spawnSync}=require('node:child_process');
+const {createHash}=require('node:crypto');
+const entry=path.resolve(__dirname,'../bin/create-yss-spec.js');
+for(const runtime of ['codex','cursor','pi'])test(`${runtime}: 创建和旧实例 sync 自动携带完整升级技能`,t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'upgrade-distribution-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const target=path.join(root,'project');
+ const run=args=>{const r=spawnSync(process.execPath,[entry,...args,'--target-dir',target],{encoding:'utf8',timeout:180000});assert.equal(r.status,0,r.stderr||r.stdout);return r;};
+ const read=ref=>JSON.parse(fs.readFileSync(path.join(target,ref)));
+ const skill='yss-harness-upgrade',protocol='.template-spec/process/harness-upgrade.md';
+ const check=()=>{for(const base of ['.agents/skills',`.${runtime}/skills`])for(const ref of ['SKILL.md','references/cli-families.md'])assert.ok(fs.existsSync(path.join(target,base,skill,ref)),`${base}/${skill}/${ref}`);assert.ok(fs.existsSync(path.join(target,protocol)),protocol);assert.ok(read('skills-lock.json').skills.shared[skill]);assert.ok(read('.yss-template.json').distribution.installedSkills.includes(skill));};
+ run(['--project-name','Upgrade','--business-domain','测试','--team-size','1','--agent-runtime',runtime]);check();
+ const meta=read('.yss-template.json'),lock=read('skills-lock.json');meta.distribution.installedSkills=meta.distribution.installedSkills.filter(x=>x!==skill);meta.distribution.resourceSkills=(meta.distribution.resourceSkills||[]).filter(x=>x!==skill);
+ for(const ref of Object.keys(meta.managedFiles))if(ref.includes('/'+skill+'/')||ref===protocol)delete meta.managedFiles[ref];
+ for(const base of ['.agents/skills',`.${runtime}/skills`])fs.rmSync(path.join(target,base,skill),{recursive:true});fs.rmSync(path.join(target,protocol));delete lock.skills.shared[skill];
+ const lockBytes=JSON.stringify(lock,null,2)+'\n';meta.managedFiles['skills-lock.json'].contentHash=createHash('sha256').update(lockBytes).digest('hex');fs.writeFileSync(path.join(target,'.yss-template.json'),JSON.stringify(meta,null,2)+'\n');fs.writeFileSync(path.join(target,'skills-lock.json'),lockBytes);fs.writeFileSync(path.join(target,'business.txt'),'local work');const before=fs.readFileSync(path.join(target,'.yss-template.json'));
+ run(['sync','--dry-run']);assert.deepEqual(fs.readFileSync(path.join(target,'.yss-template.json')),before);assert.ok(!fs.existsSync(path.join(target,'.agents/skills',skill)));
+ run(['sync']);check();assert.deepEqual(read('.yss-template.json').distribution.runtimes,[runtime]);assert.deepEqual(read('.yss-template.json').distribution.installedStages,meta.distribution.installedStages);assert.equal(fs.readFileSync(path.join(target,'business.txt'),'utf8'),'local work');
+ const bytes=fs.readFileSync(path.join(target,'.agents/skills',skill,'SKILL.md'));run(['sync']);assert.deepEqual(fs.readFileSync(path.join(target,'.agents/skills',skill,'SKILL.md')),bytes);
+});

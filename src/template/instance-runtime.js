@@ -275,7 +275,9 @@ function buildSyncVariables(metadata) {
       variables.includeExampleDocs === undefined
         ? !(metadata.metadataSchemaVersion >= 3)
         : Boolean(variables.includeExampleDocs),
-    distribution: metadata.metadataSchemaVersion >= 3 ? metadata.distribution : { mode: "legacy-all" },
+    distribution: metadata.metadataSchemaVersion >= 3 && metadata.distribution?.mode === "selected"
+      ? { ...metadata.distribution, installedSkills: [...new Set([...metadata.distribution.installedSkills, "yss-harness-upgrade"])] }
+      : metadata.metadataSchemaVersion >= 3 ? metadata.distribution : { mode: "legacy-all" },
   };
 }
 
@@ -495,7 +497,7 @@ function buildNextSyncMetadata(metadata, syncPlan, {
   return {
     ...metadata,
     metadataSchemaVersion: METADATA_SCHEMA_VERSION,
-    distribution: metadata.metadataSchemaVersion >= 3 ? metadata.distribution : { mode: "legacy-all" },
+    distribution: buildSyncVariables(metadata).distribution,
     templateName: PACKAGE_MANIFEST.name,
     cliVersion: PACKAGE_MANIFEST.version,
     templateVersion: PACKAGE_MANIFEST.version,
