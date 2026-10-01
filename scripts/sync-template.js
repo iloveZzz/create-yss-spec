@@ -26,7 +26,7 @@ function isLocalRepo(value) {
 const templateRepo =
   process.env.YSS_SPEC_TEMPLATE_REPO ||
   (isLocalRepo(siblingHarness) ? siblingHarness : defaultRemote);
-const DEFAULT_TEMPLATE_REF = "3e1ec72887337b0cb2abd683a1fd5d7ebcc6938c";
+const DEFAULT_TEMPLATE_REF = "19cbc2e474e6f718d4b6586e84b12f1504ee4bd9";
 const templateRef =
   process.env.YSS_SPEC_TEMPLATE_REF ||
   (requireCommitted
@@ -35,7 +35,9 @@ const templateRef =
 const NPM_IGNORED_BASENAMES = new Set([".gitignore", ".npmignore", ".npmrc"]);
 
 function run(command, args, cwd = packageRoot) {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+  // Content-addressed snapshots and maintenance evidence can exceed Node's 1 MiB default.
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  if (result.error) throw new Error(`${command} 执行失败：${result.error.message}`);
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `${command} 执行失败`);
   }

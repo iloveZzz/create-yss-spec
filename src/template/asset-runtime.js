@@ -33,6 +33,10 @@ const COMMON = {
     ".template-spec/process/schemas/stage-decision-package-reading.schema.json",
     ".template-spec/process/subagent-collaboration.md",
     ".template-spec/process/stage-tracking.md",
+    ".template-spec/process/business-tickets.md",
+    ".template-spec/process/schemas/business-tickets-v1.schema.json",
+    ".template-spec/process/project-ci.md",
+    ".template-spec/process/checkpoint-boundary.yaml",
     ".template-spec/process/schemas/context-reconciliation.schema.json",
     ".template-spec/process/schemas/digital-human-task-package.schema.json",
     ".template-spec/process/schemas/lifecycle-checkpoint.schema.json",
@@ -63,32 +67,37 @@ const COMMON = {
     "scripts/run-read-only-intake",
     "scripts/contract",
     "scripts/stage-tracking",
+    "scripts/project-ci",
+    "scripts/project-ci-transition",
+    "scripts/lifecycle-status",
     "scripts/gitworks",
   ],
 };
 
+const BUSINESS_FILES = [".template-spec/templates/business-ticket-template.md", ".template-spec/templates/business-ticket-set-template.yaml", ".template-spec/templates/business-ticket-review-template.yaml"];
 const STAGES = Object.freeze({
   "stage.entry-triage": { files: [], scripts: [], skills: [] },
   "stage.plan": {
     prefixes: [".template-spec/plan/"],
-    files: [".template-spec/process/plan-migration.md"],
-    scripts: ["scripts/verify-plan-spec-entry"],
+    files: [".template-spec/process/plan-migration.md", ".template-spec/process/plan-spec-quality.md"],
+    scripts: ["scripts/verify-plan-spec-entry", "scripts/inspect-plan-spec"],
     skills: [],
   },
   "stage.spec-architecture": {
     files: [
+      ...BUSINESS_FILES,
       ".template-spec/templates/spec-template.md",
       ".template-spec/templates/spec-delta-template.md",
       ".template-spec/architecture/templates/business-architecture-template.md",
       ".template-spec/architecture/templates/functional-architecture-template.md",
     ],
-    scripts: [],
+    scripts: ["scripts/verify-business-tickets"],
     skills: [],
   },
   "stage.product-design": {
     prefixes: [".template-spec/design/"],
-    files: [],
-    scripts: ["scripts/design-md"],
+    files: BUSINESS_FILES,
+    scripts: ["scripts/design-md", "scripts/verify-business-tickets"],
     skills: ["yss-prototype-stage"],
   },
   "stage.system-data-engineering": {
@@ -101,6 +110,7 @@ const STAGES = Object.freeze({
       ".template-spec/templates/implementation-repo-registry-template.md",
     ],
     scripts: [
+      "scripts/verify-business-tickets",
       "scripts/backend-platforms",
       "scripts/backend-delivery",
       "scripts/repository-scope-policy",
