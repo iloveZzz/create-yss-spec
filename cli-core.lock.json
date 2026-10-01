@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "https://github.com/iloveZzz/yss-spec-project-template.git",
+  "sourceRevision": "b98bafda74fc60c2b41c6020e3d41d84a4f1b1b7",
+  "sourceState": "committed",
+  "sourcePath": ".template-source/cli-core",
+  "coreVersion": "0.2.0",
+  "protocolVersion": 1,
+  "files": {
+    "build.mjs": {
+      "digest": "5f869fecc2f30767c31222e8594456f59671a0744f5a58e95bafaa6338adddbe",
+      "mode": 420
+    },
+    "bundle.mjs": {
+      "digest": "4d60b5f9c10c3487c4e3817a9fd9597734249eb7244cc98f53f4741a1e63a3ce",
+      "mode": 420
+    },
+    "cli.mjs": {
+      "digest": "73aae345737aa7d069283ff7e5539be26498c7a7c94d1100a699a47e4c18e31f",
+      "mode": 420
+    },
+    "command-runner.mjs": {
+      "digest": "4fb7f3c9ca26dff3f955ddb1c6ad545519d3e55af179f834ff67b1c0bf20bffd",
+      "mode": 420
+    },
+    "engine.mjs": {
+      "digest": "70fae490df46a19148a017322ef12f27e6d58d28c7f48fb476ef178dc091dac2",
+      "mode": 420
+    },
+    "family.mjs": {
+      "digest": "2a21348f54e2f8e8f81e1000e3228b3fe3e8817a78244f9866c150318fd129d0",
+      "mode": 420
+    },
+    "gitignore.mjs": {
+      "digest": "dc781dffad8bcff81fd3967546fa8e824641b80d38d47a06eb0909e3401b2940",
+      "mode": 420
+    },
+    "identity.mjs": {
+      "digest": "d1d41fa42aac6ec5cf3e237d1807237f43252b3308e169a838fd3c735f3475ac",
+      "mode": 420
+    },
+    "io.mjs": {
+      "digest": "7edc2095f05086fbff90e6a722950fb6ef57468593a1971bc96a791632457746",
+      "mode": 420
+    },
+    "layout-migration.mjs": {
+      "digest": "0dd1569c43b11c8e4384e7994ac7f6185236756b7297a0a06e867e972b2b036b",
+      "mode": 420
+    },
+    "legacy.mjs": {
+      "digest": "ac5652dee0f3a6d0204a0dad3b0b3a7531a962f620768b72c6aed0d610c446ed",
+      "mode": 420
+    },
+    "migrate.mjs": {
+      "digest": "43788e3916ea95b2800290c70eab3fdd45d1d730705c4a8fadf76dbe8b864304",
+      "mode": 420
+    },
+    "migration-adapter.mjs": {
+      "digest": "43cab1bdeda56859d604f4bbe6d818444c27166d08c6617bac3667c4dd0a3a9d",
+      "mode": 420
+    },
+    "package.json": {
+      "digest": "68d3dfd6451f7a433ff2eb821daa83d59e0c03f19b73d3a2cf5582ee6ce23332",
+      "mode": 420
+    },
+    "scaffold.mjs": {
+      "digest": "ebf16b3ffe95fe00698691ebc71362dfce1e93846a34cb01745b0c063035e209",
+      "mode": 420
+    },
+    "spec-migration-adapter.mjs": {
+      "digest": "45f0bae94552522999abeabef69b9e93220755a089b2a508dcd1a077af07d363",
+      "mode": 420
+    },
+    "tests/build.test.mjs": {
+      "digest": "af6bd15ef81f5160bf94a85ad19cd3d3763b80c8eb577229c9a9b47564e902f6",
+      "mode": 420
+    },
+    "tests/cli.test.mjs": {
+      "digest": "a51dc4bdbc1220bf6c720bd63a05fdbf82101330b012eb535d5b7e6b1ff3693a",
+      "mode": 420
+    },
+    "tests/migration-version.test.mjs": {
+      "digest": "be0389cba634e013f8f7192243057a29e58fe49f3d33372e31eceb96788e001b",
+      "mode": 420
+    },
+    "tests/package-contract.mjs": {
+      "digest": "812129d3c327515269ed2aff08fec97049aa306b65f752d47a3cd004a168be72",
+      "mode": 420
+    },
+    "transaction.mjs": {
+      "digest": "f2fbc4642e953ce00cece2e9f9fe61b7b50f42fabed41e64d5a1902d0ae660a8",
+      "mode": 420
+    },
+    "update.mjs": {
+      "digest": "10a68ac1a709ab3748f9c7e615bc9eeaae82cab9d35077349c13d2ecccd7a111",
+      "mode": 420
+    },
+    "vendor/NOTICES.md": {
+      "digest": "7eba5e5f046d1c0b1c7c02ff036925d2580682c67e09b5521c8fc4f284f3b216",
+      "mode": 420
+    },
+    "vendor/yaml.LICENSE": {
+      "digest": "5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869",
+      "mode": 420
+    },
+    "vendor/yaml.mjs": {
+      "digest": "58c510627769ef4e75e90bcf410d63ba33e64b46bc9cfc53149839d5ccb1709b",
+      "mode": 420
+    },
+    "verification.mjs": {
+      "digest": "e029c8f57b756b4d8709e8b05871b3a09ea8716c71ca93dda0b3480b932b662f",
+      "mode": 420
+    }
+  },
+  "digest": "f5199dba3f9dc94a9b2e92a8b4d65d0633a5a3dfc489d88d30cb461204b8d63d",
+  "upgradeResources": {
+    "SKILL.md": {
+      "digest": "40495ca033ebd0345363714e45571ee77258a435ea1523ae716dc2402ced0487",
+      "mode": 420
+    },
+    "protocol.md": {
+      "digest": "34367c4618617dadb6151bb569bd93616e55bc718d08dc8805e94cdb56cf0a6c",
+      "mode": 420
+    },
+    "references/cli-families.md": {
+      "digest": "70321868fd21c99944c36e8ce9882c5f4910bbe382d2ecfdb8c5c04d5dbe00d4",
+      "mode": 420
+    }
+  }
+}

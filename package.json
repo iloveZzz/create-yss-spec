@@ -1,6 +1,6 @@
 {
   "name": "create-yss-spec",
-  "version": "3.5.4",
+  "version": "3.5.5",
   "description": "Initialize a YSS spec project template repository",
   "main": "src/api/index.js",
   "repository": {
@@ -16,7 +16,10 @@
     "src",
     "template",
     "template.manifest.json",
-    "template.snapshot.json"
+    "template.snapshot.json",
+    "vendor/cli-core",
+    "cli-core.lock.json",
+    "resources/upgrade-skill"
   ],
   "bin": {
     "create-yss-spec": "bin/create-yss-spec.js"
@@ -29,7 +32,8 @@
     "test:unit": "node --test tests/*planner*.test.js tests/filesystem-*.test.js tests/validation-modules.test.js tests/doctor-checks.test.js tests/ownership-policy.test.js tests/lifecycle-policy.test.js tests/lifecycle-metadata.test.js tests/verification-runtime.test.js tests/cli-modules.test.js tests/cli-entrypoint.test.js tests/self-update.test.js tests/plan-schema.test.js tests/contracts.test.js tests/error-output.test.js tests/apply-result-contract.test.js tests/programmatic-api-unit.test.js",
     "test:integration": "npm run sync-template && node --test tests/init-cli.test.js tests/sync-command-modular.test.js tests/attach-command-modular.test.js tests/doctor-diff-command.test.js tests/programmatic-api.test.js tests/family-identity.test.js",
     "prepack": "node scripts/sync-template.js --require-committed",
-    "test:prepared": "node --test --test-concurrency=1 tests/*.test.js"
+    "test:prepared": "node --test --test-concurrency=1 tests/*.test.js",
+    "sync-core": "node scripts/sync-core.mjs"
   },
   "devDependencies": {
     "ajv": "^8.20.0"

@@ -188,3 +188,11 @@ npm pack --dry-run
 ## 治理目录迁移
 
 新实例将分发治理资产安装到 `.template-spec/`，项目规格产物放在 `docs/`。已有实例只有显式运行 `sync --migrate-layout --plan` 审阅后，才运行 `sync --migrate-layout --apply`；`attach` 同样支持该开关。迁移保留项目 tracker 配置，缺少可信摘要、旧文件被修改或目标路径冲突时阻断。普通 sync 不自动改变旧实例目录。
+
+## 固定计划实例迁移
+
+`migrate plan --target-dir <项目绝对路径> --output <项目外新计划.json>` 生成项目只读计划；`migrate apply --plan <计划>` 执行固定候选并保存持久归档。计划后输入变化必须重新规划。需要旧布局迁移或安全退出分发清理时，规划阶段显式加入 `--migrate-layout` / `--prune`。
+
+`migrate status` 查看状态；`migrate recover` 预览中断恢复，`migrate rollback` 预览最近一次成功迁移的整体回退，均需显式 `--apply` 才写入。后续修改、跨家族、未知基线及损坏归档阻断，禁止用 force 绕过。所有新接口支持 `--json`。
+
+旧实例无需先 sync 安装技能：从当前固定版本包的 `resources/upgrade-skill/SKILL.md` 在项目外读取升级入口及相邻 `protocol.md`。默认归档保留于用户目录 `.yss-harness/archives/`；不自动清理。CLI 程序 update/upgrade 与实例迁移相互独立。

@@ -13,6 +13,7 @@ USAGE
 COMMANDS
   (default)  初始化新的模板实例仓库
   attach     向已有项目补齐受管研发管理资产
+  migrate    固定计划升级：plan/apply/status/recover/rollback
   sync       同步已有模板实例的受管资产
   diff       只计算同步差异，不写入文件
   doctor     检查模板实例、身份、Git 和安全状态

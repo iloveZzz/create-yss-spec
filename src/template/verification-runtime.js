@@ -39,6 +39,13 @@ function initializeGitRepository(targetDir) {
   }
 }
 
+let verificationOutput = (text) => process.stdout.write(text);
+function withVerificationOutput(writer, execute) {
+  const previous = verificationOutput;
+  verificationOutput = writer;
+  try { return execute(); } finally { verificationOutput = previous; }
+}
+
 function runTemplateVerification(targetDir, scriptPath, args = ["--check"]) {
   const commandPath = targetPath(targetDir, scriptPath);
   const result = spawnSync(commandPath, args, {
@@ -48,7 +55,7 @@ function runTemplateVerification(targetDir, scriptPath, args = ["--check"]) {
   });
   const output = [result.stdout, result.stderr].filter(Boolean).join("");
   if (output) {
-    process.stdout.write(output.endsWith("\n") ? output : `${output}\n`);
+    verificationOutput(output.endsWith("\n") ? output : `${output}\n`);
   }
   if (result.status !== 0) {
     const detail = result.error?.message || output.trim();
@@ -193,6 +200,7 @@ function refreshGeneratedProjectInstance(targetDir, options = {}) {
 }
 
 module.exports = {
+  withVerificationOutput,
   verificationEnvironment,
   initializeGitRepository,
   runTemplateVerification,

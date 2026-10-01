@@ -78,7 +78,8 @@ test("init generates a slim project with one runtime", () => {
     assert.equal(metadata.metadataSchemaVersion, 3);
     assert.deepEqual(metadata.distribution.runtimes, ["codex"]);
     assert.deepEqual(lock.projectionRoots, [".codex/skills"]);
-    assert.equal(Object.keys(lock.skills.shared).length, 3);
+    assert.equal(Object.keys(lock.skills.shared).length, 4);
+    assert.ok(lock.skills.shared["yss-harness-upgrade"]);
     assert.equal(fs.existsSync(path.join(targetDir, ".cursor")), false);
     assert.equal(fs.existsSync(path.join(targetDir, ".pi")), false);
     assert.equal(fs.existsSync(path.join(targetDir, ".template-spec/design/preview.html")), false);

@@ -1,0 +1,31 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {spawnSync}=require('node:child_process');
+const {createHash}=require('node:crypto');
+const entry=path.resolve(__dirname,'../bin/create-yss-spec.js');
+test('主 CLI 固定计划升级、保留定制、幂等和最近升级回退',t=>{
+ const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'spec-migrate-')));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const target=path.join(root,'project'),plan=path.join(root,'plan.json');
+ function run(args){const r=spawnSync(process.execPath,[entry,...args],{encoding:'utf8',timeout:300000,maxBuffer:16*1024*1024});return {...r,data:(()=>{try{return JSON.parse(r.stdout);}catch{return null;}})()};}
+ const init=run(['--target-dir',target,'--project-name','Migration','--business-domain','迁移测试','--team-size','1','--issue-tracker','github','--agent-runtime','codex']);assert.equal(init.status,0,init.stderr);
+ const metadata=path.join(target,'.yss-template.json'),agents=path.join(target,'AGENTS.md'),meta=JSON.parse(fs.readFileSync(metadata));
+ fs.writeFileSync(agents,'previous managed agents\n');meta.managedFiles['AGENTS.md'].contentHash=createHash('sha256').update('previous managed agents\n').digest('hex');fs.writeFileSync(metadata,JSON.stringify(meta,null,2)+'\n');
+ fs.mkdirSync(path.join(target,'src'));fs.writeFileSync(path.join(target,'src/user.txt'),'uncommitted work');const before=fs.readFileSync(metadata);
+ const preview=run(['migrate','plan','--target-dir',target,'--output',plan,'--archive-dir',path.join(root,'archive'),'--json']);assert.equal(preview.status,0,preview.stderr || preview.stdout);assert.deepEqual(fs.readFileSync(metadata),before);
+ const apply=run(['migrate','apply','--plan',plan,'--json']);assert.equal(apply.status,0,apply.stderr || apply.stdout);assert.notEqual(fs.readFileSync(agents,'utf8'),'previous managed agents\n');
+ const second=run(['migrate','apply','--plan',plan,'--json']);assert.equal(second.status,0,second.stderr);assert.equal(second.data.reused,true);
+ const noop=run(['migrate','plan','--target-dir',target,'--output',path.join(root,'noop.json'),'--json']);assert.equal(noop.status,0,noop.stderr || noop.stdout);assert.equal(noop.data.operations,0);
+ const rollback=run(['migrate','rollback','--target-dir',target,'--apply','--json']);assert.equal(rollback.status,0,rollback.stderr || rollback.stdout);assert.deepEqual(fs.readFileSync(metadata),before);assert.equal(fs.readFileSync(agents,'utf8'),'previous managed agents\n');assert.equal(fs.readFileSync(path.join(target,'src/user.txt'),'utf8'),'uncommitted work');
+ const upstream=JSON.parse(fs.readFileSync(plan)).operations.find(o=>o.path==='AGENTS.md');
+ const custom=Buffer.from(Buffer.from(upstream.contentBase64,'base64').toString()+'\n<!-- retained local policy -->\n');fs.writeFileSync(agents,custom);
+ const decisions=path.join(root,'decisions.json');fs.writeFileSync(decisions,JSON.stringify({'AGENTS.md':{action:'merge',beforeDigest:createHash('sha256').update(custom).digest('hex'),templateDigest:upstream.after.digest,contentBase64:custom.toString('base64')}}));
+ const mergedPlan=path.join(root,'merged.json');const mergePreview=run(['migrate','plan','--target-dir',target,'--output',mergedPlan,'--resolutions',decisions,'--json']);assert.equal(mergePreview.status,0,mergePreview.stderr || mergePreview.stdout);
+ const mergeApply=run(['migrate','apply','--plan',mergedPlan,'--json']);assert.equal(mergeApply.status,0,mergeApply.stderr || mergeApply.stdout);assert.deepEqual(fs.readFileSync(agents),custom);
+ assert.equal(JSON.parse(fs.readFileSync(metadata)).managedFiles['AGENTS.md'].contentHash,upstream.after.digest);
+ const mergeNoop=run(['migrate','plan','--target-dir',target,'--output',path.join(root,'merge-noop.json'),'--json']);assert.equal(mergeNoop.status,0,mergeNoop.stderr || mergeNoop.stdout);assert.equal(mergeNoop.data.operations,0);
+ fs.appendFileSync(agents,'\n<!-- later edit -->\n');const drift=run(['migrate','plan','--target-dir',target,'--output',path.join(root,'drift.json'),'--json']);assert.equal(drift.status,1);assert.equal(drift.data.code,'CONFLICT');
+ assert.ok(fs.existsSync(path.resolve(__dirname,'../resources/upgrade-skill/protocol.md')));
+});

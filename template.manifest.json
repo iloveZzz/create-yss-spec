@@ -95,7 +95,8 @@
     "scripts/lib/template-verification-runner.mjs",
     "scripts/lib/verification-selection.mjs",
     "scripts/lib/verification-report.mjs",
-    "scripts/lib/maintenance-counterexample.mjs"
+    "scripts/lib/maintenance-counterexample.mjs",
+    "scripts/sync-harness-upgrade"
   ],
   "excludePathSuffixes": [
     "-scenarios"

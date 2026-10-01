@@ -25,7 +25,7 @@ for (const runtime of ["codex", "cursor", "pi"]) {
       const lock = read(target, "skills-lock.json");
       assert.equal(metadata.metadataSchemaVersion, 3);
       assert.deepEqual(metadata.distribution.runtimes, [runtime]);
-      assert.deepEqual(Object.keys(lock.skills.shared).sort(), ["i-have-adhd", "yss-product-lifecycle", "yss-research"]);
+      assert.deepEqual(Object.keys(lock.skills.shared).sort(), ["i-have-adhd", "yss-harness-upgrade", "yss-product-lifecycle", "yss-research"]);
       assert.deepEqual(lock.projectionRoots, [`.${runtime}/skills`]);
       assert.deepEqual(metadata.distribution.installedStages, ["stage.entry-triage", "stage.plan"]);
       assert.equal(fs.existsSync(path.join(target, ".template-spec/plan/templates/plan-template.md")), true);

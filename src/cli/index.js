@@ -37,6 +37,18 @@ const { resolveCommand } = require("./router");
 const PACKAGE_ROOT = path.resolve(__dirname, "../..");
 
 async function runCli(argv = []) {
+  if (argv[0] === "migrate") {
+    const { runSpecMigration } = await import("../../vendor/cli-core/spec-migration-adapter.mjs");
+    try {
+      const result = runSpecMigration(PACKAGE_ROOT, argv.slice(1));
+      process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+      return result;
+    } catch (error) {
+      process.stdout.write(JSON.stringify({schemaVersion:1,command:"migrate",status:"error",code:error.code || "INVALID",message:error.message,...(error.result?{diagnostic:error.result}:{})},null,2)+"\n");
+      process.exitCode=1;
+      return;
+    }
+  }
   const route = resolveCommand(argv);
 
   if (route.command === "help") {
