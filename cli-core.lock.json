@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "https://github.com/iloveZzz/yss-spec-project-template.git",
-  "sourceRevision": "dd58fc3929b3958579ac8a426f06f087682f2f6c",
+  "sourceRevision": "5280335c56b1ae2c466f8d2e86cd518e893763a4",
   "sourceState": "committed",
   "sourcePath": ".template-source/cli-core",
   "coreVersion": "0.2.0",
@@ -16,11 +16,11 @@
       "mode": 420
     },
     "cli.mjs": {
-      "digest": "73aae345737aa7d069283ff7e5539be26498c7a7c94d1100a699a47e4c18e31f",
+      "digest": "2d4c28fcedf9a80f7e40eca9ce29e321ba201ecad92d2091934a3242c53353a2",
       "mode": 420
     },
     "command-runner.mjs": {
-      "digest": "4fb7f3c9ca26dff3f955ddb1c6ad545519d3e55af179f834ff67b1c0bf20bffd",
+      "digest": "af5cdb58dc5ee2487f04aad8afde37776a219866cc7830a298d971e772411892",
       "mode": 420
     },
     "engine.mjs": {
@@ -60,11 +60,15 @@
       "mode": 420
     },
     "package.json": {
-      "digest": "68d3dfd6451f7a433ff2eb821daa83d59e0c03f19b73d3a2cf5582ee6ce23332",
+      "digest": "b341ce4219f43e63223958d30cc6f5dbd946cc393a3c620e51a98ed08b98ae15",
+      "mode": 420
+    },
+    "runtime-store.mjs": {
+      "digest": "894065fb91ac05501796e8948b4015f0230deef4a72700e96c2890266310ac41",
       "mode": 420
     },
     "scaffold.mjs": {
-      "digest": "ebf16b3ffe95fe00698691ebc71362dfce1e93846a34cb01745b0c063035e209",
+      "digest": "03ab69bfa5fb4aee2d5a48808ba6e5fdca2643ad895e0fc7849165f9c31112f4",
       "mode": 420
     },
     "spec-migration-adapter.mjs": {
@@ -112,7 +116,7 @@
       "mode": 420
     }
   },
-  "digest": "9a4cfce884a706efa91ae8dd8dc2fc82cd7d17e8a84f633bdb049ea531436ae1",
+  "digest": "7d0a2dcf7406d428e25d575618b46931032757b450ec30f7dd0ac2b5b9f29f17",
   "upgradeResources": {
     "SKILL.md": {
       "digest": "40495ca033ebd0345363714e45571ee77258a435ea1523ae716dc2402ced0487",

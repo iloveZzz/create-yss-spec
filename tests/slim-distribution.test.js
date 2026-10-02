@@ -12,6 +12,61 @@ function run(args, cwd) { return spawnSync(process.execPath, [cli, ...args], { c
 function read(root, name) { return JSON.parse(fs.readFileSync(path.join(root, name), "utf8")); }
 
 for (const runtime of ["codex", "cursor", "pi"]) {
+  test(`work-unit skill preflight and minimal install close the loop on ${runtime}`, () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "yss-preflight-"));
+    try {
+      const target = path.join(root, "project");
+      const init = run(["--project-name", "Preflight", "--business-domain", "Demo", "--target-dir", target, "--agent-runtime", runtime], root);
+      assert.equal(init.status, 0, init.stderr);
+      const query = (extra = []) => spawnSync(process.execPath,
+        [path.join(target, "scripts/query-lifecycle-context"), "--work-unit", "work-unit.plan-requirements", ...extra],
+        { cwd: target, encoding: "utf8" });
+      const before = fs.readFileSync(path.join(target, ".yss-template.json"));
+      const plain = query();
+      assert.equal(plain.status, 0, plain.stderr);
+      assert.equal("skill_readiness" in JSON.parse(plain.stdout), false);
+      const check = query(["--check-skills"]);
+      assert.equal(check.status, 2, check.stderr);
+      const readiness = JSON.parse(check.stdout).skill_readiness;
+      assert.equal(readiness.status, "missing");
+      assert.equal(readiness.agent_runtime, runtime);
+      assert.deepEqual(readiness.missing_skills, ["domain-modeling", "grilling"]);
+      assert.match(readiness.remediation.plan_command, /--plan$/);
+      assert.equal(fs.readFileSync(path.join(target, ".yss-template.json")).equals(before), true);
+      const plan = run(["skills", "ensure", ...readiness.missing_skills, "--plan", "--target-dir", target], root);
+      assert.equal(plan.status, 0, plan.stderr);
+      assert.deepEqual(JSON.parse(plan.stdout).addSkills, readiness.missing_skills);
+      assert.equal(fs.readFileSync(path.join(target, ".yss-template.json")).equals(before), true);
+      const apply = run(["skills", "ensure", ...readiness.missing_skills, "--apply", "--target-dir", target], root);
+      assert.equal(apply.status, 0, apply.stderr);
+      const ready = query(["--check-skills", "--agent-runtime", runtime]);
+      assert.equal(ready.status, 0, ready.stderr);
+      assert.equal(JSON.parse(ready.stdout).skill_readiness.status, "ready");
+      const installed = fs.readFileSync(path.join(target, ".yss-template.json"));
+      const repeat = run(["skills", "ensure", ...readiness.missing_skills, "--apply", "--target-dir", target], root);
+      assert.equal(repeat.status, 0, repeat.stderr);
+      assert.equal(fs.readFileSync(path.join(target, ".yss-template.json")).equals(installed), true);
+      for (const id of ["tdd", "implement", "to-spec", "code-review"]) assert.equal(fs.existsSync(path.join(target, ".agents/skills", id)), false);
+      assert.match(fs.readFileSync(path.join(target, "AGENTS.md"), "utf8"), /--check-skills/);
+      assert.match(fs.readFileSync(path.join(target, ".template-spec/user-guide/用户手册.md"), "utf8"), /--check-skills/);
+      fs.appendFileSync(path.join(target, ".agents/skills/grilling/SKILL.md"), "\nLocal drift\n");
+      const drift = query(["--check-skills"]);
+      assert.equal(drift.status, 2, drift.stderr);
+      assert.equal(JSON.parse(drift.stdout).skill_readiness.issues.some(issue => issue.code === "skill-hash-drift"), true);
+      assert.equal(query().status, 0, "ordinary queries remain read-only diagnostics during local drift");
+      const invalid = spawnSync(process.execPath, [path.join(target, "scripts/query-lifecycle-context"), "--check-skills"], { cwd: target, encoding: "utf8" });
+      assert.equal(invalid.status, 1);
+      const metadata = read(target, ".yss-template.json");
+      metadata.templateCommit = "0".repeat(40);
+      fs.writeFileSync(path.join(target, ".yss-template.json"), JSON.stringify(metadata));
+      const mismatch = run(["skills", "ensure", "tdd", "--plan", "--target-dir", target], root);
+      assert.equal(mismatch.status, 1);
+      assert.match(mismatch.stderr, /快照与实例模板提交不一致/);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
+for (const runtime of ["codex", "cursor", "pi"]) {
   test(`slim ${runtime} init has one platform and Plan asset closure`, () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), `yss-slim-${runtime}-`));
     try {

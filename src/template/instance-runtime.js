@@ -143,6 +143,7 @@ function readTargetIdentity(targetDir) {
 }
 
 function renderTemplateFile(relativePath, content, variables) {
+  const skillPreflight = "\n\n专项技能调用前，运行 `scripts/query-lifecycle-context --work-unit <当前工作单元> --check-skills`；多运行时用 `--agent-runtime`，已确认条件用 `--when`。未安装技能先核对结果中的补装计划，在既有任务授权内应用后重验；漂移、冲突和版本不匹配暂停当前调用，不自动覆盖或迁移。\n";
   const distribution = variables.distribution || distributionForVariables(variables, BUNDLED_TEMPLATE_ROOT);
   if (relativePath === "skills-lock.json") return selectedSkillLock(content, distribution);
   if (relativePath === "scripts/lib/skill-supply-chain.mjs" && distribution.mode === "selected") return renderInstanceSkillSupplyChain(content);
@@ -155,9 +156,9 @@ function renderTemplateFile(relativePath, content, variables) {
   }
   if (relativePath === ".template-spec/user-guide/用户手册.md" && distribution.mode === "selected") {
     if (distribution.assetProfile !== ASSET_PROFILE) {
-      return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 核对依赖，再运行 \`--apply\` 安装。旧实例继续沿用既有文件分发范围；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`。\n`;
+      return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n阶段派发前，由 Agent 运行 \`create-yss-spec skills ensure <skill-id...> --plan\` 核对依赖，再运行 \`--apply\` 安装。旧实例继续沿用既有文件分发范围；增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；版本不匹配时先核对匹配的 CLI 或 \`create-yss-spec sync --plan\`，不自动扩展同步范围。\n\n项目校验运行 \`scripts/verify-project-instance\`。\n` + skillPreflight;
     }
-    return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化安装分诊与 Plan 入口资产、三项入口 Skill 与所选 Agent 平台。进入后续阶段前，运行 \`create-yss-spec assets ensure <stage-id> --plan\` 核对文件，再运行 \`--apply\` 原子安装；专项 Skill 使用 \`create-yss-spec skills ensure <skill-id...> --plan/--apply\`，会补齐该 Skill 引用的实例文件。增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；升级 CLI 后先运行 \`create-yss-spec sync\`。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n`;
+    return `# ${variables.projectName} 用户手册\n\n本仓是 \`project-instance\`，用于 ${variables.businessDomain} 的研发资产。先阅读根 [AGENTS.md](../../AGENTS.md)、[CONTEXT.md](../../CONTEXT.md) 与 [生命周期资产索引](../process/lifecycle-artifact-map.md)。\n\n初始化安装分诊与 Plan 入口资产、入口 Skill 与所选 Agent 平台。进入后续阶段前，运行 \`create-yss-spec assets ensure <stage-id> --plan\` 核对文件，再运行 \`--apply\` 原子安装；专项 Skill 使用 \`create-yss-spec skills ensure <skill-id...> --plan/--apply\`，会补齐该 Skill 引用的实例文件。增加平台使用 \`create-yss-spec skills runtime add <codex|cursor|pi> --plan/--apply\`。CLI 快照必须与实例记录的模板提交一致；版本不匹配时先核对匹配的 CLI 或 \`create-yss-spec sync --plan\`，不自动扩展同步范围。\n\n项目校验运行 \`scripts/verify-project-instance\`；实例 CI 应执行该命令和项目实际的构建、测试。\n` + skillPreflight;
   }
   if (distribution.mode === "selected" && relativePath === ".template-spec/design/README.md") {
     return content.replace(/^.*design-system-sync\.yaml.*\n/m, "");
@@ -188,9 +189,9 @@ function renderTemplateFile(relativePath, content, variables) {
     const base = rendered.replace(/## 4\. \`template-source\` 模板维护路由[\s\S]*?(?=## 5\.)/, "")
       .replace(/\| 影响面、\`not-applicable\`、模板维护强度 \|[^\n]*\n/, "| 影响面与 `not-applicable` | `.template-spec/process/harness-process-tailoring.md` |\n");
     const guidance = distribution.assetProfile === ASSET_PROFILE
-      ? "## 按需阶段资产与 Skill\n\n进入后续生命周期阶段前，运行 `create-yss-spec assets ensure <stage-id> --plan` 查看完整依赖，核对后运行 `--apply`。专项任务根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。缺少阶段资产时先补装，不以缺文件推定门禁不适用。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n"
-      : "## 按需 Skill\n\n此实例继续沿用原文件分发范围。阶段派发或专项任务开始前，根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。若 CLI 快照与实例模板提交不一致，先运行 `create-yss-spec sync`。\n";
-    return `${base}\n${guidance}`;
+      ? "## 按需阶段资产与 Skill\n\n进入后续生命周期阶段前，运行 `create-yss-spec assets ensure <stage-id> --plan` 查看完整依赖，核对后运行 `--apply`。专项任务根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。缺少阶段资产时先补装，不以缺文件推定门禁不适用。若 CLI 快照与实例模板提交不一致，先核对匹配的 CLI 或 `create-yss-spec sync --plan`；不自动扩展同步范围。\n"
+      : "## 按需 Skill\n\n此实例继续沿用原文件分发范围。阶段派发或专项任务开始前，根据 .template-spec/agents/yss-skill-registry.yaml 选定 Skill，运行 `create-yss-spec skills ensure <skill-id...> --plan`，核对后运行 `--apply`。若 CLI 快照与实例模板提交不一致，先核对匹配的 CLI 或 `create-yss-spec sync --plan`；不自动扩展同步范围。\n";
+    return `${base}\n${guidance}${skillPreflight}`;
   }
 
   if (relativePath === "README.md") {
