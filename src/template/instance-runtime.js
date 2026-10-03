@@ -8,6 +8,7 @@ const { treeHash } = require("../template-hash");
 const { targetPath, pathKind, normalizeRelativePath } = require("../filesystem/path-utils");
 const { validateTemplateSnapshot } = require("../validation/snapshot");
 const { validateTemplateMetadata } = require("../validation/metadata");
+const { identityForPaths } = require("../content-identity");
 const { distributionForVariables, isIncludedInstancePath, selectedSkillLock, renderInstanceSkillSupplyChain, renderInstanceDesignSkillFile } = require("./distribution-runtime");
 const { ASSET_PROFILE, assetPaths } = require("./asset-runtime");
 const {
@@ -429,11 +430,16 @@ function loadTemplateMetadata(targetDir) {
 
 function collectManagedFiles(desiredOperations) {
   const managedFiles = {};
-  for (const operation of desiredOperations) {
-    if (operation.relativePath === "README.md" || pathKind(operation.targetPath) !== "file") continue;
+  const files = desiredOperations.filter((operation) => operation.relativePath !== "README.md" && pathKind(operation.targetPath) === "file");
+  // One batched Git identity per repository, recorded alongside the legacy
+  // sha256 contentHash so older CLIs keep reading the same metadata.
+  const identities = identityForPaths(files.map((operation) => operation.targetPath));
+  for (const operation of files) {
+    const identity = identities.get(operation.targetPath);
     managedFiles[operation.relativePath] = {
       type: operation.type,
       contentHash: fileHash(operation.targetPath),
+      ...(identity ? { identity } : {}),
     };
   }
   return managedFiles;
@@ -484,13 +490,22 @@ function buildNextSyncMetadata(metadata, syncPlan, {
   delete nextManagedFiles["README.md"];
   for (const relativePath of syncPlan.alreadyMissing || []) delete nextManagedFiles[relativePath];
   for (const relativePath of syncPlan.pruned || []) delete nextManagedFiles[relativePath];
+  const desiredFiles = syncPlan.desiredOperations.filter((operation) => pathKind(operation.targetPath) === "file");
+  const identities = identityForPaths(desiredFiles.map((operation) => operation.targetPath));
   for (const operation of syncPlan.desiredOperations) {
     if (pathKind(operation.targetPath) !== "file") continue;
     const currentHash = currentHashes?.[operation.relativePath] ?? fileHash(operation.targetPath);
     if (currentHash === operation.desiredHash || operation.relativePath === "skills-lock.json") {
+      // Keep the recorded identity while the content hash is unchanged so a sync
+      // with nothing to do stays byte-identical (no churn, no needless backup).
+      const previousRecord = metadata.managedFiles?.[operation.relativePath];
+      const identity = previousRecord?.contentHash === currentHash && previousRecord.identity
+        ? previousRecord.identity
+        : identities.get(operation.targetPath);
       nextManagedFiles[operation.relativePath] = {
         type: operation.type,
         contentHash: currentHash,
+        ...(identity ? { identity } : {}),
       };
     }
   }

@@ -100,6 +100,14 @@ function validateTemplateMetadata(metadata, {
         `模板元数据 managedFiles.${relativePath}.generatorVersion 必须是正整数`,
       );
     }
+    if (
+      record.identity !== undefined &&
+      !/^(git-sha1:[0-9a-f]{40}|git-sha256:[0-9a-f]{64}|sha256:[0-9a-f]{64})$/.test(record.identity)
+    ) {
+      throw new Error(
+        `模板元数据 managedFiles.${relativePath}.identity 非法`,
+      );
+    }
   }
 
   if (metadata.metadataSchemaVersion === currentSchemaVersion) {
