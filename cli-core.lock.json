@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "https://github.com/iloveZzz/yss-spec-project-template.git",
-  "sourceRevision": "6cfc5775247cc42636606ccfeda9cdd310ddf531",
+  "sourceRevision": "e84ec062def28e8738037b2864a5ab3d79a86ada",
   "sourceState": "committed",
   "sourcePath": ".template-source/cli-core",
   "coreVersion": "0.2.0",
