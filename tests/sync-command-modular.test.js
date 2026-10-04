@@ -140,12 +140,12 @@ test("sync refreshes generated skill lock before project verification", () => {
       ".agents/skills",
       ".codex/skills",
     ];
-    for (const root of skillRoots) {
-      fs.appendFileSync(
-        path.join(targetDir, root, relativeSkillFile),
-        "\nLocal compatible extension.\n",
-      );
-    }
+    const skillFiles = skillRoots.map((root) => path.join(targetDir, root, relativeSkillFile));
+    const skillBytes = skillFiles.map((file) => fs.readFileSync(file));
+    const lockPath = path.join(targetDir, "skills-lock.json");
+    const staleLock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+    staleLock.skills.shared["yss-research"].effectiveHash = "0".repeat(64);
+    fs.writeFileSync(lockPath, `${JSON.stringify(staleLock, null, 2)}\n`);
 
     const sync = runCli(["sync", "--target-dir", targetDir]);
     assert.equal(sync.status, 0, sync.stderr);
@@ -157,6 +157,50 @@ test("sync refreshes generated skill lock before project verification", () => {
       { cwd: targetDir, encoding: "utf8" },
     );
     assert.equal(lockCheck.status, 0, lockCheck.stderr);
+    assert.notEqual(JSON.parse(fs.readFileSync(lockPath, "utf8")).skills.shared["yss-research"].effectiveHash, "0".repeat(64));
+    for (const [index, file] of skillFiles.entries()) {
+      assert.deepEqual(fs.readFileSync(file), skillBytes[index]);
+    }
+  } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("sync rejects modified template-managed skills and rolls back generated lock", () => {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-managed-skill-"));
+  const targetDir = path.join(sandbox, "project");
+  try {
+    const init = runCli([
+      "--project-name", "Managed Skill Guard", "--business-domain", "Data Platform",
+      "--target-dir", targetDir,
+    ]);
+    assert.equal(init.status, 0, init.stderr);
+    const metadataPath = path.join(targetDir, ".yss-template.json");
+    const lockPath = path.join(targetDir, "skills-lock.json");
+    const metadataBefore = fs.readFileSync(metadataPath);
+    const lockBefore = fs.readFileSync(lockPath);
+    const contextBefore = fs.readFileSync(path.join(targetDir, "CONTEXT.md"));
+    const metadata = JSON.parse(metadataBefore);
+    const modified = new Map();
+    for (const root of [".agents/skills", ".codex/skills"]) {
+      const relative = `${root}/yss-research/SKILL.md`;
+      assert.equal(metadata.managedFiles[relative].ownership, "managed");
+      const file = path.join(targetDir, relative);
+      fs.appendFileSync(file, "\nLocal compatible extension.\n");
+      modified.set(file, fs.readFileSync(file));
+    }
+    fs.mkdirSync(path.join(targetDir, "src"));
+    fs.writeFileSync(path.join(targetDir, "src/user.txt"), "uncommitted business bytes\n");
+
+    const sync = runCli(["sync", "--target-dir", targetDir]);
+    assert.equal(sync.status, 1);
+    assert.match(sync.stderr, /drifted: \.agents\/skills\/yss-research\/SKILL\.md/);
+    assert.match(sync.stderr, /已回滚本次 sync/);
+    assert.deepEqual(fs.readFileSync(metadataPath), metadataBefore);
+    assert.deepEqual(fs.readFileSync(lockPath), lockBefore);
+    for (const [file, bytes] of modified) assert.deepEqual(fs.readFileSync(file), bytes);
+    assert.deepEqual(fs.readFileSync(path.join(targetDir, "CONTEXT.md")), contextBefore);
+    assert.equal(fs.readFileSync(path.join(targetDir, "src/user.txt"), "utf8"), "uncommitted business bytes\n");
   } finally {
     fs.rmSync(sandbox, { recursive: true, force: true });
   }

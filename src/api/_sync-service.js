@@ -299,7 +299,6 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
         previousManagedFiles: metadata.managedFiles,
         transaction,
       });
-      verifyGeneratedProjectInstance(targetDir);
       const nextMetadata = decorateMetadataLifecycle(
         decorateMetadataOwnership(buildNextSyncMetadata(metadata, syncPlan, { snapshot: context.snapshot })),
       );
@@ -311,6 +310,9 @@ function applySyncContext(context, { force = false, prune = false } = {}) {
       if (!isDeepStrictEqual({ ...nextMetadata, lastSyncedAt: metadata.lastSyncedAt }, metadata)) {
         writeTemplateMetadata(targetDir, nextMetadata, transaction);
       }
+      // Verify files against the metadata staged by this same transaction.
+      // Any failure restores both the managed files and their previous baseline.
+      verifyGeneratedProjectInstance(targetDir);
     },
   });
 

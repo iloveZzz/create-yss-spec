@@ -215,3 +215,67 @@ test("failed sync rolls back gitignore and metadata", () => {
   assert.equal(fs.readFileSync(gitignorePath, "utf8"), driftedGitignore);
   assert.equal(fs.readFileSync(metadataPath, "utf8"), metadataBefore);
 });
+
+test("verification failure after staged metadata restores updated added and pruned files", (t) => {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "yss-staged-rollback-"));
+  t.after(() => fs.rmSync(sandbox, { recursive: true, force: true }));
+  const target = path.join(sandbox, "project");
+  init(target);
+
+  const metadataPath = path.join(target, ".yss-template.json");
+  const agentsPath = path.join(target, "AGENTS.md");
+  const restoredRef = ".template-spec/plan/templates/market-analysis-template.md";
+  const restoredPath = path.join(target, restoredRef);
+  const retiredRef = "scripts/retired-staged-tool";
+  const retiredPath = path.join(target, retiredRef);
+  const probePath = path.join(sandbox, "verification-observation.json");
+  const previousAgents = "previous managed instructions\n";
+  const retiredBytes = "retired tool\n";
+  const hash = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  fs.writeFileSync(agentsPath, previousAgents);
+  metadata.managedFiles["AGENTS.md"].contentHash = hash(previousAgents);
+  metadata.managedFiles["AGENTS.md"].identity = `sha256:${hash(previousAgents)}`;
+  fs.rmSync(restoredPath);
+  fs.writeFileSync(retiredPath, retiredBytes);
+  metadata.managedFiles[retiredRef] = {
+    type: "copy",
+    contentHash: hash(retiredBytes),
+    ownership: "managed",
+  };
+  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+  const metadataBefore = fs.readFileSync(metadataPath);
+  const contextBefore = fs.readFileSync(path.join(target, "CONTEXT.md"));
+  fs.mkdirSync(path.join(target, "src"));
+  fs.writeFileSync(path.join(target, "src/user.txt"), "uncommitted business bytes\n");
+  fs.writeFileSync(path.join(target, "scripts/verify-project-instance"), [
+    "#!/usr/bin/env node",
+    'const fs = require("node:fs");',
+    `const metadata = JSON.parse(fs.readFileSync(${JSON.stringify(metadataPath)}, "utf8"));`,
+    `fs.writeFileSync(${JSON.stringify(probePath)}, JSON.stringify({`,
+    `  retiredRecorded: Boolean(metadata.managedFiles[${JSON.stringify(retiredRef)}]),`,
+    `  retiredExists: fs.existsSync(${JSON.stringify(retiredPath)}),`,
+    `  restoredExists: fs.existsSync(${JSON.stringify(restoredPath)}),`,
+    `  agents: fs.readFileSync(${JSON.stringify(agentsPath)}, "utf8"),`,
+    "}));",
+    'process.stderr.write("injected downstream verification failure\\n");',
+    "process.exit(1);",
+    "",
+  ].join("\n"));
+
+  const result = run(["sync", "--target-dir", target, "--prune"], __dirname);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /injected downstream verification failure/);
+  assert.match(result.stderr, /已回滚本次 sync/);
+  const observed = JSON.parse(fs.readFileSync(probePath, "utf8"));
+  assert.equal(observed.retiredRecorded, false, "verification must consume the staged metadata");
+  assert.equal(observed.retiredExists, false);
+  assert.equal(observed.restoredExists, true);
+  assert.notEqual(observed.agents, previousAgents);
+  assert.deepEqual(fs.readFileSync(metadataPath), metadataBefore);
+  assert.equal(fs.readFileSync(agentsPath, "utf8"), previousAgents);
+  assert.equal(fs.existsSync(restoredPath), false);
+  assert.equal(fs.readFileSync(retiredPath, "utf8"), retiredBytes);
+  assert.deepEqual(fs.readFileSync(path.join(target, "CONTEXT.md")), contextBefore);
+  assert.equal(fs.readFileSync(path.join(target, "src/user.txt"), "utf8"), "uncommitted business bytes\n");
+});

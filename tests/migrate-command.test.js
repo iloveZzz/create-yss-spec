@@ -12,7 +12,7 @@ test('主 CLI 固定计划升级、保留定制、幂等和最近升级回退',t
  function run(args){const r=spawnSync(process.execPath,[entry,...args],{encoding:'utf8',timeout:300000,maxBuffer:16*1024*1024});return {...r,data:(()=>{try{return JSON.parse(r.stdout);}catch{return null;}})()};}
  const init=run(['--target-dir',target,'--project-name','Migration','--business-domain','迁移测试','--team-size','1','--issue-tracker','github','--agent-runtime','codex']);assert.equal(init.status,0,init.stderr);
  const metadata=path.join(target,'.yss-template.json'),agents=path.join(target,'AGENTS.md'),meta=JSON.parse(fs.readFileSync(metadata));
- fs.writeFileSync(agents,'previous managed agents\n');meta.managedFiles['AGENTS.md'].contentHash=createHash('sha256').update('previous managed agents\n').digest('hex');fs.writeFileSync(metadata,JSON.stringify(meta,null,2)+'\n');
+ fs.writeFileSync(agents,'previous managed agents\n');meta.managedFiles['AGENTS.md'].contentHash=createHash('sha256').update('previous managed agents\n').digest('hex');meta.managedFiles['AGENTS.md'].identity='sha256:'+meta.managedFiles['AGENTS.md'].contentHash;fs.writeFileSync(metadata,JSON.stringify(meta,null,2)+'\n');
  fs.mkdirSync(path.join(target,'src'));fs.writeFileSync(path.join(target,'src/user.txt'),'uncommitted work');const before=fs.readFileSync(metadata);
  const preview=run(['migrate','plan','--target-dir',target,'--output',plan,'--archive-dir',path.join(root,'archive'),'--json']);assert.equal(preview.status,0,preview.stderr || preview.stdout);assert.deepEqual(fs.readFileSync(metadata),before);
  const apply=run(['migrate','apply','--plan',plan,'--json']);assert.equal(apply.status,0,apply.stderr || apply.stdout);assert.notEqual(fs.readFileSync(agents,'utf8'),'previous managed agents\n');
