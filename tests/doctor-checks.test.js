@@ -12,6 +12,7 @@ const {
   checkOwnershipPolicy,
   checkLifecyclePolicies,
   runVerifierCheck,
+  checkRuntimeDependencies,
 } = require("../src/commands/doctor");
 const {
   decorateMetadataOwnership,
@@ -61,6 +62,33 @@ test("managed baseline reports matched and modified files without mutating them"
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("doctor 按当前闭包检查 Python 解释器和校验包，缺失时返回可定位诊断", () => {
+  const requirements = { selective: true, runtimeDependencies: [{ executable: "python3", packages: ["jsonschema", "referencing"], requiredBy: ["scripts/lib/json-schema.mjs"] }] };
+  const ready = report();
+  checkRuntimeDependencies(ready, requirements, process.cwd());
+  assert.equal(ready.ok, true);
+  assert.equal(ready.checks[0].name, "runtime-python3");
+  assert.equal(ready.checks[0].status, "ok");
+  assert.deepEqual(ready.checks[0].data.requiredBy, ["scripts/lib/json-schema.mjs"]);
+  const previousPath = process.env.PATH;
+  try {
+    process.env.PATH = "";
+    const missing = report();
+    checkRuntimeDependencies(missing, requirements, process.cwd());
+    assert.equal(missing.ok, false);
+    assert.equal(missing.checks[0].status, "error");
+    assert.equal(missing.checks[0].data.code, "RUNTIME_UNAVAILABLE");
+    assert.match(missing.checks[0].detail, /python3.*jsonschema.*referencing/);
+  } finally {
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+  }
+  const legacy = report();
+  checkRuntimeDependencies(legacy, { selective: false, runtimeDependencies: [] }, process.cwd());
+  assert.equal(legacy.checks[0].status, "warning");
+  assert.equal(legacy.checks[0].data.code, "LEGACY_DISTRIBUTION");
 });
 
 test("managed baseline ignores legacy README ownership records", () => {

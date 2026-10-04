@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { readonlyInventory } = require("./support/readonly-inventory");
 
 const cli = path.resolve(__dirname, "../bin/create-yss-spec.js");
 function run(args, cwd) { return spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" }); }
@@ -83,6 +84,10 @@ for (const runtime of ["codex", "cursor", "pi"]) {
       assert.deepEqual(Object.keys(lock.skills.shared).sort(), ["i-have-adhd", "yss-harness-upgrade", "yss-product-lifecycle", "yss-research"]);
       assert.deepEqual(lock.projectionRoots, [`.${runtime}/skills`]);
       assert.deepEqual(metadata.distribution.installedStages, ["stage.entry-triage", "stage.plan"]);
+      const orchestration = fs.readFileSync(path.join(target, ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml"), "utf8");
+      const guidanceRef = orchestration.match(/^\s+guidance_ref:\s+(\S+)/m)?.[1];
+      assert.ok(guidanceRef, "installed lifecycle contract declares script execution guidance");
+      assert.ok(fs.existsSync(path.join(target, guidanceRef)), `installed lifecycle guidance must resolve: ${guidanceRef}`);
       assert.equal(fs.existsSync(path.join(target, ".template-spec/plan/templates/plan-template.md")), true);
       assert.equal(fs.existsSync(path.join(target, ".template-spec/api/templates/openapi-freeze-record-template.md")), false);
       assert.equal(fs.existsSync(path.join(target, ".template-spec/adr/README.md")), false);
@@ -101,12 +106,18 @@ test("stage asset plan, apply, repeat and sync preserve the selected file set", 
   try {
     assert.equal(run(["--project-name", "Probe", "--business-domain", "Demo", "--target-dir", target, "--agent-runtime", "codex"], root).status, 0);
     const before = fs.readFileSync(path.join(target, ".yss-template.json"));
+    const beforeTree = readonlyInventory(target);
     const plan = run(["assets", "ensure", "stage.spec-architecture", "--target-dir", target, "--plan"], root);
     assert.equal(plan.status, 0, plan.stderr);
     const preview = JSON.parse(plan.stdout);
     assert.equal(preview.addStage, "stage.spec-architecture");
     assert.ok(preview.paths.includes(".template-spec/templates/spec-template.md"));
+    assert.ok(preview.inclusionReasons[".template-spec/templates/spec-template.md"].some(item => item.kind === "stage-asset" && item.stage === "stage.spec-architecture"));
+    const python = preview.runtimeDependencies.find(item => item.executable === "python3");
+    assert.deepEqual(python.packages, ["jsonschema", "referencing"]);
+    assert.ok(python.requiredBy.includes("scripts/lib/json-schema.mjs"));
     assert.deepEqual(fs.readFileSync(path.join(target, ".yss-template.json")), before);
+    assert.deepEqual(readonlyInventory(target), beforeTree);
     assert.equal(fs.existsSync(path.join(target, ".template-spec/templates/spec-template.md")), false);
     const applied = run(["assets", "ensure", "stage.spec-architecture", "--target-dir", target, "--apply"], root);
     assert.equal(applied.status, 0, applied.stderr);
@@ -131,6 +142,8 @@ test("ensure resolves required dependencies, is idempotent, rejects platform-onl
     const plan = run(["skills", "ensure", "yss-web-controller", "--target-dir", target, "--plan"], root);
     assert.equal(plan.status, 0, plan.stderr);
     assert.deepEqual(JSON.parse(plan.stdout).addSkills, ["alibaba-java-code-style", "yss-dto", "yss-skill-source-index-refresh", "yss-web-controller"]);
+    const planned = JSON.parse(plan.stdout);
+    assert.ok(planned.inclusionReasons[".agents/skills/yss-web-controller/SKILL.md"].some(item => item.kind === "selected-skill" && item.skill === "yss-web-controller"));
     const platform = run(["skills", "ensure", "product-design", "--target-dir", target, "--plan"], root);
     assert.notEqual(platform.status, 0);
     assert.match(platform.stderr, /平台专属/);

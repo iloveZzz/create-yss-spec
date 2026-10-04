@@ -15,7 +15,9 @@ const {
   readTemplateSnapshot,
   readTargetIdentity,
   loadTemplateMetadata,
+  BUNDLED_TEMPLATE_ROOT,
 } = require("../template/instance-runtime");
+const { assetRequirements } = require("../template/asset-runtime");
 const {
   ownershipPolicyDrift,
 } = require("../template/ownership-metadata");
@@ -268,6 +270,29 @@ function runVerifierCheck(report, targetDir, verifier, gitWorktree) {
   );
 }
 
+function checkRuntimeDependencies(report, requirements, targetDir) {
+  if (!requirements.selective) {
+    addCheck(report, "runtime-dependencies", "warning", "旧实例保持原分发范围；解释器依赖继续由实例校验器核验", { code: "LEGACY_DISTRIBUTION" });
+    return;
+  }
+  for (const dependency of requirements.runtimeDependencies) {
+    const command = dependency.executable === "node" ? process.execPath : dependency.executable;
+    const probe = dependency.executable === "python3"
+      ? ["-c", `${dependency.packages.length ? `import ${dependency.packages.join(", ")}; ` : ""}import sys; print(sys.version.split()[0])`]
+      : ["--version"];
+    const result = spawnSync(command, probe, { cwd: targetDir, encoding: "utf8", timeout: 5000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } });
+    const data = { ...dependency, exitCode: result.status, code: result.error?.code === "ENOENT" ? "RUNTIME_UNAVAILABLE" : result.status !== 0 || result.error ? "RUNTIME_DEPENDENCY_FAILED" : "RUNTIME_READY" };
+    const packages = dependency.packages.length ? `；所需包 ${dependency.packages.join(", ")}` : "";
+    if (result.error || result.status !== 0) {
+      data.error = result.error?.message || (result.stderr || result.stdout || "").trim();
+      addCheck(report, `runtime-${dependency.executable}`, "error", `无法使用 ${dependency.executable}${packages}；核对解释器 PATH 和依赖后重验`, data);
+    } else {
+      data.version = result.stdout.trim();
+      addCheck(report, `runtime-${dependency.executable}`, "ok", `${dependency.executable} 可用${packages}`, data);
+    }
+  }
+}
+
 function buildDoctorReport(targetDir) {
   const report = {
     schemaVersion: DOCTOR_SCHEMA_VERSION,
@@ -340,6 +365,20 @@ function buildDoctorReport(targetDir) {
     checkOwnershipPolicy(report, metadata);
     checkLifecyclePolicies(report, metadata);
     checkManagedBaseline(report, targetDir, metadata);
+    if (snapshot && metadata.templateCommit === snapshot.templateCommit && metadata.snapshotHash === snapshot.snapshotHash) {
+      try {
+        const requirements = assetRequirements(BUNDLED_TEMPLATE_ROOT, metadata.distribution || { mode: "legacy-all" });
+        const missingPaths = Object.keys(requirements.inclusionReasons).filter(ref => pathKind(targetPath(targetDir, ref)) !== "file");
+        addCheck(report, "asset-dependencies", missingPaths.length ? "error" : "ok", missingPaths.length
+          ? `当前阶段缺少 ${missingPaths.length} 项执行依赖；先运行 create-yss-spec sync --plan 核对补齐范围`
+          : requirements.selective ? "当前阶段资产依赖来源已解析" : "旧实例继续保持原分发范围", { ...requirements, missingPaths });
+        checkRuntimeDependencies(report, requirements, targetDir);
+      } catch (error) {
+        addCheck(report, "asset-dependencies", "error", error.message);
+      }
+    } else {
+      addCheck(report, "asset-dependencies", "warning", "CLI 与实例快照不一致，先核对匹配版本再解析阶段依赖", { code: "SNAPSHOT_MISMATCH" });
+    }
   } catch (error) {
     addCheck(report, "template-metadata", "error", error.message);
   }
@@ -414,6 +453,7 @@ module.exports = {
   checkOwnershipPolicy,
   checkLifecyclePolicies,
   runVerifierCheck,
+  checkRuntimeDependencies,
   buildDoctorReport,
   renderDoctorText,
   runDoctor,

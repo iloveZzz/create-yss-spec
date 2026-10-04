@@ -9,7 +9,7 @@ const { assertTargetFamily } = require("../family-runtime");
 const { assertTargetWorkingTreeWritable } = require("../validation/security");
 const { readTemplateSnapshot, loadTemplateMetadata, writeTemplateMetadata, buildDesiredManagedOperations, BUNDLED_TEMPLATE_ROOT, fileHash } = require("../template/instance-runtime");
 const { RUNTIMES, assertRuntime, readDistributionRegistry, requiredSkills, renderInstanceDesignSkillFile } = require("../template/distribution-runtime");
-const { ASSET_PROFILE, STAGES } = require("../template/asset-runtime");
+const { ASSET_PROFILE, STAGES, assetRequirements } = require("../template/asset-runtime");
 const { refreshGeneratedProjectInstance, verifyGeneratedProjectInstance } = require("../template/verification-runtime");
 
 function parseSkillArgs(argv) {
@@ -109,8 +109,13 @@ function runAssetSelection({ targetDir, requestedSkills = [], triggers = [], sta
     if (pathKind(targetPath(targetDir, relative)) !== "missing") throw new Error(`目标阶段资产路径已存在，拒绝覆盖：${relative}`);
   }
   if (plan) {
+    const requirements = assetRequirements(BUNDLED_TEMPLATE_ROOT, nextDistribution);
+    const inclusionReasons = Object.fromEntries(paths.map(ref => {
+      const skill = ref.match(/^\.(?:agents|codex|cursor|pi)\/skills\/([^/]+)\//)?.[1];
+      return [ref, requirements.inclusionReasons[ref] || (skill ? [{ kind: "selected-skill", skill }] : [{ kind: "selected-asset" }])];
+    }));
     console.log(JSON.stringify({ operation: stage ? "assets ensure" : "skills ensure", targetDir, requested: stage || requestedSkills,
-      dependencies: names, addSkills: missingSkills, addStage, paths }, null, 2));
+      dependencies: names, addSkills: missingSkills, addStage, paths, inclusionReasons, runtimeDependencies: requirements.runtimeDependencies }, null, 2));
     return;
   }
   if (!addStage && !missingSkills.length && !paths.length) {

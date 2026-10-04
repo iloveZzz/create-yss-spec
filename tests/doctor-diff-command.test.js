@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("./support/spawn-cli");
+const { readonlyInventory } = require("./support/readonly-inventory");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliBin = path.join(repoRoot, "bin/create-yss-spec.js");
@@ -58,6 +59,7 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     );
 
     const before = fs.readFileSync(metadataPath, "utf8");
+    const beforeTree = readonlyInventory(targetDir);
 
     const doctor = runCli(["doctor", "--target-dir", targetDir, "--json"]);
     assert.equal(doctor.status, 0, doctor.stderr);
@@ -74,7 +76,22 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(findCheck(doctorReport, "verifier-sync-skills")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-skill-lock")?.status, "ok");
     assert.equal(findCheck(doctorReport, "verifier-template")?.status, "warning");
+    assert.equal(findCheck(doctorReport, "asset-dependencies")?.status, "ok");
+    assert.equal(findCheck(doctorReport, "runtime-python3")?.status, "ok");
+    assert.deepEqual(findCheck(doctorReport, "runtime-python3").data.packages, ["jsonschema", "referencing"]);
     assert.equal(fs.readFileSync(metadataPath, "utf8"), before);
+    assert.deepEqual(readonlyInventory(targetDir), beforeTree);
+
+    const payloadDir = path.join(sandbox, "payload");
+    fs.mkdirSync(payloadDir);
+    fs.writeFileSync(path.join(payloadDir, "record.json"), '{"ready":true}\n');
+    const archive = path.join(sandbox, "payload.zip"), unpacked = path.join(sandbox, "unpacked");
+    const zipTool = path.join(targetDir, "scripts/lib/strategic-handoff-zip.py");
+    const packed = spawnSync("python3", [zipTool, "pack", payloadDir, archive], { encoding: "utf8" });
+    assert.equal(packed.status, 0, packed.stderr);
+    const restored = spawnSync("python3", [zipTool, "unpack", archive, unpacked], { encoding: "utf8" });
+    assert.equal(restored.status, 0, restored.stderr);
+    assert.equal(fs.readFileSync(path.join(unpacked, "record.json"), "utf8"), '{"ready":true}\n');
 
     const diff = runCli(["diff", "--target-dir", targetDir, "--json"]);
     assert.equal(diff.status, 0, diff.stderr);
@@ -83,9 +100,37 @@ test("doctor and diff are read-only machine-friendly commands", () => {
     assert.equal(diffPlan.operation, "sync");
     assert.equal(diffPlan.blocked, false);
     assert.equal(fs.readFileSync(metadataPath, "utf8"), before);
+    assert.deepEqual(readonlyInventory(targetDir), beforeTree);
   } finally {
     fs.rmSync(sandbox, { recursive: true, force: true });
   }
+});
+
+test("doctor 定位未登记在旧基线中的缺失执行资源，保持诊断只读", () => {
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "create-yss-spec-doctor-resource-"));
+  const targetDir = path.join(sandbox, "project");
+  try {
+    const init = runCli(["--project-name", "Runtime", "--business-domain", "Demo", "--target-dir", targetDir]);
+    assert.equal(init.status, 0, init.stderr);
+    const ref = "scripts/lib/strategic-handoff-zip.py";
+    assert.equal(fs.existsSync(path.join(targetDir, ref)), true);
+    fs.unlinkSync(path.join(targetDir, ref));
+    const metadataPath = path.join(targetDir, ".yss-template.json");
+    const metadata = JSON.parse(fs.readFileSync(metadataPath));
+    delete metadata.managedFiles[ref];
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    const before = fs.readFileSync(metadataPath);
+    const beforeTree = readonlyInventory(targetDir);
+    const observed = runCli(["doctor", "--target-dir", targetDir, "--json"]);
+    assert.equal(observed.status, 0, observed.stderr);
+    const report = JSON.parse(observed.stdout);
+    assert.equal(report.ok, false);
+    assert.equal(findCheck(report, "asset-dependencies").status, "error");
+    assert.ok(findCheck(report, "asset-dependencies").data.missingPaths.includes(ref));
+    assert.deepEqual(fs.readFileSync(metadataPath), before);
+    assert.deepEqual(readonlyInventory(targetDir), beforeTree);
+    assert.equal(fs.existsSync(path.join(targetDir, ref)), false);
+  } finally { fs.rmSync(sandbox, { recursive: true, force: true }); }
 });
 
 test("doctor rejects sync-only prune option", () => {
