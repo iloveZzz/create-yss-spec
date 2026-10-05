@@ -74,6 +74,7 @@ const COMMON = {
     "scripts/query-lifecycle-context",
     "scripts/prepare-read-only-intake",
     "scripts/prepare-review-package",
+    "scripts/plan-review-control",
     "scripts/run-read-only-intake",
     "scripts/runtime-store",
     "scripts/contract",
